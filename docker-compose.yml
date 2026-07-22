@@ -1,0 +1,36 @@
+# FieldCast local infrastructure: PostgreSQL + SRS (media server)
+# Bring the stack up with:  docker compose up -d
+services:
+  postgres:
+    image: postgres:16
+    container_name: fieldcast-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: fieldcast
+      POSTGRES_PASSWORD: fieldcast
+      POSTGRES_DB: fieldcast
+    ports:
+      - "5432:5432"
+    volumes:
+      - fieldcast_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fieldcast -d fieldcast"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # SRS 5 — receives RTMP from the phones (Larix) on 1935, serves LL-HLS + HTTP API on 8080.
+  srs:
+    image: ossrs/srs:5
+    container_name: fieldcast-srs
+    restart: unless-stopped
+    command: ["./objs/srs", "-c", "conf/fieldcast.conf"]
+    ports:
+      - "1935:1935"   # RTMP ingest (rtmp://<host>:1935/live/cameraN)
+      - "8080:8080"   # HTTP: LL-HLS (.m3u8/.ts) + HTTP API
+      - "1985:1985"   # SRS HTTP API / streams status
+    volumes:
+      - ./infra/srs.conf:/usr/local/srs/conf/fieldcast.conf:ro
+
+volumes:
+  fieldcast_pgdata:

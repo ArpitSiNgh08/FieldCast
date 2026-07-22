@@ -1,0 +1,202 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  // Connection URL is configured in prisma.config.ts (Prisma 7 requirement).
+  // Set DATABASE_URL in .env — it's picked up by prisma.config.ts automatically.
+}
+
+// ─── Auth ─────────────────────────────────────────────────────────────────
+
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  name      String?
+  avatarUrl String?  @map("avatar_url")
+  // 'viewer' | 'admin'
+  role      String   @default("viewer")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("users")
+}
+
+// ─── Core (sport-agnostic) ────────────────────────────────────────────────
+
+model Team {
+  id        Int      @id @default(autoincrement())
+  name      String
+  shortName String   @map("short_name")
+  logoUrl   String?  @map("logo_url")
+  // 'cricket' | 'football' | 'basketball'
+  sport     String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  matchesAsA     Match[]        @relation("TeamA")
+  matchesAsB     Match[]        @relation("TeamB")
+  wonMatches     Match[]        @relation("Winner")
+  standings      Standing[]
+  cricketEvents  CricketEvent[]
+  footballEvents FootballEvent[]
+
+  @@map("teams")
+}
+
+model Tournament {
+  id        Int       @id @default(autoincrement())
+  name      String
+  // 'cricket' | 'football' | 'basketball'
+  sport     String
+  // 'league' | 'knockout' | free text
+  format    String?
+  startDate DateTime? @map("start_date") @db.Date
+  endDate   DateTime? @map("end_date") @db.Date
+  // 'upcoming' | 'ongoing' | 'completed'
+  status    String    @default("upcoming")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  matches   Match[]
+  standings Standing[]
+
+  @@map("tournaments")
+}
+
+model Match {
+  id           Int       @id @default(autoincrement())
+  tournamentId Int?      @map("tournament_id")
+  teamAId      Int       @map("team_a_id")
+  teamBId      Int       @map("team_b_id")
+  // 'cricket' | 'football' | 'basketball'
+  sport        String
+  scheduledAt  DateTime? @map("scheduled_at")
+  // 'upcoming' | 'live' | 'completed'
+  status       String    @default("upcoming")
+  winnerTeamId Int?      @map("winner_team_id")
+  // 'camera1' | 'camera2' | 'camera3'
+  activeCamera String    @default("camera1") @map("active_camera")
+  // Optional explicit stream override; null → frontend derives from SRS_HLS_BASE
+  streamUrl    String?   @map("stream_url")
+  // ImageKit / HLS VOD URL when completed
+  replayUrl    String?   @map("replay_url")
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  tournament         Tournament?        @relation(fields: [tournamentId], references: [id])
+  teamA              Team               @relation("TeamA", fields: [teamAId], references: [id])
+  teamB              Team               @relation("TeamB", fields: [teamBId], references: [id])
+  winner             Team?              @relation("Winner", fields: [winnerTeamId], references: [id])
+  state              MatchState?
+  cricketEvents      CricketEvent[]
+  footballEvents     FootballEvent[]
+  basketballQuarters BasketballQuarter[]
+
+  @@index([tournamentId])
+  @@index([status])
+  @@map("matches")
+}
+
+model Standing {
+  id            Int @id @default(autoincrement())
+  tournamentId  Int @map("tournament_id")
+  teamId        Int @map("team_id")
+  played        Int @default(0)
+  won           Int @default(0)
+  lost          Int @default(0)
+  drawn         Int @default(0)
+  points        Int @default(0)
+  // Goals / runs / points scored (tie-breaker, sport-dependent)
+  scoredFor     Int @default(0) @map("scored_for")
+  scoredAgainst Int @default(0) @map("scored_against")
+
+  tournament Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  team       Team       @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@unique([tournamentId, teamId])
+  @@map("standings")
+}
+
+// ─── Live overlay state (one row per match) ───────────────────────────────
+
+model MatchState {
+  id          Int      @id @default(autoincrement())
+  matchId     Int      @unique @map("match_id")
+  // runs / goals / total points
+  teamAScore  Int      @default(0) @map("team_a_score")
+  teamBScore  Int      @default(0) @map("team_b_score")
+  // over / half / quarter number
+  period      Int      @default(1)
+  // "Over 18.4" / "Half 2" / "Q3 8:24"
+  periodLabel String   @default("") @map("period_label")
+  // 'live' | 'break' | 'completed'
+  status      String   @default("break")
+  // Sport-specific quick fields (wickets, minute, clock…)
+  extra       Json     @default("{}")
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at")
+
+  match Match @relation(fields: [matchId], references: [id], onDelete: Cascade)
+
+  @@map("match_state")
+}
+
+// ─── Sport-specific event tables (detailed scorecards + history) ──────────
+
+model CricketEvent {
+  id            Int      @id @default(autoincrement())
+  matchId       Int      @map("match_id")
+  innings       Int      @default(1)
+  // e.g. 18.4 (18 overs + 4 balls)
+  overNumber    Decimal  @default(0) @map("over_number") @db.Decimal(5, 1)
+  battingTeamId Int?     @map("batting_team_id")
+  runsTotal     Int      @default(0) @map("runs_total")
+  wickets       Int      @default(0)
+  runRate       Decimal  @default(0) @map("run_rate") @db.Decimal(5, 2)
+  extras        Int      @default(0)
+  description   String?
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  match       Match @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  battingTeam Team? @relation(fields: [battingTeamId], references: [id])
+
+  @@index([matchId])
+  @@map("cricket_events")
+}
+
+model FootballEvent {
+  id         Int      @id @default(autoincrement())
+  matchId    Int      @map("match_id")
+  half       Int      @default(1)
+  minute     Int      @default(0)
+  // 'goal' | 'yellow_card' | 'red_card' | 'substitution'
+  eventType  String   @map("event_type")
+  teamId     Int?     @map("team_id")
+  playerName String?  @map("player_name")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  match Match @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  team  Team? @relation(fields: [teamId], references: [id])
+
+  @@index([matchId])
+  @@map("football_events")
+}
+
+model BasketballQuarter {
+  id            Int      @id @default(autoincrement())
+  matchId       Int      @map("match_id")
+  quarter       Int      @default(1)
+  teamAPoints   Int      @default(0) @map("team_a_points")
+  teamBPoints   Int      @default(0) @map("team_b_points")
+  teamAFouls    Int      @default(0) @map("team_a_fouls")
+  teamBFouls    Int      @default(0) @map("team_b_fouls")
+  teamATimeouts Int      @default(0) @map("team_a_timeouts")
+  teamBTimeouts Int      @default(0) @map("team_b_timeouts")
+  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at")
+
+  match Match @relation(fields: [matchId], references: [id], onDelete: Cascade)
+
+  @@unique([matchId, quarter])
+  @@index([matchId])
+  @@map("basketball_quarters")
+}

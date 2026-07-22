@@ -1,0 +1,109 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+
+# Only one deploy can run at a time — cancel queued ones on new push.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false   # don't cancel a running deploy; queue behind it
+
+jobs:
+  # ─── Migrate database (Neon) ─────────────────────────────────────────────────
+  migrate:
+    name: Prisma migrate deploy
+    runs-on: ubuntu-latest
+    environment: production
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+      - name: Apply pending migrations
+        run: npx prisma migrate deploy
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+  # ─── Deploy backend to Oracle Cloud VM ───────────────────────────────────────
+  deploy-backend:
+    name: Deploy backend to VM
+    needs: migrate
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VM_HOST }}
+          username: ${{ secrets.VM_USER }}
+          key: ${{ secrets.VM_SSH_KEY }}
+          script: |
+            set -e
+            cd /opt/fieldcast
+
+            # Pull latest code
+            git fetch origin main
+            git reset --hard origin/main
+
+            # Install backend deps and regenerate Prisma client
+            cd backend
+            npm ci --production
+            DATABASE_URL="${{ secrets.DATABASE_URL }}" npx prisma generate
+
+            # Restart the backend (pm2 or systemd — whichever is set up)
+            if command -v pm2 &> /dev/null; then
+              pm2 reload fieldcast-backend --update-env
+            else
+              sudo systemctl restart fieldcast-backend
+            fi
+
+            # Restart SRS if a new config was deployed
+            if git diff HEAD~1 HEAD --name-only | grep -q 'infra/srs.conf'; then
+              sudo docker compose -f /opt/fieldcast/docker-compose.yml restart srs
+            fi
+
+  # ─── Deploy frontend to Vercel ───────────────────────────────────────────────
+  deploy-frontend:
+    name: Deploy frontend to Vercel
+    needs: migrate
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install Vercel CLI
+        run: npm install -g vercel@latest
+
+      - name: Deploy to Vercel (production)
+        run: vercel deploy --prod --token=${{ secrets.VERCEL_TOKEN }}
+        working-directory: frontend
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
