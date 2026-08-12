@@ -24,6 +24,10 @@ async function main() {
 
   // ── Wipe in reverse-dependency order ──────────────────────────────────────
   await prisma.$transaction([
+    prisma.teamPlayer.deleteMany(),
+    prisma.tournamentTeam.deleteMany(),
+    prisma.matchCamera.deleteMany(),
+    prisma.tournamentOrganizer.deleteMany(),
     prisma.basketballQuarter.deleteMany(),
     prisma.footballEvent.deleteMany(),
     prisma.cricketEvent.deleteMany(),
@@ -31,6 +35,7 @@ async function main() {
     prisma.standing.deleteMany(),
     prisma.match.deleteMany(),
     prisma.tournament.deleteMany(),
+    prisma.player.deleteMany(),
     prisma.team.deleteMany(),
     prisma.user.deleteMany(),
   ]);
@@ -52,17 +57,23 @@ async function main() {
   const [cricket_t, football_t, basketball_t] = await Promise.all([
     prisma.tournament.create({ data: {
       name: 'Inter-Dept Cricket Cup', sport: 'cricket',    format: 'league',
-      startDate: new Date('2026-07-01'), endDate: new Date('2026-07-20'), status: 'ongoing',
+      startDate: new Date('2026-07-01'), endDate: new Date('2026-07-20'), status: 'ongoing', approvalStatus: 'approved',
     }}),
     prisma.tournament.create({ data: {
       name: 'Campus Football League',  sport: 'football',  format: 'league',
-      startDate: new Date('2026-07-05'), endDate: new Date('2026-07-25'), status: 'ongoing',
+      startDate: new Date('2026-07-05'), endDate: new Date('2026-07-25'), status: 'ongoing', approvalStatus: 'approved',
     }}),
     prisma.tournament.create({ data: {
       name: 'Basketball Knockout',     sport: 'basketball', format: 'knockout',
-      startDate: new Date('2026-07-10'), endDate: new Date('2026-07-15'), status: 'upcoming',
+      startDate: new Date('2026-07-10'), endDate: new Date('2026-07-15'), status: 'upcoming', approvalStatus: 'approved',
     }}),
   ]);
+
+  await prisma.tournamentTeam.createMany({ data: [
+    ...[eng, sci, com, art].map((team) => ({ tournamentId: cricket_t.id, teamId: team.id })),
+    ...[nbf, sbf, ewu].map((team) => ({ tournamentId: football_t.id, teamId: team.id })),
+    ...[hh, ff].map((team) => ({ tournamentId: basketball_t.id, teamId: team.id })),
+  ]});
 
   // ── Matches ───────────────────────────────────────────────────────────────
   const [m1, m2, m3, m4, m5, m6] = await Promise.all([
@@ -151,4 +162,3 @@ async function main() {
 main()
   .catch((e) => { console.error(e); process.exit(1); })
   .finally(async () => { await prisma.$disconnect(); await pool.end(); });
-

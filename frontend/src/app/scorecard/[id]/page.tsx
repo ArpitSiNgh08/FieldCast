@@ -1,16 +1,17 @@
 import { api } from "@/lib/api";
 import { notFound } from "next/navigation";
-import { SPORT_EMOJI, SPORT_LABEL, formatDate, formatDateTime } from "@/lib/format";
+import { SPORT_EMOJI, SPORT_LABEL, formatDateTime } from "@/lib/format";
 import { Badge } from "@/ui/Badge";
 import { Card, CardHeader, CardTitle, CardBody } from "@/ui/Card";
 import type { CricketEvent, FootballEvent, BasketballQuarter } from "@/lib/types";
 import Link from "next/link";
+import { ScorecardLiveRefresh } from "@/components/ScorecardLiveRefresh";
 
 interface Props {
   params: Promise<{ id: string }>;
 }
 
-export const revalidate = 30;
+export const revalidate = 0;
 
 export async function generateMetadata({ params }: Props) {
   const { id } = await params;
@@ -43,6 +44,7 @@ export default async function ScorecardPage({ params }: Props) {
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
+      <ScorecardLiveRefresh matchId={match.id} />
       {/* Breadcrumb */}
       <nav className="mb-5 flex items-center gap-2 text-xs text-muted">
         <Link href="/" className="hover:text-foreground">Fixtures</Link>
@@ -74,8 +76,8 @@ export default async function ScorecardPage({ params }: Props) {
       <Card className="mb-8">
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle>Final Score</CardTitle>
-            <Badge tone="muted">Full time</Badge>
+            <CardTitle>{match.status === "live" ? "Live Score" : "Final Score"}</CardTitle>
+            <Badge tone={match.status === "live" ? "accent" : "muted"}>{match.status === "live" ? "Live" : "Full time"}</Badge>
           </div>
         </CardHeader>
         <CardBody>
@@ -112,7 +114,7 @@ export default async function ScorecardPage({ params }: Props) {
       )}
 
       {match.sport === "football" && footballEvents && footballEvents.length > 0 && (
-        <FootballTimeline events={footballEvents} teamA={match.teamA} teamB={match.teamB} />
+        <FootballTimeline events={footballEvents} />
       )}
 
       {match.sport === "basketball" && basketballQuarters && basketballQuarters.length > 0 && (
@@ -240,12 +242,8 @@ const EVENT_ICON: Record<string, string> = {
 
 function FootballTimeline({
   events,
-  teamA,
-  teamB,
 }: {
   events: FootballEvent[];
-  teamA: { id: number; name: string };
-  teamB: { id: number; name: string };
 }) {
   return (
     <Card className="mb-6">
@@ -259,10 +257,10 @@ function FootballTimeline({
               <span className="mt-0.5 text-lg leading-none">{EVENT_ICON[e.event_type] || "·"}</span>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-foreground">
-                  {e.minute}&apos;{" "}
+                  {e.minute}{e.extra_time_minute ? `+${e.extra_time_minute}` : ""}&apos;{" "}
                   <span className="capitalize">{e.event_type.replace("_", " ")}</span>
                   {e.player_name && (
-                    <span className="text-muted"> — {e.player_name}</span>
+                    <span className="text-muted"> — {e.jersey_number ? `#${e.jersey_number} ` : ""}{e.player_name}</span>
                   )}
                 </p>
                 {(e.team_name || e.team_short) && (

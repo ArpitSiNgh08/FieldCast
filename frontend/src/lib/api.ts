@@ -8,6 +8,8 @@ import type {
   StandingRow,
   Team,
   Tournament,
+  Player,
+  TeamPlayer,
 } from "./types";
 
 export const API_URL =
@@ -70,6 +72,10 @@ export const api = {
   // Auth
   me: () => apiFetch<AuthUser>("/auth/me"),
   authStatus: () => apiFetch<{ googleEnabled: boolean }>("/auth/status"),
+  loginWithPassword: (body: { email: string; password: string }) =>
+    apiFetch<{ token: string; user: AuthUser }>("/auth/login", { method: "POST", body }),
+  register: (body: { name: string; email: string; password: string }) =>
+    apiFetch<{ token: string; user: AuthUser }>("/auth/register", { method: "POST", body }),
 
   // Matches
   listMatches: (q: Record<string, string> = {}) =>
@@ -79,6 +85,9 @@ export const api = {
     apiFetch<Scorecard>(`/matches/${id}/scorecard`),
   createMatch: (body: unknown) =>
     apiFetch<Match>("/matches", { method: "POST", body }),
+  updateBroadcastSetup: (id: number, body: unknown) => apiFetch<Match>(`/matches/${id}/broadcast-setup`, { method: "PATCH", body }),
+  addMatchCamera: (id: number, body: { name: string; angle: string }) => apiFetch<Match>(`/matches/${id}/cameras`, { method: "POST", body }),
+  removeMatchCamera: (id: number, cameraId: number) => apiFetch<Match>(`/matches/${id}/cameras/${cameraId}`, { method: "DELETE" }),
   setMatchStatus: (id: number, status: string) =>
     apiFetch<Match>(`/matches/${id}/status`, {
       method: "PATCH",
@@ -95,8 +104,22 @@ export const api = {
 
   // Tournaments + standings
   listTournaments: () => apiFetch<Tournament[]>("/tournaments"),
+  getTournament: (id: number | string) => apiFetch<Tournament>(`/tournaments/${id}`),
+  myTournaments: () => apiFetch<Tournament[]>("/tournaments/mine"),
+  organizedTournaments: () => apiFetch<Tournament[]>("/tournaments/organized/mine"),
+  addOrganizer: (id: number, email: string) => apiFetch<Tournament>(`/tournaments/${id}/organizers`, { method: "POST", body: { email } }),
+  pendingTournaments: () => apiFetch<Tournament[]>("/tournaments/review/pending"),
+  myPlayers: () => apiFetch<Player[]>("/tournaments/players/mine"),
   createTournament: (body: unknown) =>
     apiFetch<Tournament>("/tournaments", { method: "POST", body }),
+  updateTournament: (id: number, body: unknown) => apiFetch<Tournament>(`/tournaments/${id}`, { method: "PATCH", body }),
+  addTournamentTeam: (id: number, body: unknown) => apiFetch<Team>(`/tournaments/${id}/teams`, { method: "POST", body }),
+  updateTournamentTeam: (id: number, teamId: number, body: unknown) => apiFetch<Team>(`/tournaments/${id}/teams/${teamId}`, { method: "PATCH", body }),
+  removeTournamentTeam: (id: number, teamId: number) => apiFetch<void>(`/tournaments/${id}/teams/${teamId}`, { method: "DELETE" }),
+  addTeamPlayer: (id: number, teamId: number, body: unknown) => apiFetch<TeamPlayer>(`/tournaments/${id}/teams/${teamId}/players`, { method: "POST", body }),
+  removeTeamPlayer: (id: number, teamId: number, playerId: number) => apiFetch<void>(`/tournaments/${id}/teams/${teamId}/players/${playerId}`, { method: "DELETE" }),
+  submitTournament: (id: number) => apiFetch<Tournament>(`/tournaments/${id}/submit`, { method: "POST" }),
+  reviewTournament: (id: number, decision: "approved" | "rejected", reason?: string) => apiFetch<Tournament>(`/tournaments/${id}/review`, { method: "POST", body: { decision, reason } }),
   getStandings: (id: number | string) =>
     apiFetch<StandingRow[]>(`/tournaments/${id}/standings`),
 

@@ -2,6 +2,26 @@
 
 Part of [[FieldCast]]
 
+## Tournament workflow models (2026-08-12)
+| Model | Purpose |
+|---|---|
+| `TournamentTeam` | Many-to-many tournament membership for reusable teams |
+| `Player` | Reusable player identity owned by its creator |
+| `TeamPlayer` | Team-specific jersey number and position |
+| `TournamentOrganizer` | Scoped organiser membership for approved tournaments |
+| `MatchCamera` | Match phone name, angle, and unique RTMP stream key |
+
+`Tournament` now includes creator, photo, draft/review state, rejection feedback, and review metadata. `Match` now includes venue and its broadcast checklist. `User` may have a bcrypt password hash.
+
+Migrations:
+- `0002_tournament_workflow` — credentials, drafts/review, reusable teams and players
+- `0003_organizer_broadcast` — organiser memberships, match cameras, and preflight data
+- `0004_football_roster_events` — player-linked football events, jersey snapshots, and added-time minutes
+
+`FootballEvent` now references the reusable `Player`, retains the player's name and jersey snapshot for historical accuracy, and stores `extraTimeMinute` separately from the regulation minute.
+
+Related: [[Tournament Submission]], [[Tournament Organiser]].
+
 ## ORM: Prisma 7
 - **Only ORM in the project** — no raw pg, no Knex (see [[RULES]])
 - Schema: `backend/prisma/schema.prisma`

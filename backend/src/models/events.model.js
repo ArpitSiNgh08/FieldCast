@@ -35,9 +35,12 @@ async function addFootballEvent(matchId, e = {}) {
       matchId: Number(matchId),
       half: e.half ?? 1,
       minute: e.minute ?? 0,
+      extraTimeMinute: e.extraTimeMinute ?? 0,
       eventType: e.eventType,
       teamId: e.teamId ? Number(e.teamId) : null,
+      playerId: e.playerId ? Number(e.playerId) : null,
       playerName: e.playerName ?? null,
+      jerseyNumber: e.jerseyNumber ?? null,
     },
   });
 }
@@ -47,8 +50,9 @@ async function listFootballEvents(matchId) {
     where: { matchId: Number(matchId) },
     include: {
       team: { select: { id: true, name: true, shortName: true } },
+      player: { select: { id: true, name: true } },
     },
-    orderBy: [{ half: 'asc' }, { minute: 'asc' }, { id: 'asc' }],
+    orderBy: [{ half: 'asc' }, { minute: 'asc' }, { extraTimeMinute: 'asc' }, { id: 'asc' }],
   });
 
   // Flatten to match the shape the scorecard page expects
@@ -57,9 +61,12 @@ async function listFootballEvents(matchId) {
     match_id: r.matchId,
     half: r.half,
     minute: r.minute,
+    extra_time_minute: r.extraTimeMinute,
     event_type: r.eventType,
     team_id: r.teamId,
     player_name: r.playerName,
+    player_id: r.playerId,
+    jersey_number: r.jerseyNumber,
     team_name: r.team?.name ?? null,
     team_short: r.team?.shortName ?? null,
   }));

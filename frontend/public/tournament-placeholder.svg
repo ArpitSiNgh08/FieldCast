@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 450" role="img" aria-labelledby="title desc">
+  <title id="title">Tournament placeholder</title><desc id="desc">A simple college sports field illustration</desc>
+  <rect width="800" height="450" fill="#eef7f1"/><circle cx="400" cy="225" r="108" fill="none" stroke="#89b99a" stroke-width="5"/>
+  <path d="M0 225h800M400 0v450" stroke="#b9d6c2" stroke-width="4"/><rect x="32" y="32" width="736" height="386" rx="24" fill="none" stroke="#4d8c64" stroke-width="7"/>
+  <circle cx="400" cy="225" r="28" fill="#f3c969"/><path d="M386 207l42 18-42 18z" fill="#255b3a"/>
+</svg>

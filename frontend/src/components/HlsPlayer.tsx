@@ -12,6 +12,7 @@ interface Props {
 export function HlsPlayer({ match, liveUrl }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
+  const usedFallbackRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -21,6 +22,7 @@ export function HlsPlayer({ match, liveUrl }: Props) {
 
     setError(null);
     setLoading(true);
+    usedFallbackRef.current = false;
 
     if (Hls.isSupported()) {
       const hls = new Hls({
@@ -39,6 +41,13 @@ export function HlsPlayer({ match, liveUrl }: Props) {
 
       hls.on(Hls.Events.ERROR, (_evt, data) => {
         if (data.fatal) {
+          if (!usedFallbackRef.current && match.cameraFallbackUrl && match.cameraFallbackUrl !== liveUrl) {
+            usedFallbackRef.current = true;
+            setError(null);
+            setLoading(true);
+            hls.loadSource(match.cameraFallbackUrl);
+            return;
+          }
           setError("Stream unavailable. The broadcast may not have started yet.");
           setLoading(false);
         }
@@ -59,7 +68,7 @@ export function HlsPlayer({ match, liveUrl }: Props) {
       setError("Your browser does not support HLS playback.");
       setLoading(false);
     }
-  }, [liveUrl]);
+  }, [liveUrl, match.cameraFallbackUrl]);
 
   return (
     <div className="relative aspect-video w-full overflow-hidden rounded-xl bg-foreground/5 border border-border">

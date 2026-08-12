@@ -96,11 +96,11 @@ function TournamentStandings({
               )}
             </div>
             <CardTitle>{tournament.name}</CardTitle>
-            {(tournament.start_date || tournament.end_date) && (
+            {(tournament.startDate || tournament.endDate) && (
               <p className="mt-0.5 text-xs text-muted">
-                {tournament.start_date ? formatDate(tournament.start_date) : "TBD"}
+                {tournament.startDate ? formatDate(tournament.startDate) : "TBD"}
                 {" – "}
-                {tournament.end_date ? formatDate(tournament.end_date) : "TBD"}
+                {tournament.endDate ? formatDate(tournament.endDate) : "TBD"}
               </p>
             )}
           </div>

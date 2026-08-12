@@ -9,12 +9,15 @@ import { cn } from "@/lib/cn";
 const NAV = [
   { href: "/", label: "Fixtures" },
   { href: "/standings", label: "Standings" },
+  { href: "/tournaments", label: "Create tournament" },
+  { href: "/organizer", label: "Organiser", authOnly: true },
   { href: "/admin", label: "Admin", adminOnly: true },
+  { href: "/admin/tournaments", label: "Reviews", adminOnly: true },
 ];
 
 export function Navbar() {
   const pathname = usePathname();
-  const { user, isAdmin, googleEnabled, login, logout, loading } = useAuth();
+  const { user, isAdmin, logout, loading } = useAuth();
 
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-background/80 backdrop-blur">
@@ -29,7 +32,7 @@ export function Navbar() {
         </Link>
 
         <nav className="flex items-center gap-1">
-          {NAV.filter((n) => !n.adminOnly || isAdmin).map((n) => {
+          {NAV.filter((n) => (!n.adminOnly || isAdmin) && (!n.authOnly || user)).map((n) => {
             const active =
               n.href === "/" ? pathname === "/" : pathname.startsWith(n.href);
             return (
@@ -62,12 +65,8 @@ export function Navbar() {
                 Sign out
               </Button>
             </div>
-          ) : googleEnabled ? (
-            <Button size="sm" onClick={login}>
-              Sign in
-            </Button>
           ) : (
-            <span className="text-xs text-muted">Auth not configured</span>
+            <Link href="/auth"><Button size="sm">Log in</Button></Link>
           )}
         </div>
       </div>

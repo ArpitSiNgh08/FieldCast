@@ -14,7 +14,7 @@ function createApp() {
   const app = express();
 
   app.use(cors({ origin: env.frontendUrl, credentials: true }));
-  app.use(express.json());
+  app.use(express.json({ limit: '3mb' }));
   app.use(cookieParser());
 
   // Session is only used to carry OAuth state during the Google handshake.

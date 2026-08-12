@@ -18,9 +18,16 @@ model User {
   email     String   @unique
   name      String?
   avatarUrl String?  @map("avatar_url")
+  passwordHash String? @map("password_hash")
   // 'viewer' | 'admin'
   role      String   @default("viewer")
   createdAt DateTime @default(now()) @map("created_at")
+
+  tournamentsCreated  Tournament[] @relation("TournamentCreator")
+  tournamentsReviewed Tournament[] @relation("TournamentReviewer")
+  tournamentOrganiserRoles TournamentOrganizer[]
+  teamsCreated        Team[]
+  playersCreated      Player[]
 
   @@map("users")
 }
@@ -34,6 +41,7 @@ model Team {
   logoUrl   String?  @map("logo_url")
   // 'cricket' | 'football' | 'basketball'
   sport     String
+  ownerId   Int?     @map("owner_id")
   createdAt DateTime @default(now()) @map("created_at")
 
   matchesAsA     Match[]        @relation("TeamA")
@@ -42,6 +50,9 @@ model Team {
   standings      Standing[]
   cricketEvents  CricketEvent[]
   footballEvents FootballEvent[]
+  owner           User?            @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  tournaments     TournamentTeam[]
+  players         TeamPlayer[]
 
   @@map("teams")
 }
@@ -57,12 +68,85 @@ model Tournament {
   endDate   DateTime? @map("end_date") @db.Date
   // 'upcoming' | 'ongoing' | 'completed'
   status    String    @default("upcoming")
+  imageUrl  String?   @map("image_url") @db.Text
+  // 'draft' | 'submitted' | 'approved' | 'rejected'
+  approvalStatus String @default("draft") @map("approval_status")
+  rejectionReason String? @map("rejection_reason")
+  creatorId Int? @map("creator_id")
+  reviewedById Int? @map("reviewed_by_id")
+  submittedAt DateTime? @map("submitted_at")
+  reviewedAt DateTime? @map("reviewed_at")
   createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @default(now()) @updatedAt @map("updated_at")
 
   matches   Match[]
   standings Standing[]
+  creator   User? @relation("TournamentCreator", fields: [creatorId], references: [id], onDelete: SetNull)
+  reviewedBy User? @relation("TournamentReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  teams TournamentTeam[]
+  organizers TournamentOrganizer[]
+
+  @@index([approvalStatus])
+  @@index([creatorId])
 
   @@map("tournaments")
+}
+
+model TournamentOrganizer {
+  tournamentId Int @map("tournament_id")
+  userId       Int @map("user_id")
+  addedById    Int? @map("added_by_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  tournament Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([tournamentId, userId])
+  @@index([userId])
+  @@map("tournament_organizers")
+}
+
+model TournamentTeam {
+  tournamentId Int @map("tournament_id")
+  teamId       Int @map("team_id")
+  seed         Int?
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  tournament Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  team       Team       @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@id([tournamentId, teamId])
+  @@map("tournament_teams")
+}
+
+model Player {
+  id        Int      @id @default(autoincrement())
+  name      String
+  ownerId   Int?     @map("owner_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  owner User? @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  teams TeamPlayer[]
+  footballEvents FootballEvent[]
+
+  @@index([ownerId])
+  @@map("players")
+}
+
+model TeamPlayer {
+  teamId       Int    @map("team_id")
+  playerId     Int    @map("player_id")
+  jerseyNumber String @map("jersey_number")
+  position     String?
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  team   Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+
+  @@id([teamId, playerId])
+  @@unique([teamId, jerseyNumber])
+  @@map("team_players")
 }
 
 model Match {
@@ -82,6 +166,8 @@ model Match {
   streamUrl    String?   @map("stream_url")
   // ImageKit / HLS VOD URL when completed
   replayUrl    String?   @map("replay_url")
+  venue        String?
+  broadcastChecklist Json @default("{}") @map("broadcast_checklist")
   createdAt    DateTime  @default(now()) @map("created_at")
 
   tournament         Tournament?        @relation(fields: [tournamentId], references: [id])
@@ -92,10 +178,25 @@ model Match {
   cricketEvents      CricketEvent[]
   footballEvents     FootballEvent[]
   basketballQuarters BasketballQuarter[]
+  cameras            MatchCamera[]
 
   @@index([tournamentId])
   @@index([status])
   @@map("matches")
+}
+
+model MatchCamera {
+  id        Int      @id @default(autoincrement())
+  matchId   Int      @map("match_id")
+  name      String
+  angle     String
+  streamKey String   @unique @map("stream_key")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  match Match @relation(fields: [matchId], references: [id], onDelete: Cascade)
+
+  @@index([matchId])
+  @@map("match_cameras")
 }
 
 model Standing {
@@ -169,16 +270,21 @@ model FootballEvent {
   matchId    Int      @map("match_id")
   half       Int      @default(1)
   minute     Int      @default(0)
+  extraTimeMinute Int @default(0) @map("extra_time_minute")
   // 'goal' | 'yellow_card' | 'red_card' | 'substitution'
   eventType  String   @map("event_type")
   teamId     Int?     @map("team_id")
+  playerId   Int?     @map("player_id")
   playerName String?  @map("player_name")
+  jerseyNumber String? @map("jersey_number")
   createdAt  DateTime @default(now()) @map("created_at")
 
   match Match @relation(fields: [matchId], references: [id], onDelete: Cascade)
   team  Team? @relation(fields: [teamId], references: [id])
+  player Player? @relation(fields: [playerId], references: [id], onDelete: SetNull)
 
   @@index([matchId])
+  @@index([playerId])
   @@map("football_events")
 }
 

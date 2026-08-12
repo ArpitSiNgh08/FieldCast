@@ -4,6 +4,8 @@ const http = require('http');
 const { createApp } = require('./app');
 const { initSockets } = require('./sockets');
 const env = require('./config/env');
+const bcrypt = require('bcrypt');
+const users = require('./models/users.model');
 
 const app = createApp();
 const server = http.createServer(app);
@@ -12,12 +14,23 @@ const server = http.createServer(app);
 const io = initSockets(server);
 app.set('io', io);
 
-server.listen(env.port, () => {
+async function start() {
+  if (env.adminCredentials.email && env.adminCredentials.password) {
+    const passwordHash = await bcrypt.hash(env.adminCredentials.password, 12);
+    await users.ensureCredentialAdmin({ ...env.adminCredentials, passwordHash });
+  }
+  server.listen(env.port, () => {
   console.log(`\n  FieldCast API  →  http://localhost:${env.port}`);
   console.log(`  Socket.io      →  ws://localhost:${env.port}`);
   console.log(`  Frontend CORS  →  ${env.frontendUrl}`);
   console.log(`  Google OAuth   →  ${env.google.enabled ? 'enabled' : 'NOT configured'}`);
   console.log(`  Streaming      →  ${env.stream.simulate ? 'SIMULATED' : 'ffmpeg + SRS'}\n`);
+  });
+}
+
+start().catch((error) => {
+  console.error('[server] startup failed', error);
+  process.exit(1);
 });
 
 // Graceful shutdown so ffmpeg children don't leak.

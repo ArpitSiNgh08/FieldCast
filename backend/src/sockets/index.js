@@ -7,7 +7,7 @@ const handlers = require('./handlers');
 
 /**
  * Attach a Socket.io server to an http server. Viewers connect anonymously;
- * an optional JWT in the handshake grants admin abilities (guarded per-event).
+ * an optional JWT in the handshake grants scoped admin/organiser abilities.
  */
 function initSockets(httpServer) {
   const io = new Server(httpServer, {

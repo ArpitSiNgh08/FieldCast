@@ -4,6 +4,9 @@ import { SPORT_EMOJI, SPORT_LABEL } from "@/lib/format";
 import { LiveBadge, Badge } from "@/ui/Badge";
 import { HlsPlayer } from "@/components/HlsPlayer";
 import { ScoreOverlay } from "@/components/ScoreOverlay";
+import { ScorecardLiveRefresh } from "@/components/ScorecardLiveRefresh";
+import { FootballTimeline } from "@/components/FootballTimeline";
+import type { FootballEvent } from "@/lib/types";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -27,10 +30,20 @@ export async function generateMetadata({ params }: Props) {
 export default async function MatchPage({ params }: Props) {
   const { id } = await params;
   let match;
+  let footballEvents: FootballEvent[] = [];
   try {
     match = await api.getMatch(id);
   } catch {
     notFound();
+  }
+
+  if (match.sport === "football") {
+    try {
+      const scorecard = await api.getScorecard(id);
+      footballEvents = scorecard.footballEvents || [];
+    } catch {
+      // Keep the stream available if event history is temporarily unavailable.
+    }
   }
 
   const isLive = match.status === "live";
@@ -39,6 +52,7 @@ export default async function MatchPage({ params }: Props) {
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-8">
+        <ScorecardLiveRefresh matchId={match.id} />
         {/* Header */}
         <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -57,6 +71,7 @@ export default async function MatchPage({ params }: Props) {
               <span className="text-muted font-normal">vs</span>{" "}
               {match.teamB.name}
             </h1>
+            {match.venue && <p className="mt-2 text-sm text-muted">{match.venue}</p>}
           </div>
           <div>
             {isLive ? (
@@ -86,17 +101,23 @@ export default async function MatchPage({ params }: Props) {
                 </p>
               </div>
             )}
+            {match.sport === "football" && (
+              <div className="mt-6">
+                <FootballTimeline events={footballEvents} />
+              </div>
+            )}
           </div>
 
           {/* Score overlay — 1/3 width on desktop */}
           <div className="flex flex-col gap-4">
             {isLive ? (
-              <ScoreOverlay match={match} />
+              <ScoreOverlay match={match} footballEvents={footballEvents} />
             ) : isDone ? (
               <CompletedSummary match={match} />
             ) : (
               <UpcomingCard match={match} />
             )}
+            {isLive && <a href={`/scorecard/${match.id}`} className="rounded-lg border border-border bg-surface px-4 py-3 text-center text-sm font-medium text-accent hover:bg-surface-2">Open full match stats →</a>}
           </div>
         </div>
     </div>

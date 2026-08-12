@@ -2,7 +2,7 @@
 
 Pointer to the living status tracker: `PROGRESS.md`
 
-## Current status (as of 2026-07-22)
+## Current status (as of 2026-08-13)
 
 ### Done ✅
 - [[Database — Prisma + Neon]] — schema, migration, seed all working locally
@@ -26,6 +26,17 @@ Pointer to the living status tracker: `PROGRESS.md`
 4. Add GitHub Secrets
 5. Provision Oracle VM → deploy
 6. Stream test with Larix
+
+## 2026-08-12 update
+
+- Detailed context: [[Tournament Submission]] and [[Tournament Organiser]].
+
+- Tournament drafts, reusable players, admin approval/rejection, and approved-only public listings are implemented.
+- Approved creators automatically become tournament organisers and can add co-organisers by account email.
+- Football organisers can create matches, complete broadcast preflight, register Larix cameras, switch the active feed, and manage live scores/events.
+- 2026-08-13: creatorless demo fixtures are hidden from the homepage; Go live now shows explicit blockers, and anonymous one-camera playback falls back directly to the raw SRS HLS feed.
+- 2026-08-13: football events now use searchable registered players with jersey/team labels, regulation plus added-time minute, automatic goal scoring, and live full-scorecard refresh.
+- 2026-08-13: the public match page now shows its football timeline below the stream and goal scorers with minutes beneath each team score; both refresh from live score updates.
 
 ## Related
 - [[FieldCast]] — project hub

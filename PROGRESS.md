@@ -2,7 +2,7 @@
 
 Living status tracker for FieldCast. Update this file whenever meaningful work happens — it's how the next session (human or agent) picks up context without re-reading every past conversation.
 
-**Last updated:** 2026-07-22
+**Last updated:** 2026-08-13
 
 ---
 
@@ -31,6 +31,10 @@ Living status tracker for FieldCast. Update this file whenever meaningful work h
 | Scorecard page `/scorecard/[id]` | ✅ Done |
 | Standings page `/standings` | ✅ Done |
 | Admin panel `/admin` | ✅ Done |
+| Email/password auth (JWT + bcrypt) | ✅ Done — signup/login plus env-backed admin account |
+| Tournament creator workflow | ✅ Done — photo, sport-aware teams/rosters, reusable players, drafts + submission |
+| Tournament moderation | ✅ Done — admin approval/rejection queue; public API returns approved only |
+| Tournament organiser controls | ✅ Done — approval grants organiser role; scoped co-organisers, football fixtures, preflight, cameras and live scorecard |
 | Auth callback page `/auth/callback` | ✅ Done |
 | GitHub Actions CI workflow | ✅ Done — `.github/workflows/ci.yml` |
 | GitHub Actions deploy workflow | ✅ Done — `.github/workflows/deploy.yml` (secrets needed before it runs) |
@@ -136,6 +140,42 @@ The UI primitives (`Badge`, `Button`, `Card`, `Navbar`, etc.) were custom-built 
 ---
 
 ## Session log
+
+- **2026-08-12** — Tournament submission and moderation workflow.
+  - Added bcrypt credential signup/login while retaining JWT bearer auth and Google OAuth compatibility.
+  - Added an env-backed admin account (`ADMIN_EMAIL`, `ADMIN_PASSWORD`, `ADMIN_NAME`) bootstrapped on backend startup.
+  - Added tournament ownership, image/placeholder support, draft/submitted/approved/rejected states, rejection feedback, and admin review metadata.
+  - Added tournament-team membership plus reusable `Player` records and per-team jersey/position membership.
+  - Enforced submit-time roster rules: cricket 11–15, football 11–23, basketball 5–15 players per team; minimum two teams.
+  - Added homepage tournament CTA/cards, `/tournaments`, `/tournaments/new`, draft editor, `/auth`, and `/admin/tournaments`.
+  - Public tournament and fixture feeds now expose approved tournaments only.
+  - Applied local migration `0002_tournament_workflow`; Prisma generation, backend API smoke test, TypeScript, and production frontend build pass.
+- **2026-08-12** — Organiser and football broadcast operations.
+  - Added tournament-scoped organiser memberships; the creator is automatically added when an admin approves the tournament.
+  - Organisers can add other existing FieldCast accounts by email without granting global admin access.
+  - Added `/organizer` for choosing approved tournaments, viewing fixtures, adding organisers, and creating football matches.
+  - Added `/organizer/matches/[id]` for kickoff/venue setup, unique Larix camera ingest URLs, broadcast preflight, starting/ending matches, active-feed switching, live scores, and football events.
+  - Applied migration `0003_organizer_broadcast`; organiser authorization is enforced across REST and Socket.io score/camera mutations.
+  - Organizer API smoke test and production frontend build pass; temporary smoke-test records were removed afterward.
+- **2026-08-13** — Public live launch and local single-camera playback.
+  - Removed legacy creatorless seed fixtures from the public/homepage match feed without deleting historical local rows.
+  - Replaced the ambiguous disabled `Preflight N/5` control with a prominent Go live panel listing every remaining blocker.
+  - Homepage match data is uncached so an organiser-started match appears in Live now immediately.
+  - Public `/matches/[id]` shows the anonymous HLS player, live Socket.io score overlay, venue, and full-stats link.
+  - Single-camera matches use the camera's raw SRS HLS manifest directly; `active_<matchId>` remains the stable URL for multi-camera switching.
+  - Match 8 raw HLS manifest verified HTTP 200; lint, TypeScript, production build, and visual local-page checks pass.
+- **2026-08-13** — Roster-backed football scorecard events.
+  - Replaced free-text football player entry with a searchable match-roster picker formatted as jersey, player, and team short name.
+  - Unified event and score updates under **Update scorecard**; events save automatically and Socket.io pushes the new state to viewers.
+  - Goal events increment the selected player's team score on the backend to avoid client race conditions.
+  - Added regulation minute plus added-time minute (`45+2'`) and persisted player ID/jersey snapshots on football events.
+  - Public full scorecard refreshes on `score:updated` and displays jersey plus added time in the event timeline.
+  - Applied migration `0004_football_roster_events`; roster/event smoke test, lint, TypeScript, and production build pass.
+
+- **2026-08-13** — Public football broadcast score graphic.
+  - Added the saved football event timeline directly below the stream on `/matches/[id]`.
+  - The compact live scoreboard groups goal scorers beneath the correct team score and displays regulation plus extra-time minutes.
+  - Public goal summaries and the timeline refresh when the organiser publishes a score update.
 
 - **2026-07-09** — Architecture decisions finalized. Governance docs drafted.
 - **2026-07-14** — Full frontend implementation.

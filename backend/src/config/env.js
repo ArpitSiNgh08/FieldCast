@@ -39,6 +39,11 @@ const env = {
     .split(',')
     .map((e) => e.trim().toLowerCase())
     .filter(Boolean),
+  adminCredentials: {
+    email: (process.env.ADMIN_EMAIL || '').trim().toLowerCase(),
+    password: process.env.ADMIN_PASSWORD || '',
+    name: process.env.ADMIN_NAME || 'FieldCast Admin',
+  },
 
   stream: {
     simulate: bool(process.env.SIMULATE_STREAM, true),

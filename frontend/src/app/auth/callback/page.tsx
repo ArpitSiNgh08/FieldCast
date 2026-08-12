@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { Suspense, useEffect, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -10,6 +10,10 @@ import { useAuth } from "@/hooks/useAuth";
  * We store it, then redirect to the page the user came from (or home).
  */
 export default function AuthCallbackPage() {
+  return <Suspense fallback={<Loading />}><CallbackHandler /></Suspense>;
+}
+
+function CallbackHandler() {
   const params = useSearchParams();
   const router = useRouter();
   const { handleToken } = useAuth();
@@ -30,6 +34,10 @@ export default function AuthCallbackPage() {
     });
   }, [params, router, handleToken]);
 
+  return <Loading />;
+}
+
+function Loading() {
   return (
     <div className="flex h-64 flex-col items-center justify-center gap-4 text-muted">
       <div className="h-7 w-7 animate-spin rounded-full border-2 border-border border-t-accent" />

@@ -2,6 +2,18 @@
 
 Part of [[FieldCast]]
 
+## Tournament operations API (2026-08-12)
+- Authentication supports bcrypt email/password accounts plus Google OAuth; both issue JWT bearer tokens.
+- `/api/tournaments/organized/mine` lists approved tournaments managed by the current organiser.
+- `POST /api/tournaments/:id/organizers` adds an existing account by email.
+- Organisers may create matches only inside approved tournaments they manage.
+- `PATCH /api/matches/:id/broadcast-setup` stores venue, kickoff, and preflight state.
+- `POST /api/matches/:id/cameras` creates a match camera with a server-generated RTMP key.
+- `PATCH /api/matches/:id/status` starts/ends a match after scoped authorization and preflight validation.
+- `authorization.service.js` enforces tournament/match permissions for REST and [[Socket.io]].
+
+See [[Tournament Submission]] and [[Tournament Organiser]].
+
 ## What it does
 - REST API for fixtures, scores, teams, tournaments, admin actions
 - Real-time score push via [[Socket.io]]

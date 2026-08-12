@@ -1,15 +1,16 @@
 "use client";
 
 import { useMatchState } from "@/hooks/useMatchState";
-import type { Match } from "@/lib/types";
+import type { FootballEvent, Match } from "@/lib/types";
 import { num, str } from "@/lib/format";
 import { LiveBadge } from "@/ui/Badge";
 
 interface Props {
   match: Match;
+  footballEvents?: FootballEvent[];
 }
 
-export function ScoreOverlay({ match }: Props) {
+export function ScoreOverlay({ match, footballEvents = [] }: Props) {
   const { state, activeCamera, connected } = useMatchState(
     match.id,
     match.state,
@@ -50,6 +51,7 @@ export function ScoreOverlay({ match }: Props) {
           sport={match.sport}
           extra={extra}
           side="A"
+          goals={footballEvents.filter((event) => event.event_type === "goal" && event.team_id === match.teamA.id)}
         />
         <span className="text-xl font-bold text-muted">–</span>
         <TeamScore
@@ -59,6 +61,7 @@ export function ScoreOverlay({ match }: Props) {
           sport={match.sport}
           extra={extra}
           side="B"
+          goals={footballEvents.filter((event) => event.event_type === "goal" && event.team_id === match.teamB.id)}
         />
       </div>
 
@@ -80,6 +83,7 @@ function TeamScore({
   sport,
   extra,
   side,
+  goals,
 }: {
   name: string;
   short: string;
@@ -87,6 +91,7 @@ function TeamScore({
   sport: Match["sport"];
   extra: Record<string, unknown>;
   side: "A" | "B";
+  goals: FootballEvent[];
 }) {
   const wickets = sport === "cricket" ? num(extra, side === "A" ? "teamAWickets" : "teamBWickets") : null;
 
@@ -102,6 +107,16 @@ function TeamScore({
           <span className="text-base font-normal text-muted">/{wickets}</span>
         )}
       </p>
+      {sport === "football" && goals.length > 0 && (
+        <div className="mt-1 max-w-[8rem] space-y-0.5 text-center text-[11px] leading-tight text-muted">
+          {goals.map((goal) => (
+            <p key={goal.id}>
+              <span className="font-medium text-foreground">{goal.player_name || "Unknown scorer"}</span>{" "}
+              <span className="tabular-nums">{goal.minute}{goal.extra_time_minute ? `+${goal.extra_time_minute}` : ""}&apos;</span>
+            </p>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -125,14 +140,7 @@ function SportDetail({
     );
   }
 
-  if (sport === "football") {
-    const minute = num(extra, "minute");
-    return minute ? (
-      <div className="mt-3 text-xs text-muted">
-        Minute: <strong className="text-foreground">{minute}&apos;</strong>
-      </div>
-    ) : null;
-  }
+  if (sport === "football") return null;
 
   if (sport === "basketball") {
     const quarter = num(extra, "quarter");

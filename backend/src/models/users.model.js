@@ -27,4 +27,23 @@ async function findById(id) {
   return prisma.user.findUnique({ where: { id: Number(id) } });
 }
 
-module.exports = { upsertByEmail, findById };
+async function findByEmail(email) {
+  return prisma.user.findUnique({ where: { email: email.toLowerCase() } });
+}
+
+async function createWithPassword({ email, name, passwordHash, role = 'viewer' }) {
+  return prisma.user.create({
+    data: { email: email.toLowerCase(), name, passwordHash, role },
+  });
+}
+
+async function ensureCredentialAdmin({ email, name, passwordHash }) {
+  if (!email) return null;
+  return prisma.user.upsert({
+    where: { email },
+    create: { email, name, passwordHash, role: 'admin' },
+    update: { name, passwordHash, role: 'admin' },
+  });
+}
+
+module.exports = { upsertByEmail, findById, findByEmail, createWithPassword, ensureCredentialAdmin };

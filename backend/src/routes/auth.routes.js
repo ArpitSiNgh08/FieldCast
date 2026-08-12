@@ -10,6 +10,8 @@ const authController = require('../controllers/auth.controller');
 const router = express.Router();
 
 router.get('/status', authController.status);
+router.post('/register', asyncHandler(authController.register));
+router.post('/login', asyncHandler(authController.login));
 
 // Start the Google OAuth handshake.
 router.get('/google', (req, res, next) => {

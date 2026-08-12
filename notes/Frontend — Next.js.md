@@ -2,6 +2,19 @@
 
 Part of [[FieldCast]]
 
+## Tournament and organiser pages (2026-08-12)
+| Route | Purpose |
+|---|---|
+| `/auth` | JWT/bcrypt email login and signup |
+| `/tournaments` | Creator drafts and submission history |
+| `/tournaments/new` | Create a tournament draft |
+| `/tournaments/[id]/edit` | Edit teams and reusable player rosters |
+| `/admin/tournaments` | Admin approval/rejection queue |
+| `/organizer` | Select and operate approved tournaments |
+| `/organizer/matches/[id]` | Football preflight, cameras, active feed, and scorecard |
+
+`TournamentEditor.tsx` owns the draft/team/roster UI. See [[Tournament Submission]] and [[Tournament Organiser]].
+
 ## What it does
 - Fixtures list (homepage) — upcoming, live, and completed matches
 - Live match viewer — HLS.js video player + Canvas score overlay
@@ -26,7 +39,7 @@ Part of [[FieldCast]]
 | Route | What it shows |
 |---|---|
 | `/` | Fixtures list |
-| `/matches/[id]` | Live player + score overlay |
+| `/matches/[id]` | Live player, team goal-scorer summary, and football event timeline |
 | `/scorecard/[id]` | Detailed match scorecard |
 | `/standings` | Points table (filter by tournament) |
 | `/admin` | Admin panel |
@@ -36,7 +49,8 @@ Part of [[FieldCast]]
 | Component | Purpose |
 |---|---|
 | `HlsPlayer.tsx` | hls.js wrapper — loads m3u8, handles errors |
-| `ScoreOverlay.tsx` | Canvas-based live score graphic |
+| `ScoreOverlay.tsx` | Live score graphic with football goal scorers grouped below each team score |
+| `FootballTimeline.tsx` | Shared football event timeline with regulation and extra-time minutes |
 | `Navbar.tsx` | Navigation |
 | `Badge.tsx` / `Card.tsx` | UI primitives |
 

@@ -3,14 +3,20 @@
 export type Sport = "cricket" | "football" | "basketball";
 export type MatchStatus = "upcoming" | "live" | "completed";
 export type StateStatus = "live" | "break" | "completed";
-export type CameraId = "camera1" | "camera2" | "camera3";
+export type CameraId = string;
 
 export interface Team {
   id: number;
   name: string;
   shortName: string;
   logoUrl: string | null;
+  sport?: Sport;
+  players?: TeamPlayer[];
 }
+
+export interface Player { id: number; name: string; }
+export interface TeamPlayer { teamId: number; playerId: number; jerseyNumber: string; position: string | null; player: Player; }
+export type ApprovalStatus = "draft" | "submitted" | "approved" | "rejected";
 
 export interface MatchState {
   teamAScore: number;
@@ -31,23 +37,36 @@ export interface Match {
   scheduledAt: string | null;
   status: MatchStatus;
   winnerTeamId: number | null;
-  activeCamera: CameraId;
+  activeCamera: string;
   streamUrl: string | null;
   replayUrl: string | null;
+  venue: string | null;
+  broadcastChecklist: Record<string, boolean>;
+  cameras: MatchCamera[];
   liveUrl?: string;
+  cameraFallbackUrl?: string | null;
   teamA: Team;
   teamB: Team;
   state: MatchState;
 }
+
+export interface MatchCamera { id: number; matchId: number; name: string; angle: string; streamKey: string; ingestUrl?: string; createdAt: string; }
 
 export interface Tournament {
   id: number;
   name: string;
   sport: Sport;
   format: string | null;
-  start_date: string | null;
-  end_date: string | null;
+  startDate: string | null;
+  endDate: string | null;
   status: "upcoming" | "ongoing" | "completed";
+  imageUrl: string | null;
+  approvalStatus: ApprovalStatus;
+  rejectionReason: string | null;
+  creatorId: number | null;
+  creator?: { id: number; name: string | null; email: string } | null;
+  teams: { tournamentId: number; teamId: number; team: Team }[];
+  organizers: { tournamentId: number; userId: number; user: { id: number; name: string | null; email: string; avatarUrl: string | null } }[];
 }
 
 export interface StandingRow {
@@ -81,11 +100,14 @@ export interface FootballEvent {
   id: number;
   half: number;
   minute: number;
+  extra_time_minute: number;
   event_type: "goal" | "yellow_card" | "red_card" | "substitution";
   team_id: number | null;
   team_short: string | null;
   team_name: string | null;
   player_name: string | null;
+  player_id: number | null;
+  jersey_number: string | null;
 }
 
 export interface BasketballQuarter {

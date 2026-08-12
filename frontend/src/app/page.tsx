@@ -2,9 +2,10 @@ import { api } from "@/lib/api";
 import { MatchCard } from "@/components/MatchCard";
 import type { Match } from "@/lib/types";
 import { SPORTS, SPORT_LABEL, SPORT_EMOJI } from "@/lib/format";
-import type { Sport } from "@/lib/types";
+import type { Tournament } from "@/lib/types";
+import Link from "next/link";
 
-export const revalidate = 10; // ISR: refresh fixture list every 10 s
+export const revalidate = 0; // reflect organiser status changes immediately
 
 async function getMatches(): Promise<Match[]> {
   try {
@@ -14,28 +15,44 @@ async function getMatches(): Promise<Match[]> {
   }
 }
 
+async function getTournaments(): Promise<Tournament[]> {
+  try { return await api.listTournaments(); } catch { return []; }
+}
+
 export default async function HomePage() {
-  const matches = await getMatches();
+  const [matches, tournaments] = await Promise.all([getMatches(), getTournaments()]);
 
   const live = matches.filter((m) => m.status === "live");
   const upcoming = matches.filter((m) => m.status === "upcoming");
   const completed = matches.filter((m) => m.status === "completed");
 
-  const bySport = (list: Match[], sport: Sport) =>
-    list.filter((m) => m.sport === sport);
-
   return (
     <div className="mx-auto max-w-6xl px-4 py-10">
       {/* Hero header */}
-      <div className="mb-10">
-        <h1 className="text-3xl font-bold tracking-tight text-foreground font-sans">
+      <div className="mb-10 flex items-start justify-between gap-4">
+        <div><h1 className="text-3xl font-bold tracking-tight text-foreground font-sans">
           Live College Sports
         </h1>
         <p className="mt-2 text-base text-muted" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
           Stream cricket, football, and basketball straight from the ground —
           real-time scores, multi-camera, no OBS needed.
         </p>
+        </div>
+        <Link href="/tournaments/new" className="inline-flex h-10 shrink-0 items-center justify-center rounded-lg bg-accent px-4 text-sm font-semibold text-black transition-colors hover:bg-accent-strong hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60">
+          + Add tournament
+        </Link>
       </div>
+
+      {tournaments.length > 0 && <section className="mb-10" aria-label="Approved tournaments">
+        <h2 className="mb-4 text-sm font-semibold uppercase tracking-widest text-muted">Tournaments</h2>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {tournaments.map((t) => <article key={t.id} className="overflow-hidden rounded-xl border border-border bg-surface shadow-sm">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={t.imageUrl || "/tournament-placeholder.svg"} alt="" className="h-36 w-full object-cover" />
+            <div className="p-4"><p className="text-xs font-medium uppercase tracking-wide text-muted">{SPORT_LABEL[t.sport]}</p><h3 className="mt-1 font-semibold text-foreground">{t.name}</h3><p className="mt-2 text-xs text-muted">{t.teams.length} teams · {t.format || "Format to be announced"}</p></div>
+          </article>)}
+        </div>
+      </section>}
 
       {/* Live matches — shown prominently first */}
       {live.length > 0 && (
@@ -88,7 +105,7 @@ export default async function HomePage() {
           <span className="mb-3 text-4xl">🏟️</span>
           <p className="text-base font-medium text-foreground">No matches scheduled yet</p>
           <p className="mt-1 text-sm text-muted">
-            Check back soon — fixtures will appear here once the admin creates them.
+            Approved tournament matches will appear here when organisers create them.
           </p>
         </div>
       )}

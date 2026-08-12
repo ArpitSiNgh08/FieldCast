@@ -2,6 +2,14 @@
 
 Part of [[FieldCast]]
 
+## Match-specific cameras (2026-08-12)
+- [[Tournament Organiser]] users register phone cameras before a football match starts.
+- The server creates a unique RTMP stream key for each `MatchCamera`; users do not invent stream paths manually.
+- `Match.activeCamera` stores the selected stream key and ffmpeg republishes it to `active_<matchId>`.
+- During a live match, the organiser uses **Take live** to change the viewer feed.
+- Socket.io verifies that the caller is a global admin or an organiser of the match's tournament.
+- Ending the match stops its ffmpeg publisher.
+
 ## How it works
 - Each camera phone streams independently into [[Streaming — SRS + LL-HLS]] via its own stream key (`camera1`, `camera2`, `camera3`)
 - The admin device opens the [[Admin Panel]] and clicks "Switch Camera"

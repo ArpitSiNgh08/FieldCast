@@ -21,6 +21,7 @@ interface AuthContextValue {
   logout: () => void;
   /** Called by the /auth/callback page once a token arrives. */
   handleToken: (token: string) => Promise<void>;
+  authenticate: (token: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -82,6 +83,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       login,
       logout,
       handleToken,
+      authenticate: handleToken,
     }),
     [user, loading, googleEnabled, login, logout, handleToken]
   );

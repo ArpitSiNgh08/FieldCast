@@ -1,5 +1,10 @@
 # FieldCast
 
+## Tournament workflow (2026-08-12)
+- [[Tournament Submission]] — user drafts, reusable players, admin review, and approved public tournaments
+- [[Tournament Organiser]] — scoped management of fixtures, scorecards, and camera feeds
+- Approved creators automatically become organisers and may add co-organisers.
+
 > A live sports streaming platform for outdoor college tournaments — streamed entirely from mobile phones.
 
 ## What it does
