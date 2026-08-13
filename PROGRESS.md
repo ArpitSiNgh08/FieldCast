@@ -177,6 +177,14 @@ The UI primitives (`Badge`, `Button`, `Card`, `Navbar`, etc.) were custom-built 
   - The compact live scoreboard groups goal scorers beneath the correct team score and displays regulation plus extra-time minutes.
   - Public goal summaries and the timeline refresh when the organiser publishes a score update.
 
+- **2026-08-13** — Result-aware standings, washouts, and squads.
+  - Removed creatorless seed tournaments from public standings and made standings recompute from finalized real match results.
+  - Added explicit played/washout match outcomes; normal stream ending finalizes the score, while washouts do not affect table totals.
+  - Added washout actions during fixture creation, before broadcast launch, and while live.
+  - Added organiser drag-and-drop Playing 11/bench editing and restricted football event selection to the saved Playing 11.
+  - Applied migration `0005_washouts_and_squads`.
+  - Follow-up: added automatic Prisma generation before backend dev/start and migration `0006_reset_existing_squads_to_bench`; all existing players now start as draggable bench tiles until an organiser saves the Playing 11.
+
 - **2026-07-09** — Architecture decisions finalized. Governance docs drafted.
 - **2026-07-14** — Full frontend implementation.
   - Fixed dark theme (DESIGN.md violation). Light theme implemented.

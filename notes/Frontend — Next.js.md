@@ -42,6 +42,7 @@ Part of [[FieldCast]]
 | `/matches/[id]` | Live player, team goal-scorer summary, and football event timeline |
 | `/scorecard/[id]` | Detailed match scorecard |
 | `/standings` | Points table (filter by tournament) |
+| `/tournaments/[id]` | Public tournament hub with teams, live/upcoming/past matches, and standings |
 | `/admin` | Admin panel |
 | `/auth/callback` | Google OAuth return |
 

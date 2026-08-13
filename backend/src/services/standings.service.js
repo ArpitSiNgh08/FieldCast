@@ -17,7 +17,7 @@ async function recomputeForTournament(tournamentId) {
 
   const tournament = await prisma.tournament.findUnique({
     where: { id },
-    select: { sport: true },
+    select: { sport: true, teams: { select: { teamId: true } } },
   });
   if (!tournament) return;
 
@@ -25,7 +25,7 @@ async function recomputeForTournament(tournamentId) {
   const win = winPoints(sport);
 
   const matches = await prisma.match.findMany({
-    where: { tournamentId: id, status: 'completed' },
+    where: { tournamentId: id, status: 'completed', resultType: 'played' },
     select: {
       teamAId: true,
       teamBId: true,
@@ -44,6 +44,9 @@ async function recomputeForTournament(tournamentId) {
     if (!table.has(teamId)) table.set(teamId, blank());
     return table.get(teamId);
   };
+
+  // Every approved tournament team appears even before its first result.
+  for (const membership of tournament.teams) get(membership.teamId);
 
   for (const m of matches) {
     const a = m.state?.teamAScore ?? 0;

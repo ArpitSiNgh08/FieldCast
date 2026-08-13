@@ -18,6 +18,7 @@ function shapeTeam(t) {
       playerId: membership.playerId,
       jerseyNumber: membership.jerseyNumber,
       position: membership.position,
+      squadRole: membership.squadRole,
       player: membership.player,
     })),
   };
@@ -45,6 +46,7 @@ function shapeMatch(m) {
     scheduledAt: m.scheduledAt,
     status: m.status,
     winnerTeamId: m.winnerTeamId,
+    resultType: m.resultType,
     activeCamera: m.activeCamera,
     streamUrl: m.streamUrl,
     replayUrl: m.replayUrl,
@@ -133,12 +135,13 @@ async function setStatus(id, status) {
   return shapeMatch(m);
 }
 
-async function setResult(id, { winnerTeamId, replayUrl }) {
+async function setResult(id, { winnerTeamId, replayUrl, resultType = 'played' }) {
   const m = await prisma.match.update({
     where: { id: Number(id) },
     data: {
       status: 'completed',
       winnerTeamId: winnerTeamId ? Number(winnerTeamId) : null,
+      resultType,
       replayUrl: replayUrl ?? null,
     },
     include: MATCH_INCLUDE,

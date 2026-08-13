@@ -37,6 +37,9 @@ Pointer to the living status tracker: `PROGRESS.md`
 - 2026-08-13: creatorless demo fixtures are hidden from the homepage; Go live now shows explicit blockers, and anonymous one-camera playback falls back directly to the raw SRS HLS feed.
 - 2026-08-13: football events now use searchable registered players with jersey/team labels, regulation plus added-time minute, automatic goal scoring, and live full-scorecard refresh.
 - 2026-08-13: the public match page now shows its football timeline below the stream and goal scorers with minutes beneath each team score; both refresh from live score updates.
+- 2026-08-13: public standings now exclude creatorless seed tournaments and recompute from finalized results; washouts and organiser drag-and-drop Playing 11/bench management are implemented.
+- 2026-08-13: fixed stale Prisma Client startup by generating before dev/start, reset existing squads to bench, and fixed squad-editor refresh so roster tiles cannot remain falsely empty.
+- 2026-08-13: homepage tournament cards now open a public tournament hub containing teams, live matches, upcoming fixtures, past results, and standings.
 
 ## Related
 - [[FieldCast]] — project hub

@@ -4,7 +4,7 @@ import { Badge } from "@/ui/Badge";
 import { Card, CardHeader, CardTitle, CardBody } from "@/ui/Card";
 import type { Tournament, StandingRow } from "@/lib/types";
 
-export const revalidate = 30;
+export const revalidate = 0;
 
 export const metadata = {
   title: "Standings — FieldCast",
@@ -30,16 +30,21 @@ async function getData() {
   }
 }
 
-export default async function StandingsPage() {
+export default async function StandingsPage({ searchParams }: { searchParams: Promise<{ tournament?: string }> }) {
   const data = await getData();
-  const active = data.filter((d) => d.rows.length > 0 || d.tournament.status !== "upcoming");
+  const { tournament } = await searchParams;
+  const selectedTournamentId = Number(tournament);
+  const selected = Number.isInteger(selectedTournamentId) && selectedTournamentId > 0;
+  const active = data.filter((d) => selected
+    ? d.tournament.id === selectedTournamentId
+    : d.rows.length > 0 || d.tournament.status !== "upcoming");
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-10">
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-foreground">Standings</h1>
         <p className="mt-2 text-base text-muted" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
-          Points tables for all active tournaments.
+          {selected ? "Tournament points table and results." : "Points tables for all active tournaments."}
         </p>
       </div>
 
@@ -76,7 +81,6 @@ function TournamentStandings({
         ? "muted"
         : "accent";
 
-  const isCricket = tournament.sport === "cricket";
   const isFootball = tournament.sport === "football";
   const isBasketball = tournament.sport === "basketball";
 

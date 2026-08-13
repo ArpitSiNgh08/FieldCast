@@ -15,7 +15,7 @@ export interface Team {
 }
 
 export interface Player { id: number; name: string; }
-export interface TeamPlayer { teamId: number; playerId: number; jerseyNumber: string; position: string | null; player: Player; }
+export interface TeamPlayer { teamId: number; playerId: number; jerseyNumber: string; position: string | null; squadRole: "playing" | "bench"; player: Player; }
 export type ApprovalStatus = "draft" | "submitted" | "approved" | "rejected";
 
 export interface MatchState {
@@ -37,6 +37,7 @@ export interface Match {
   scheduledAt: string | null;
   status: MatchStatus;
   winnerTeamId: number | null;
+  resultType: "pending" | "played" | "washout";
   activeCamera: string;
   streamUrl: string | null;
   replayUrl: string | null;

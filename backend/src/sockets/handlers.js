@@ -28,7 +28,7 @@ async function recordDetail(matchId, sport, payload) {
   else if (sport === 'football') {
     const match = await Matches.findById(matchId);
     const team = [match?.teamA, match?.teamB].find((candidate) => candidate.id === Number(d.teamId));
-    const membership = team?.players?.find((candidate) => candidate.playerId === Number(d.playerId));
+    const membership = team?.players?.find((candidate) => candidate.playerId === Number(d.playerId) && candidate.squadRole === 'playing');
     if (!team || !membership) throw new Error('Choose a registered player from this match');
     const minute = Number(d.minute);
     const extraTimeMinute = Number(d.extraTimeMinute || 0);

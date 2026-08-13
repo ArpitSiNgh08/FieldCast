@@ -89,7 +89,17 @@ async function updateStatus(req, res) {
     await Matches.setActiveCamera(candidate.id, selected.streamKey);
     cameraSwitcher.switchCamera(candidate.id, selected.streamKey);
   }
-  if (status === 'completed') cameraSwitcher.stop(Number(req.params.id));
+  if (status === 'completed') {
+    cameraSwitcher.stop(Number(req.params.id));
+    const candidate = await Matches.findById(req.params.id);
+    if (!candidate) return res.status(404).json({ error: 'Match not found' });
+    const winnerTeamId = candidate.state.teamAScore === candidate.state.teamBScore
+      ? null
+      : candidate.state.teamAScore > candidate.state.teamBScore ? candidate.teamA.id : candidate.teamB.id;
+    const completed = await Matches.setResult(req.params.id, { winnerTeamId, resultType: 'played' });
+    if (completed.tournamentId) await standingsService.recomputeForTournament(completed.tournamentId);
+    return res.json(withStreamUrl(completed));
+  }
   const match = await Matches.setStatus(req.params.id, status);
   if (!match) return res.status(404).json({ error: 'Match not found' });
   res.json(withStreamUrl(match));
@@ -97,8 +107,19 @@ async function updateStatus(req, res) {
 
 async function setResult(req, res) {
   if (!(await requireManager(req, res))) return;
-  const { winnerTeamId, replayUrl } = req.body;
-  const match = await Matches.setResult(req.params.id, { winnerTeamId, replayUrl });
+  const { winnerTeamId, replayUrl, resultType = 'played' } = req.body;
+  if (!['played', 'washout'].includes(resultType)) return res.status(400).json({ error: 'Result must be played or washout' });
+  const candidate = await Matches.findById(req.params.id);
+  if (!candidate) return res.status(404).json({ error: 'Match not found' });
+  if (winnerTeamId && ![candidate.teamA.id, candidate.teamB.id].includes(Number(winnerTeamId))) {
+    return res.status(400).json({ error: 'Winner must be one of the match teams' });
+  }
+  cameraSwitcher.stop(Number(req.params.id));
+  const match = await Matches.setResult(req.params.id, {
+    winnerTeamId: resultType === 'washout' ? null : winnerTeamId,
+    replayUrl,
+    resultType,
+  });
   if (!match) return res.status(404).json({ error: 'Match not found' });
   // Recompute standings for the tournament this match belongs to.
   if (match.tournamentId) {

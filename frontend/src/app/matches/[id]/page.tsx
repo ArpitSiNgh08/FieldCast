@@ -77,7 +77,7 @@ export default async function MatchPage({ params }: Props) {
             {isLive ? (
               <LiveBadge />
             ) : isDone ? (
-              <Badge tone="muted">Full time</Badge>
+              <Badge tone="muted">{match.resultType === "washout" ? "Washout" : "Full time"}</Badge>
             ) : (
               <Badge tone="accent">Upcoming</Badge>
             )}
@@ -113,7 +113,7 @@ export default async function MatchPage({ params }: Props) {
             {isLive ? (
               <ScoreOverlay match={match} footballEvents={footballEvents} />
             ) : isDone ? (
-              <CompletedSummary match={match} />
+              match.resultType === "washout" ? <WashoutSummary match={match} /> : <CompletedSummary match={match} />
             ) : (
               <UpcomingCard match={match} />
             )}
@@ -122,6 +122,10 @@ export default async function MatchPage({ params }: Props) {
         </div>
     </div>
   );
+}
+
+function WashoutSummary({ match }: { match: Awaited<ReturnType<typeof api.getMatch>> }) {
+  return <div className="rounded-xl border border-border bg-surface p-5 shadow-sm"><Badge tone="muted">Washout</Badge><p className="mt-4 font-medium">{match.teamA.shortName} vs {match.teamB.shortName}</p><p className="mt-2 text-sm text-muted">This fixture ended without a result and does not affect the standings.</p></div>;
 }
 
 function CompletedSummary({ match }: { match: Awaited<ReturnType<typeof api.getMatch>> }) {

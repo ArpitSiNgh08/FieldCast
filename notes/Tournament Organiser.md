@@ -36,6 +36,15 @@ For a one-camera local test, the viewer uses the registered camera's raw SRS HLS
 - Enter half, regulation minute, and optional added-time minute (for example, 45 and 2 renders as `45+2'`).
 - **Update scorecard** saves the event and broadcasts the updated match state in one action.
 - Goal events automatically increment the selected player's team score on the backend.
+
+## Playing squad and washouts
+
+- The organiser workspace provides a drag-and-drop team editor for moving players between the Playing 11 and bench.
+- Existing and newly added players begin on the bench; the organiser explicitly selects and saves the Playing 11.
+- Saved squad roles persist on team-player memberships; football scorecard player search only exposes the Playing 11.
+- A fixture can be created as a washout, declared a washout before going live, or ended live as a washout.
+- A normal **End stream & finalize** action derives the result from the final score and immediately recomputes standings.
+- Washouts stop the broadcast but do not increment played, won, drawn, lost, scores, or points.
 - The public live overlay updates through Socket.io; the full scorecard timeline refreshes automatically.
 
 ## Required football preflight

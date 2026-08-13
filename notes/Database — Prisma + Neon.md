@@ -7,7 +7,7 @@ Part of [[FieldCast]]
 |---|---|
 | `TournamentTeam` | Many-to-many tournament membership for reusable teams |
 | `Player` | Reusable player identity owned by its creator |
-| `TeamPlayer` | Team-specific jersey number and position |
+| `TeamPlayer` | Team-specific jersey number, position, and persisted playing/bench squad role |
 | `TournamentOrganizer` | Scoped organiser membership for approved tournaments |
 | `MatchCamera` | Match phone name, angle, and unique RTMP stream key |
 
@@ -59,8 +59,10 @@ const prisma = new PrismaClient(); // no adapter
 ## Schema overview
 | Model | Purpose |
 |---|---|
-| `Match` | Core match row — teams, sport, status, activeCamera |
+| `Match` | Core match row — teams, sport, status, result type (`pending`, `played`, or `washout`), activeCamera |
 | `MatchState` | Live overlay data — score, period, status (Socket.io reads this) |
+
+Prisma Client is regenerated automatically before both `npm run dev` and `npm start`. This prevents a migrated database/schema from being queried by a stale runtime client (for example, rejecting the newer `resultType` field).
 | `CricketEvent` | Ball-by-ball history |
 | `FootballEvent` | Goals, cards, substitutions timeline |
 | `BasketballQuarter` | Per-quarter scoring |

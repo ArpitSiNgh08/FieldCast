@@ -139,6 +139,8 @@ model TeamPlayer {
   playerId     Int    @map("player_id")
   jerseyNumber String @map("jersey_number")
   position     String?
+  // 'playing' | 'bench'
+  squadRole    String @default("bench") @map("squad_role")
   createdAt    DateTime @default(now()) @map("created_at")
 
   team   Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
@@ -160,6 +162,8 @@ model Match {
   // 'upcoming' | 'live' | 'completed'
   status       String    @default("upcoming")
   winnerTeamId Int?      @map("winner_team_id")
+  // 'pending' | 'played' | 'washout'
+  resultType   String    @default("pending") @map("result_type")
   // 'camera1' | 'camera2' | 'camera3'
   activeCamera String    @default("camera1") @map("active_camera")
   // Optional explicit stream override; null → frontend derives from SRS_HLS_BASE

@@ -46,11 +46,11 @@ export default async function HomePage() {
       {tournaments.length > 0 && <section className="mb-10" aria-label="Approved tournaments">
         <h2 className="mb-4 text-sm font-semibold uppercase tracking-widest text-muted">Tournaments</h2>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {tournaments.map((t) => <article key={t.id} className="overflow-hidden rounded-xl border border-border bg-surface shadow-sm">
+          {tournaments.map((t) => <Link key={t.id} href={`/tournaments/${t.id}`} aria-label={`Open ${t.name}`} className="group overflow-hidden rounded-xl border border-border bg-surface shadow-sm transition-all hover:-translate-y-0.5 hover:border-accent hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={t.imageUrl || "/tournament-placeholder.svg"} alt="" className="h-36 w-full object-cover" />
+            <img src={t.imageUrl || "/tournament-placeholder.svg"} alt="" className="h-36 w-full object-cover transition-transform group-hover:scale-[1.02]" />
             <div className="p-4"><p className="text-xs font-medium uppercase tracking-wide text-muted">{SPORT_LABEL[t.sport]}</p><h3 className="mt-1 font-semibold text-foreground">{t.name}</h3><p className="mt-2 text-xs text-muted">{t.teams.length} teams · {t.format || "Format to be announced"}</p></div>
-          </article>)}
+          </Link>)}
         </div>
       </section>}
 

@@ -2,6 +2,7 @@
 
 const Tournaments = require('../models/tournaments.model');
 const Standings = require('../models/standings.model');
+const standingsService = require('../services/standings.service');
 const authorization = require('../services/authorization.service');
 
 const RULES = {
@@ -73,7 +74,23 @@ async function addPlayer(req, res) {
   const { playerId, name, jerseyNumber, position } = req.body;
   if ((!playerId && !name?.trim()) || jerseyNumber === undefined || jerseyNumber === '') return res.status(400).json({ error: 'Player and jersey number are required' });
   if (team.team.players.length >= RULES[t.sport].maxPlayers) return res.status(400).json({ error: `Maximum roster size is ${RULES[t.sport].maxPlayers}` });
-  res.status(201).json(await Tournaments.addPlayer(team.teamId, { playerId, name, jerseyNumber, position, ownerId: req.user.sub }));
+  res.status(201).json(await Tournaments.addPlayer(team.teamId, { playerId, name, jerseyNumber, position, squadRole: 'bench', ownerId: req.user.sub }));
+}
+
+async function updateLineup(req, res) {
+  const t = await Tournaments.findById(req.params.id);
+  if (!t) return res.status(404).json({ error: 'Tournament not found' });
+  if (!(await authorization.canManageTournament(req.user, t.id))) return res.status(403).json({ error: 'Tournament organiser access required' });
+  const membership = t.teams.find((entry) => entry.teamId === Number(req.params.teamId));
+  if (!membership) return res.status(404).json({ error: 'Team not in tournament' });
+  const playingPlayerIds = Array.isArray(req.body.playingPlayerIds) ? req.body.playingPlayerIds.map(Number) : [];
+  const expected = t.sport === 'basketball' ? 5 : 11;
+  if (playingPlayerIds.length !== expected || new Set(playingPlayerIds).size !== expected) {
+    return res.status(400).json({ error: `Choose exactly ${expected} starting players` });
+  }
+  const rosterIds = new Set(membership.team.players.map((player) => player.playerId));
+  if (playingPlayerIds.some((playerId) => !rosterIds.has(playerId))) return res.status(400).json({ error: 'Lineup contains a player outside this team' });
+  res.json(await Tournaments.updateLineup(membership.teamId, playingPlayerIds));
 }
 
 async function deletePlayer(req, res) {
@@ -109,7 +126,10 @@ async function addOrganizer(req, res) {
   res.json(updated);
 }
 
-async function standings(req, res) { res.json(await Standings.listByTournament(req.params.id)); }
+async function standings(req, res) {
+  await standingsService.recomputeForTournament(req.params.id);
+  res.json(await Standings.listByTournament(req.params.id));
+}
 async function players(req, res) { res.json(await Tournaments.listPlayers(req.user.sub)); }
 
-module.exports = { list, mine, pending, organized, get, create, update, addTeam, updateTeam, deleteTeam, addPlayer, deletePlayer, submit, review, addOrganizer, standings, players, RULES };
+module.exports = { list, mine, pending, organized, get, create, update, addTeam, updateTeam, updateLineup, deleteTeam, addPlayer, deletePlayer, submit, review, addOrganizer, standings, players, RULES };

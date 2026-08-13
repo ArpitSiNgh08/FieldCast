@@ -67,7 +67,7 @@ export function MatchCard({ match }: { match: Match }) {
           {isLive ? (
             <LiveBadge />
           ) : isDone ? (
-            <Badge tone="muted">Full time</Badge>
+            <Badge tone="muted">{match.resultType === "washout" ? "Washout" : "Full time"}</Badge>
           ) : (
             <Badge tone="accent">Upcoming</Badge>
           )}

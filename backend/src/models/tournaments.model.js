@@ -29,6 +29,7 @@ function list({ sport, creatorId, approvalStatus = 'approved' } = {}) {
       ...(sport ? { sport } : {}),
       ...(creatorId ? { creatorId: Number(creatorId) } : {}),
       ...(approvalStatus ? { approvalStatus } : {}),
+      ...(approvalStatus === 'approved' && !creatorId ? { creatorId: { not: null } } : {}),
     },
     include: DETAIL_INCLUDE,
     orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],
@@ -76,13 +77,27 @@ function updateTeam(teamId, data) {
   });
 }
 
-async function addPlayer(teamId, { playerId, name, jerseyNumber, position, ownerId }) {
+async function updateLineup(teamId, playingPlayerIds) {
+  const id = Number(teamId);
+  const playing = new Set(playingPlayerIds.map(Number));
+  const memberships = await prisma.teamPlayer.findMany({ where: { teamId: id }, select: { playerId: true } });
+  await prisma.$transaction(memberships.map(({ playerId }) => prisma.teamPlayer.update({
+    where: { teamId_playerId: { teamId: id, playerId } },
+    data: { squadRole: playing.has(playerId) ? 'playing' : 'bench' },
+  })));
+  return prisma.team.findUnique({
+    where: { id },
+    include: { players: { include: { player: true }, orderBy: { createdAt: 'asc' } } },
+  });
+}
+
+async function addPlayer(teamId, { playerId, name, jerseyNumber, position, squadRole = 'bench', ownerId }) {
   return prisma.$transaction(async (tx) => {
     const player = playerId
       ? await tx.player.findFirstOrThrow({ where: { id: Number(playerId), ownerId: Number(ownerId) } })
       : await tx.player.create({ data: { name: name.trim(), ownerId: Number(ownerId) } });
     return tx.teamPlayer.create({
-      data: { teamId: Number(teamId), playerId: player.id, jerseyNumber: String(jerseyNumber), position: position || null },
+      data: { teamId: Number(teamId), playerId: player.id, jerseyNumber: String(jerseyNumber), position: position || null, squadRole },
       include: { player: true },
     });
   });
@@ -148,4 +163,4 @@ async function addOrganizer(tournamentId, email, addedById) {
   return findById(tournamentId);
 }
 
-module.exports = { list, findById, create, update, addTeam, updateTeam, addPlayer, removePlayer, removeTeam, setSubmission, review, listPlayers, listOrganized, addOrganizer };
+module.exports = { list, findById, create, update, addTeam, updateTeam, updateLineup, addPlayer, removePlayer, removeTeam, setSubmission, review, listPlayers, listOrganized, addOrganizer };
