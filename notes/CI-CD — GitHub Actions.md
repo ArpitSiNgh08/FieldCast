@@ -4,6 +4,8 @@ Part of [[FieldCast]]
 
 ## Workflows
 
+Workflow files are written, but production secrets, Neon, Oracle VM, and Vercel project linkage are not configured yet.
+
 ### `ci.yml` — runs on every PR
 1. Checkout code
 2. `npx prisma generate` — validates schema

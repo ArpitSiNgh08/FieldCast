@@ -1,193 +1,383 @@
 # FieldCast
 
-A live sports streaming platform built for outdoor college tournaments — Cricket, Football, and Basketball — streamed entirely from mobile phones, with no laptops or OBS involved.
+FieldCast is a mobile-first live sports platform for college tournaments. Organisers can create and submit tournaments, prepare teams and squads, stream matches from phones, manage cameras and Football score events, and publish live fixtures, scorecards, timelines, standings, and results to everyone—including visitors who are not logged in.
 
-FieldCast delivers low-latency live video with real-time scorecard overlays, points tables, fixture displays, and admin-controlled multi-camera switching, all running on infrastructure that starts free and scales up only when it needs to.
+The current implementation supports tournament management for Cricket, Football, and Basketball, with the complete broadcast-control and event workflow currently built for Football.
 
----
+## Current status
 
-## Table of Contents
+Implemented locally as of August 2026:
 
-- [Project Philosophy](#project-philosophy)
-- [Phase 1 — Free-Tier Launch](#phase-1--free-tier-launch)
-- [Phase 2 — Scaled Deployment](#phase-2--scaled-deployment)
-- [Migration Path: Phase 1 → Phase 2](#migration-path-phase-1--phase-2)
-- [Tech Stack](#tech-stack)
-- [Database & ORM](#database--orm)
-- [CI/CD & Migration Workflow](#cicd--migration-workflow)
-- [Real-Time Data Flow](#real-time-data-flow)
-- [Database Schema](#database-schema)
-- [Camera Switching](#camera-switching)
-- [VOD & Replays](#vod--replays)
-- [Glossary](#glossary)
-- [Decisions Explicitly Rejected](#decisions-explicitly-rejected)
+- Credential signup/login using bcrypt password hashes and JWT bearer tokens.
+- Optional Google OAuth login and an environment-backed administrator account.
+- Tournament drafts, reusable players, teams, sport-aware roster limits, submission, review, approval, and rejection feedback.
+- Approved tournament creators automatically become organisers and can invite additional organisers by account email.
+- A public homepage containing approved tournaments and real approved-tournament fixtures; legacy creatorless fixtures are excluded.
+- Public tournament hubs with teams, live matches, upcoming matches, past matches, pool-aware standings, and a connected knockout bracket.
+- Football match creation, broadcast preflight, mobile-camera ingest destinations, going live, active-camera switching, and broadcast completion.
+- Searchable Football event entry using the match's current active players, with jersey number and team abbreviation.
+- Goal, card, and substitution events with regulation and extra-time minutes.
+- Automatic goal scoring and live Socket.io updates.
+- A public HLS match page with stream, compact live score graphic, goal scorers, and match timeline.
+- Detailed scorecards that refresh after live score updates.
+- Result-aware standings that recompute after completed matches.
+- Explicit washouts that stop a stream without affecting standings.
+- Drag-and-drop Playing 11 and bench management. The first sport-sized group of registered players becomes the default starting squad; additional players begin on the bench and organisers can adjust the lineup.
 
----
+Database migrations `0001` through `0011` are included and applied in the current local development database.
 
-## Project Philosophy
+## Roles and workflow
 
-Two principles drive every architecture decision in this project:
+### Viewer
 
-1. **Simplicity over sophistication.** Where a simpler broadcast-oriented stack meets the requirement, added complexity is avoided — e.g. `mediasoup` was evaluated and explicitly rejected as overkill for a broadcast (one-to-many) use case rather than a conferencing (many-to-many) one.
-2. **Phased infrastructure.** The system is designed so that Phase 1 (free, small-scale, for actually running a tournament) and Phase 2 (paid, scaled) share the *same* application code and Docker images. Only the deployment target changes. This is a deliberate system-design choice, not an afterthought — and it's one of the strongest talking points of the project.
+A viewer does not need an account to browse approved tournaments, watch live matches, and view live scores, goal scorers, event timelines, scorecards, and standings.
 
----
+### Tournament creator
 
-## Phase 1 — Free-Tier Launch
+An authenticated user can:
 
-**Goal:** get real matches streaming end-to-end, on infrastructure that costs nothing, without AWS EC2 or S3.
+1. Create a tournament draft.
+2. Add details, optional pools, and an optional image. A placeholder is used when no image is supplied.
+3. Add teams.
+4. Create new reusable players or select existing players.
+5. Assign jersey numbers and positions.
+6. Keep the tournament as a draft or submit it for administrator review.
 
-| Component | Phase 1 Choice | Why |
-|---|---|---|
-| RTMP ingest + LL-HLS output (SRS) | **Oracle Cloud Free Tier** — Always Free Ampere VM (4 OCPU / 24GB RAM), Docker | Free-tier PaaS options (Vercel, Netlify, Render's free web service) only proxy HTTP(S) and reject raw RTMP on port 1935. Oracle's Free Tier gives a genuine, un-sandboxed Linux VM with a public IP and no port restrictions. |
-| Camera-switcher (ffmpeg child processes via Node.js) | Same Oracle VM | Needs to sit next to SRS since it re-pipes RTMP streams locally. |
-| Backend (Node.js + Express + Socket.io) | Same Oracle VM | Persistent WebSocket connections for live overlay data; not viable on serverless/free-tier functions. |
-| Frontend (Next.js) | **Vercel free tier** | Purely serves pages/hls.js player — no raw ports needed, so the standard free tier works fine. |
-| Database (PostgreSQL) | **Neon free tier** | See [Database & ORM](#database--orm). |
-| Match recordings / VOD | Record to local disk on the Oracle VM during the match → upload to **ImageKit** after → delete local copy | Avoids S3 entirely. ImageKit already handles VOD transcoding/delivery, so no separate storage layer is needed at this stage. |
+Roster rules are validated by sport:
 
-**Known risk to flag in the docs:** Oracle's Always Free tier has a documented history of reclaiming idle instances after extended inactivity. For active tournament weekends this isn't an issue, but if there are multi-week gaps between matches, a scheduled keep-alive ping (or a manual check before match day) is worth building in.
+| Sport | Teams | Players per team |
+|---|---:|---:|
+| Cricket | 2–16 | 11–15 |
+| Football | 2–32 | 11–23 |
+| Basketball | 2–32 | 5–15 |
 
----
+### Administrator
 
-## Phase 2 — Scaled Deployment
+An administrator reviews submitted tournaments and approves or rejects them. Rejections require a reason. Approval automatically assigns the creator as the tournament’s first organiser.
 
-Once the platform outgrows free-tier limits (concurrent viewers, storage, or reliability guarantees needed), the same application moves to paid infrastructure without a redesign:
+### Organiser
 
-| Component | Phase 2 Choice |
+For an approved tournament, an organiser can:
+
+- Add other organisers who already have a FieldCast account.
+- Drag players between the Playing 11 and bench and save the lineup.
+- Create pool-stage or knockout Football fixtures, including custom knockout round names, or create a fixture directly as a washout.
+- Declare a washout before a broadcast starts.
+- Configure kickoff, venue, cameras, and Football broadcast checks.
+- Start the match and make it visible on the public homepage.
+- Switch the active camera during a multi-camera broadcast.
+- Record Football events for currently active players, including player-off/player-on substitutions that update the match-specific active squad.
+- End and finalize a match, deriving its result from the final score and recomputing standings.
+- End a live stream as a washout without changing played, wins, draws, losses, score difference, or points.
+
+## Application routes
+
+| Route | Purpose |
 |---|---|
-| RTMP ingest + LL-HLS output (SRS) | AWS EC2 running SRS in Docker |
-| Camera-switcher | Same EC2 instance (or split onto a dedicated instance if load requires it) |
-| Backend | EC2 / ECS, scaled independently from ingest if needed |
-| Frontend | Vercel (unchanged) |
-| Database | Neon (unchanged) or migrate to RDS if fully managed Postgres at scale is preferred |
-| Match recordings / VOD | ImageKit remains the delivery layer; **S3 introduced here** as a durable archival/backup layer behind ImageKit, once storage needs exceed ImageKit's free/starter tier |
+| `/` | Approved tournaments plus live, upcoming, and recent matches |
+| `/tournaments/[id]` | Public tournament hub with teams, fixtures, results, and standings |
+| `/matches/[id]` | Public stream, live score graphic, goal scorers, and Football timeline |
+| `/scorecard/[id]` | Detailed sport-specific scorecard |
+| `/standings` | Standings for active approved tournaments |
+| `/standings?tournament=[id]` | Standings filtered to one tournament |
+| `/auth` | Credential login and signup |
+| `/auth/callback` | Google OAuth return page |
+| `/tournaments` | Current user’s drafts and submissions |
+| `/tournaments/new` | Create a tournament draft |
+| `/tournaments/[id]/edit` | Edit an eligible draft or rejected tournament |
+| `/organizer` | Approved-tournament organiser workspace and squad editor |
+| `/organizer/matches/[id]` | Football broadcast preparation, cameras, scoring, and completion |
+| `/admin` | Administrator workspace for completed-match and standings corrections |
+| `/admin/tournaments` | Administrator tournament review queue |
 
----
+## Architecture
 
-## Migration Path: Phase 1 → Phase 2
+```text
+Phone cameras (IRL Pro, Larix, or another compatible broadcaster)
+            |
+            | RTMP :1935 or SRT :10080/UDP
+            v
+       SRS media server <---- ffmpeg camera switcher
+            |
+            | HLS / LL-HLS
+            v
+      Next.js viewer pages
 
-This is intentionally the easy part — by design:
+Organiser browser ---- REST + Socket.io ---- Express API ---- Prisma ---- PostgreSQL
+Viewer browser    <------- live updates ---------+
+```
 
-- Larix Broadcaster on the phones is repointed from the Oracle VM's IP to the EC2 IP — no app-level change.
-- SRS + ffmpeg run from the same Docker setup on both hosts.
-- The CI/CD pipeline (see below) doesn't change — only the deploy target does.
-- Postgres schema and Prisma migrations are host-agnostic since Neon is used in both phases (or swapped to RDS with a standard `pg_dump`/restore).
+### Technology stack
 
-This "same pipeline, different target" property is a deliberate design choice worth calling out directly — it demonstrates separation of concerns between application logic and infrastructure.
+- Frontend: Next.js 16, React 19, TypeScript, Tailwind CSS, hls.js.
+- Backend: Node.js, Express, Socket.io.
+- Authentication: JWT, bcrypt, Passport Google OAuth.
+- Database: PostgreSQL with Prisma 7 and `@prisma/adapter-pg`.
+- Mobile ingest: custom RTMP from Larix/IRL Pro, or SRT from IRL Pro.
+- Media server: SRS 6.0.184, converting SRT contribution into the same live source used by HLS and switching.
+- Camera switching: ffmpeg child processes controlled by the backend.
+- Playback: HLS/LL-HLS through hls.js.
+- Planned replay delivery: ImageKit.
 
----
+## Repository layout
 
-## Tech Stack
+```text
+FieldCast/
+├── backend/                 Express, Socket.io, Prisma, streaming control
+│   ├── prisma/
+│   │   ├── migrations/      Versioned migrations 0001–0011
+│   │   ├── schema.prisma
+│   │   └── seed.js
+│   └── src/
+├── frontend/                Next.js application
+│   └── src/
+│       ├── app/             Route pages
+│       ├── components/      Stream, score, tournament, and squad UI
+│       ├── hooks/           Auth and Socket.io state
+│       └── lib/             API client and shared types
+├── notes/                   Obsidian project memory
+├── docker-compose.yml       Local/VM service definitions
+├── HOW_TO_USE.md            End-user and local-operation guide
+├── DESIGN.md                UI rules
+├── RULES.md                 Project constraints
+└── PROGRESS.md              Implementation history and next steps
+```
 
-- **Frontend:** Next.js
-- **Backend:** Node.js + Express.js
-- **Real-time layer:** Socket.io (live score graphics, overlay updates)
-- **Streaming ingest:** Larix Broadcaster (mobile) → RTMP → SRS (Simple Realtime Server, Dockerized)
-- **Camera switching:** ffmpeg child processes managed by Node.js, re-piping the selected camera's RTMP feed into a single active output stream
-- **Delivery:** LL-HLS via hls.js, with Adaptive Bitrate Streaming, targeting sub-5-second latency for off-campus mobile viewers
-- **Database:** PostgreSQL (Neon)
-- **ORM:** Prisma
-- **VOD/Replays:** ImageKit
+## Local development
 
----
+### Prerequisites
 
-## Database & ORM
+- Node.js 22 or a compatible current release.
+- npm.
+- PostgreSQL. Local Windows development currently uses native PostgreSQL 18 on port `5432`.
+- Docker Desktop when running SRS locally.
+- ffmpeg on `PATH`, or an absolute `FFMPEG_PATH`, for real multi-camera switching. It is not required when `SIMULATE_STREAM=true`.
 
-**ORM: Prisma 7.**
+### 1. Configure the backend
 
-`schema.prisma` models `match_state` and the sport-specific event tables directly, giving:
+```powershell
+cd backend
+Copy-Item .env.example .env
+npm install
+```
 
-- Type-safe Prisma Client access from the Express layer, which pairs naturally with typed Socket.io payloads sent to the frontend.
-- Tracked, version-controlled migrations from day one, rather than hand-run SQL.
+Set at least these values in `backend/.env`:
 
-**Prisma 7 note:** The constructor no longer accepts `datasourceUrl` or `datasources`. The connection URL is provided exclusively via the `@prisma/adapter-pg` driver adapter (`new PrismaPg(new Pool({ connectionString }))` passed to `PrismaClient({ adapter })`). The config file is `prisma.config.js` (CommonJS, not TypeScript) with `datasource.url`.
+```dotenv
+PORT=4000
+FRONTEND_URL=http://localhost:3000
+DATABASE_URL=postgres://fieldcast:fieldcast@localhost:5432/fieldcast
+JWT_SECRET=replace-with-a-long-random-secret
+SESSION_SECRET=replace-with-another-long-random-secret
+ADMIN_EMAIL=admin@fieldcast.local
+ADMIN_PASSWORD=replace-with-a-secure-password
+ADMIN_NAME=FieldCast Admin
+SIMULATE_STREAM=true
+```
 
-**Database host: Neon**, chosen specifically for **branch-based development**:
+Google OAuth is optional. Leave `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` empty to use credential login only.
 
-- A new Prisma migration is written and tested locally against an isolated Neon branch (a full copy-on-write clone of schema + data) before ever touching the main database.
-- This mirrors how larger engineering orgs de-risk schema changes — test against a prod-like clone first — and is a strong, slightly less common interview talking point versus "just run migrate on prod."
+### 2. Prepare the database
 
----
+```powershell
+cd backend
+npm run db:migrate:deploy
+npm run db:generate
+npm run db:seed
+```
 
-## CI/CD & Migration Workflow
+Prisma Client is generated automatically before `npm run dev` and `npm start`. This prevents a migrated schema from being queried by a stale runtime client, which can otherwise cause errors such as `Unknown argument resultType`.
 
-Migrations are never run by hand against production. The workflow:
+### 3. Start one backend instance
 
-1. **Local dev:** write a Prisma migration, run `prisma migrate dev` against a Neon branch, verify.
-2. **PR opened:** changes reviewed against the branch database.
-3. **Merge to `main`:** GitHub Actions workflow runs:
-   - `prisma migrate deploy` against the Neon main database (using a `DATABASE_URL` secret)
-   - SSH into the target VM (Oracle in Phase 1, EC2 in Phase 2) to pull the latest code and restart the Node process (via `pm2` or a `systemd` service)
+```powershell
+cd backend
+npm run dev
+```
 
-This guarantees schema and application code can never drift apart, and the same pipeline definition carries across both phases — only the SSH target changes.
+The API runs at `http://localhost:4000`. Keep only one backend/nodemon instance running; multiple instances cause `EADDRINUSE` on port `4000`.
 
----
+Health check: `http://localhost:4000/api/health`
 
-## Real-Time Data Flow
+### 4. Start the frontend
 
-1. Phone cameras stream RTMP via Larix Broadcaster to SRS on the active host (Oracle VM in Phase 1, EC2 in Phase 2).
-2. The admin device selects the active camera; a Node.js-managed ffmpeg process re-pipes that feed into the single output stream.
-3. SRS transcodes/packages the output as LL-HLS.
-4. Viewers play the stream via hls.js with ABR, targeting sub-5-second latency.
-5. Score/event updates (runs, goals, quarters, etc.) are written to Postgres via Prisma and simultaneously pushed over Socket.io.
-6. The frontend's Canvas overlay listens for Socket.io events and redraws the live score graphic above the video player in real time — independent of the video stream's own latency.
+In another terminal:
 
----
+```powershell
+cd frontend
+npm install
+npm run dev
+```
 
-## Database Schema
+The application runs at `http://localhost:3000`.
 
-Hybrid schema, sport-agnostic core + sport-specific detail tables:
+The frontend defaults to these service bases:
 
-- **`match_state`** — live overlay data (current score, game clock/period, teams, match status) — the table Socket.io reads from/writes to for real-time graphics.
-- **`cricket_events`** — ball-by-ball event history for detailed cricket scorecards.
-- **`football_events`** — goals, cards, substitutions, and other match events.
-- **`basketball_quarters`** — per-quarter scoring and event history.
+- API host: `http://localhost:4000` (the client appends `/api`)
+- Socket.io: `http://localhost:4000`
 
-This split keeps the real-time overlay path (`match_state`) lightweight and fast, while detailed historical data lives in sport-specific tables for post-match scorecards and stats.
+Override them with `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_SOCKET_URL` when required.
 
----
+## Local mobile streaming
 
-## Camera Switching
+For a real phone-to-browser test:
 
-- Each camera phone streams independently via Larix Broadcaster into SRS.
-- An admin device (web interface) selects which camera feed is "live" at any moment.
-- A Node.js-managed ffmpeg child process re-pipes the selected RTMP feed into the single active output stream that viewers actually receive — this is what makes multi-camera switching possible without every viewer managing multiple streams themselves.
+1. Start SRS and confirm its RTMP, SRT, HLS, and API ports are available.
+2. Set `SIMULATE_STREAM=false`.
+3. Set `RTMP_HOST` to an address reachable from the phone—not `localhost` unless the broadcaster runs on that machine. This host is used in both generated RTMP and SRT URLs.
+4. Set `SRS_HLS_BASE` to an address reachable from viewer browsers.
+5. Open the organiser match page and add a camera.
+6. In IRL Pro, prefer the generated SRT URL; use the RTMP URL when it is stable. Larix and other RTMP broadcasters use the RTMP fallback URL.
+7. Use H.264, 1080p at 30 fps, 4–6 Mbps, AAC audio, and a two-second keyframe interval.
+8. Start publishing from the phone, complete the broadcast checklist, and press **Go live**.
 
----
+Single-camera local broadcasts play that camera’s SRS HLS manifest directly. Multi-camera broadcasts use a stable `active_[matchId]` output produced by the ffmpeg switcher.
 
-## VOD & Replays
+| Service | Default endpoint |
+|---|---|
+| RTMP ingest | `rtmp://HOST:1935/live/STREAM_KEY` |
+| SRT ingest (IRL Pro recommended) | `srt://HOST:10080?streamid=#!::r=live/STREAM_KEY,m=publish` |
+| HLS playback | `http://HOST:8080/live/STREAM_KEY.m3u8` |
+| SRS API | `http://HOST:1985/api/v1/streams` |
 
-- **Phase 1:** Recordings are written to local disk on the Oracle VM during the match, then uploaded to ImageKit immediately after the match ends. The local copy is deleted once the ImageKit upload is confirmed. No S3 dependency.
-- **Phase 2:** Same ImageKit-based delivery, with S3 added purely as a durable archival/backup layer once storage needs exceed what ImageKit's tier comfortably handles.
+## Football live scoring
 
-ImageKit was chosen specifically to avoid building and maintaining a custom transcoding pipeline.
+- The first 11 registered Football players form the default Playing 11; the organiser can change and save it before the match.
+- Player search supports name, jersey number, and team abbreviation.
+- Picker labels use `#jersey · Player Name · TEAM`.
+- Events include goal, yellow card, red card, and substitution. Substitutions capture both the player leaving and the player entering.
+- Minute and extra-time minute are stored, such as `45+2'`.
+- Goals increment the selected player’s team score on the backend to avoid client-side races.
+- **Update scorecard** persists the event and broadcasts the new state over Socket.io.
+- The public match page shows goal scorers below the correct team score and its event timeline below the stream.
 
----
+## Standings and outcomes
 
-## Local Development
+Standings are recomputed from completed pool-stage and legacy matches belonging to approved, user-created tournaments. Knockout results are excluded from pool tables.
 
-- **Database:** Native PostgreSQL 18 running as a Windows service on port 5432. Docker's `postgres` service in `docker-compose.yml` cannot bind this port on Windows — use native Postgres directly.
-- **One-time setup:** Create `fieldcast` user + database as the `postgres` superuser (see `HOW_TO_USE.md`).
-- **Starting the stack:** `npm run dev` in `backend/` (port 4000) and `frontend/` (port 3000). No Docker needed locally.
-- **Production:** SRS + backend run in Docker on the Oracle VM. Postgres is Neon (cloud-hosted). Only the `srs` service from `docker-compose.yml` is used in production — Postgres is external (Neon).
+- Wins award three points.
+- Pooled tournaments render a separate table per pool.
+- Knockout fixtures appear in a connected, stage-aware bracket on the tournament hub and standings page. Completed semifinal winners populate the Final slots before a Final fixture exists, and live Final scores refresh without a page reload.
+- Draws award one point to each team.
+- Football tables show goal difference (GD); goals for and against remain internal inputs to that calculation.
+- Normal completion sets `resultType=played`, derives the winner from the final score, and recomputes the table.
+- A washout sets `resultType=washout` and is excluded from played and points calculations.
+- All tournament teams appear even before their first completed result.
 
----
+## Authentication and authorization
 
-## Glossary
+- Passwords are hashed with bcrypt and are never stored in plain text.
+- Successful login returns a JWT used by protected REST routes and the Socket.io handshake.
+- Public tournament, match, scorecard, and standings reads require no authentication.
+- Tournament draft edits require creator/admin access.
+- Tournament review requires the administrator role.
+- Live match, camera, score, lineup, result, and organiser mutations require explicit membership in that tournament's organiser list. A global administrator has no automatic live-match control permission.
+- Administrators have separate correction endpoints for completed-match scores and Football events, plus persistent standings overrides. Those endpoints reject live and upcoming matches.
+- `ADMIN_EMAIL`, `ADMIN_PASSWORD`, and `ADMIN_NAME` bootstrap the administrator on startup.
 
-- **RTMP** — Real-Time Messaging Protocol; used by Larix Broadcaster to push video from phones to SRS.
-- **SRS (Simple Realtime Server)** — open-source media server handling RTMP ingest and LL-HLS packaging.
-- **LL-HLS** — Low-Latency HTTP Live Streaming; enables sub-5-second latency over standard HLS delivery.
-- **ABR (Adaptive Bitrate Streaming)** — automatically adjusts video quality to the viewer's network conditions.
-- **hls.js** — JavaScript library that plays HLS streams in browsers lacking native HLS support.
-- **m3u8** — the manifest file format describing available HLS stream segments/qualities.
-- **Progressive download** — non-adaptive video delivery where the whole file streams sequentially (contrasted with HLS/ABR in the original design research).
+All organiser control screens for a match join the same Socket.io room. Score, active-camera, and match-status changes are persisted and pushed to other organisers and viewers. Finalization immediately removes the live player and shows the ended state even if a phone continues publishing. Football goals are serialized per match and calculated from the latest stored score; non-goal events cannot overwrite a newer score from a stale device.
 
----
+Standings recomputation uses a tournament-scoped PostgreSQL advisory lock and a sequential bulk replacement transaction. Concurrent finalization/correction requests therefore cannot insert duplicate `(tournament_id, team_id)` rows.
 
-## Decisions Explicitly Rejected
+## Database model and migrations
 
-- **mediasoup** — too complex for a broadcast (one-to-many) use case; it's built for many-to-many WebRTC conferencing, which isn't what FieldCast needs.
-- **AWS EC2 / S3 in Phase 1** — deliberately deferred to Phase 2 to keep the initial launch fully free and to prove the architecture works before introducing paid infrastructure.
-- **Manual SSH-based migrations** — rejected in favor of a GitHub Actions pipeline, since hand-run production migrations don't hold up as a defensible practice and risk schema/code drift.
+The schema uses a sport-agnostic core with sport-specific history:
+
+- `User`: identity, credentials, and global role.
+- `Tournament`: draft/review lifecycle and public metadata.
+- `TournamentOrganizer`: tournament-scoped organiser permissions.
+- `Team` and `TournamentTeam`: reusable teams and tournament membership, including optional pool assignment.
+- `TournamentPool`: ordered, tournament-scoped pools such as Pool A, Pool B, and further creator-defined pools.
+- `Player` and `TeamPlayer`: reusable players plus jersey, position, and Playing/bench role.
+- `Match`: fixture, pool/knockout stage, stream configuration, status, winner, and `pending`/`played`/`washout` result type.
+- `MatchCamera`: per-phone ingest configuration.
+- `MatchState`: fast live score and period state.
+- `FootballEvent`, `CricketEvent`, and `BasketballQuarter`: detailed sport history.
+- `Standing`: tournament table generated from finalized results.
+
+| Migration | Purpose |
+|---|---|
+| `0001_init` | Initial users, teams, matches, state, events, and standings |
+| `0002_tournament_workflow` | Ownership, drafts/review, reusable players, and authentication workflow |
+| `0003_organizer_broadcast` | Tournament organisers, broadcast setup, and cameras |
+| `0004_football_roster_events` | Roster-linked Football events, jersey snapshots, and extra time |
+| `0005_washouts_and_squads` | Match result types and Playing/bench squad roles |
+| `0006_reset_existing_squads_to_bench` | Reset rosters so organisers explicitly select the Playing 11 |
+| `0007_admin_corrections` | Persistent standings overrides for historical admin corrections |
+| `0008_tournament_pools` | Tournament pools and per-team pool assignment |
+| `0009_match_stages` | Pool/knockout fixture classification and custom knockout stage labels |
+| `0010_substitution_players` | Explicit players-off/players-on snapshots for football substitutions |
+| `0011_default_starting_squads` | Promote the first sport-sized roster when a team has no saved starting lineup |
+
+Prisma 7 requires the PostgreSQL driver adapter. Reuse `backend/src/config/prisma.js`; do not instantiate a bare `PrismaClient` or pass removed `datasourceUrl`/`datasources` options.
+
+## API groups
+
+- `/api/auth`: register, login, Google OAuth, current user, and auth status.
+- `/api/tournaments`: public tournaments, drafts, review, teams, reusable players, lineups, organisers, submission, and standings.
+- `/api/matches`: public fixtures, scorecards, match creation, broadcast setup, cameras, status, and results.
+- `/api/teams`: public team reads and administrator creation.
+- `/api/streams`: administrator stream/SRS health.
+
+Durable data uses REST. Time-sensitive score and camera changes use Socket.io match rooms.
+
+## Troubleshooting
+
+### `Unknown argument resultType`
+
+The running backend has an old generated Prisma Client:
+
+1. Stop every backend/nodemon instance.
+2. Run `npm run db:migrate:deploy` in `backend/`.
+3. Run `npm run db:generate`.
+4. Start exactly one backend with `npm run dev`.
+
+### `EADDRINUSE :::4000`
+
+Another process owns port `4000`. Do not start a second nodemon terminal. On Windows:
+
+```powershell
+netstat -ano | Select-String ':4000\s+.*LISTENING'
+```
+
+Stop only the confirmed FieldCast backend process tree, then start one instance.
+
+### SRS reports a publisher but video does not move
+
+An active stream can still have zero recent frames or bitrate. Confirm the phone can reach RTMP `:1935` or SRT `:10080/UDP`, and confirm the camera-specific HLS manifest is updating. If IRL Pro reports an RTMP/H.264 connection failure, switch that camera to the generated SRT URL; both protocols route to the same FieldCast stream key.
+
+### `spawn ffmpeg ENOENT`
+
+Install ffmpeg and either restart the backend with `ffmpeg` available on `PATH`, or set `FFMPEG_PATH` to the absolute `ffmpeg.exe` path. A successful camera cut logs a numeric ffmpeg PID rather than `undefined`.
+
+## Deployment phases
+
+### Phase 1: free-tier launch
+
+- SRS, ffmpeg camera switching, and Express/Socket.io on an Oracle Cloud Always Free VM.
+- Next.js on Vercel.
+- PostgreSQL on Neon.
+- Record locally during a match, upload to ImageKit, then delete the confirmed local copy.
+
+Oracle Always Free instances may be reclaimed after extended inactivity, so tournament-week readiness checks remain important.
+
+### Phase 2: scaled deployment
+
+The same application and container layout can move to EC2/ECS, with S3 added as durable archive storage behind ImageKit. This is a deployment-target change, not an application redesign.
+
+## Known limitations and next work
+
+- Complete live event/control surfaces for Cricket and Basketball are not yet implemented.
+- ImageKit replay upload is planned but not wired end to end.
+- Production deployment to Oracle, Neon, and Vercel is not complete.
+- Multi-camera switching requires ffmpeg and an environment reachable by SRS.
+- Automated test coverage is limited; validation currently relies on linting, TypeScript, builds, API smoke tests, and local browser checks.
+
+See [PROGRESS.md](./PROGRESS.md) for the detailed session log and [HOW_TO_USE.md](./HOW_TO_USE.md) for operational instructions.
+
+## Design decisions
+
+- Simplicity over sophistication: FieldCast is one-to-many broadcasting, so mediasoup/WebRTC conferencing complexity was intentionally rejected.
+- Phase 1 avoids AWS EC2 and S3 to keep initial infrastructure free.
+- Prisma migrations are versioned and should be deployed by CI in production rather than manually against the primary database.
+- UI follows the light-only Geist + Inter design system in [DESIGN.md](./DESIGN.md).

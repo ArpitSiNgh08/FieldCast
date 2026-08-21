@@ -2,9 +2,9 @@
 
 const prisma = require('../config/prisma');
 
-// Points awarded for a win, per sport. Draws are always worth 1.
-function winPoints(sport) {
-  return sport === 'football' ? 3 : 2;
+// FieldCast tournament rules: every win is worth 3 points. Draws are worth 1.
+function winPoints() {
+  return 3;
 }
 
 /**
@@ -21,11 +21,16 @@ async function recomputeForTournament(tournamentId) {
   });
   if (!tournament) return;
 
-  const { sport } = tournament;
-  const win = winPoints(sport);
+  const win = winPoints();
 
   const matches = await prisma.match.findMany({
-    where: { tournamentId: id, status: 'completed', resultType: 'played' },
+    where: {
+      tournamentId: id,
+      status: 'completed',
+      resultType: 'played',
+      // Legacy fixtures had no stage. New knockout fixtures must not change pool standings.
+      OR: [{ stageType: null }, { stageType: 'pool' }],
+    },
     select: {
       teamAId: true,
       teamBId: true,
@@ -72,26 +77,26 @@ async function recomputeForTournament(tournamentId) {
     }
   }
 
-  // Persist: reset this tournament's standings, then insert fresh rows.
-  // Done in a transaction for consistency.
-  await prisma.$transaction([
-    prisma.standing.deleteMany({ where: { tournamentId: id } }),
-    ...Array.from(table.entries()).map(([teamId, s]) =>
-      prisma.standing.create({
-        data: {
-          tournamentId: id,
-          teamId,
-          played: s.played,
-          won: s.won,
-          lost: s.lost,
-          drawn: s.drawn,
-          points: s.points,
-          scoredFor: s.scoredFor,
-          scoredAgainst: s.scoredAgainst,
-        },
-      })
-    ),
-  ]);
+  const rows = Array.from(table.entries()).map(([teamId, s]) => ({
+    tournamentId: id,
+    teamId,
+    played: s.played,
+    won: s.won,
+    lost: s.lost,
+    drawn: s.drawn,
+    points: s.points,
+    scoredFor: s.scoredFor,
+    scoredAgainst: s.scoredAgainst,
+  }));
+
+  // Multiple result requests can finish close together. Serialize writes for
+  // this tournament at the database level so two app processes cannot both
+  // delete and then insert the same unique (tournament, team) rows.
+  await prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(1178878804, ${id})`;
+    await tx.standing.deleteMany({ where: { tournamentId: id } });
+    if (rows.length) await tx.standing.createMany({ data: rows });
+  });
 }
 
 module.exports = { recomputeForTournament };

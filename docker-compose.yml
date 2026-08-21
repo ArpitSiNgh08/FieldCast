@@ -21,12 +21,13 @@ services:
 
   # SRS 5 — receives RTMP from the phones (Larix) on 1935, serves LL-HLS + HTTP API on 8080.
   srs:
-    image: ossrs/srs:5
+    image: ossrs/srs:6.0.184
     container_name: fieldcast-srs
     restart: unless-stopped
     command: ["./objs/srs", "-c", "conf/fieldcast.conf"]
     ports:
       - "1935:1935"   # RTMP ingest (rtmp://<host>:1935/live/cameraN)
+      - "10080:10080/udp" # SRT ingest (recommended for IRL Pro)
       - "8080:8080"   # HTTP: LL-HLS (.m3u8/.ts) + HTTP API
       - "1985:1985"   # SRS HTTP API / streams status
     volumes:

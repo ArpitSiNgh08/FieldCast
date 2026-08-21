@@ -15,12 +15,12 @@ mediasoup is built for the opposite: where every participant both sends and rece
 
 ## What was chosen instead
 ```
-Larix Broadcaster (phone) → RTMP → SRS → LL-HLS → hls.js
+Phone broadcaster → RTMP or SRT → SRS → LL-HLS → hls.js
 ```
 Simple, proven, well-documented. No WebRTC complexity. Sub-5s latency with LL-HLS.
 
 ## Rule
-See [[RULES]] — rule 7: mediasoup is permanently rejected. Do not reintroduce it.
+See [[RULES]] — rule 8: mediasoup is permanently rejected. Do not reintroduce it.
 
 ## Related
 - [[Streaming — SRS + LL-HLS]] — what was chosen

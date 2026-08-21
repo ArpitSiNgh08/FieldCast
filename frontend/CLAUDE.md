@@ -18,7 +18,7 @@ Full sourcing priority and rules live in `DESIGN.md` — follow it exactly, in o
 
 ## Repo file map
 
-- `README.md` — architecture, phases, stack, DB schema, data flow (this replaced the old ARCHITECTURE.md)
+- `README.md` — current product behavior, routes, setup, architecture, schema, and deployment phases
 - `RULES.md` — hard constraints, non-negotiable
 - `DESIGN.md` — UI/component/font/theme rules
 - `PROGRESS.md` — living status tracker; update this after meaningful work
@@ -28,8 +28,9 @@ Full sourcing priority and rules live in `DESIGN.md` — follow it exactly, in o
 
 - Read `PROGRESS.md` at the start of a session to pick up context instead of asking Arpit to re-explain state.
 - Update `PROGRESS.md` at the end of a session with what changed, what's next, and anything left half-done.
+- Update the relevant Obsidian notes in `notes/` when a workflow, route, model, or operational procedure changes.
 - Ask before introducing any new dependency, service, or paid resource not already named in `README.md`.
-- Copy the singleton pattern from `src/config/prisma.js` for **any** new file that needs a Prisma client — it has the required `@prisma/adapter-pg` wiring. Never call `new PrismaClient()` bare.
+- Copy the singleton pattern from `backend/src/config/prisma.js` for **any** new file that needs a Prisma client — it has the required `@prisma/adapter-pg` wiring. Never call `new PrismaClient()` bare.
 - Check `HOW_TO_USE.md` for one-time local dev setup steps (native Postgres user/DB creation).
 
 ## Don't
@@ -39,5 +40,5 @@ Full sourcing priority and rules live in `DESIGN.md` — follow it exactly, in o
 - Don't hand-run Prisma migrations against the main Neon database — use the branch → PR → GitHub Actions flow.
 - Don't build a custom UI component before checking Untitled UI MCP, then Magic UI/shadcn MCP, per `DESIGN.md`.
 - Don't introduce a third typeface or a dark theme variant.
-- Don't call `new PrismaClient()` without a pg driver adapter — it throws in Prisma 7. Use the singleton in `src/config/prisma.js` instead.
+- Don't call `new PrismaClient()` without a pg driver adapter — it throws in Prisma 7. Use the singleton in `backend/src/config/prisma.js` instead.
 - Don't try to run Docker postgres on Windows dev — native Postgres 18 owns port 5432. Use it directly.

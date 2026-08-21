@@ -17,6 +17,7 @@ export interface Team {
 export interface Player { id: number; name: string; }
 export interface TeamPlayer { teamId: number; playerId: number; jerseyNumber: string; position: string | null; squadRole: "playing" | "bench"; player: Player; }
 export type ApprovalStatus = "draft" | "submitted" | "approved" | "rejected";
+export interface TournamentPool { id: number; tournamentId: number; name: string; sortOrder: number; }
 
 export interface MatchState {
   teamAScore: number;
@@ -33,6 +34,10 @@ export interface Match {
   id: number;
   tournamentId: number | null;
   tournamentName: string | null;
+  stageType: "pool" | "knockout" | null;
+  poolId: number | null;
+  poolName: string | null;
+  knockoutStage: string | null;
   sport: Sport;
   scheduledAt: string | null;
   status: MatchStatus;
@@ -51,7 +56,7 @@ export interface Match {
   state: MatchState;
 }
 
-export interface MatchCamera { id: number; matchId: number; name: string; angle: string; streamKey: string; ingestUrl?: string; createdAt: string; }
+export interface MatchCamera { id: number; matchId: number; name: string; angle: string; streamKey: string; ingestUrl?: string; srtIngestUrl?: string; createdAt: string; }
 
 export interface Tournament {
   id: number;
@@ -66,7 +71,8 @@ export interface Tournament {
   rejectionReason: string | null;
   creatorId: number | null;
   creator?: { id: number; name: string | null; email: string } | null;
-  teams: { tournamentId: number; teamId: number; team: Team }[];
+  pools: TournamentPool[];
+  teams: { tournamentId: number; teamId: number; poolId: number | null; pool: TournamentPool | null; team: Team }[];
   organizers: { tournamentId: number; userId: number; user: { id: number; name: string | null; email: string; avatarUrl: string | null } }[];
 }
 
@@ -75,6 +81,9 @@ export interface StandingRow {
   teamName: string;
   teamShort: string;
   teamLogo: string | null;
+  poolId: number | null;
+  poolName: string | null;
+  poolSortOrder: number | null;
   played: number;
   won: number;
   lost: number;
@@ -83,6 +92,7 @@ export interface StandingRow {
   scoredFor: number;
   scoredAgainst: number;
   scoreDiff: number;
+  overridden?: boolean;
 }
 
 export interface CricketEvent {
@@ -109,6 +119,12 @@ export interface FootballEvent {
   player_name: string | null;
   player_id: number | null;
   jersey_number: string | null;
+  player_out_id: number | null;
+  player_out_name: string | null;
+  player_out_jersey: string | null;
+  player_in_id: number | null;
+  player_in_name: string | null;
+  player_in_jersey: string | null;
 }
 
 export interface BasketballQuarter {

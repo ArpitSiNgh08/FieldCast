@@ -20,7 +20,7 @@ Pointer to [[FieldCast]]'s UI constraints document: `DESIGN.md`
 4. **Custom-built** — only if genuinely unavailable above; must be flagged explicitly
 
 ### Signature visual
-The live scorecard Canvas overlay above the video player is the primary visual. Everything else (nav, tables, fixtures) should be quieter.
+The live score graphic beside the video player is the primary visual. It shows live state, scores, and Football goal scorers; navigation, tables, and fixtures should remain quieter.
 
 ### Responsive
 Mobile-first. Visible focus states. Reduced-motion support.

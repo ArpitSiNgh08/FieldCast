@@ -95,6 +95,14 @@ export const api = {
     }),
   setMatchResult: (id: number, body: unknown) =>
     apiFetch<Match>(`/matches/${id}/result`, { method: "POST", body }),
+  correctCompletedScore: (id: number, body: { teamAScore: number; teamBScore: number }) =>
+    apiFetch<Match>(`/admin/matches/${id}/score`, { method: "PATCH", body }),
+  addCompletedFootballEvent: (id: number, body: unknown) =>
+    apiFetch(`/admin/matches/${id}/football-events`, { method: "POST", body }),
+  updateCompletedFootballEvent: (id: number, eventId: number, body: unknown) =>
+    apiFetch(`/admin/matches/${id}/football-events/${eventId}`, { method: "PATCH", body }),
+  deleteCompletedFootballEvent: (id: number, eventId: number) =>
+    apiFetch<void>(`/admin/matches/${id}/football-events/${eventId}`, { method: "DELETE" }),
 
   // Teams
   listTeams: (q: Record<string, string> = {}) =>
@@ -113,6 +121,7 @@ export const api = {
   createTournament: (body: unknown) =>
     apiFetch<Tournament>("/tournaments", { method: "POST", body }),
   updateTournament: (id: number, body: unknown) => apiFetch<Tournament>(`/tournaments/${id}`, { method: "PATCH", body }),
+  addTournamentPool: (id: number, name: string) => apiFetch(`/tournaments/${id}/pools`, { method: "POST", body: { name } }),
   addTournamentTeam: (id: number, body: unknown) => apiFetch<Team>(`/tournaments/${id}/teams`, { method: "POST", body }),
   updateTournamentTeam: (id: number, teamId: number, body: unknown) => apiFetch<Team>(`/tournaments/${id}/teams/${teamId}`, { method: "PATCH", body }),
   removeTournamentTeam: (id: number, teamId: number) => apiFetch<void>(`/tournaments/${id}/teams/${teamId}`, { method: "DELETE" }),
@@ -123,6 +132,10 @@ export const api = {
   reviewTournament: (id: number, decision: "approved" | "rejected", reason?: string) => apiFetch<Tournament>(`/tournaments/${id}/review`, { method: "POST", body: { decision, reason } }),
   getStandings: (id: number | string) =>
     apiFetch<StandingRow[]>(`/tournaments/${id}/standings`),
+  overrideStanding: (id: number, teamId: number, body: Omit<StandingRow, "teamId" | "teamName" | "teamShort" | "teamLogo" | "poolId" | "poolName" | "poolSortOrder" | "scoreDiff" | "overridden">) =>
+    apiFetch<StandingRow[]>(`/admin/tournaments/${id}/standings/${teamId}`, { method: "PUT", body }),
+  clearStandingOverride: (id: number, teamId: number) =>
+    apiFetch<StandingRow[]>(`/admin/tournaments/${id}/standings/${teamId}`, { method: "DELETE" }),
 
   // Streams
   streamHealth: () =>

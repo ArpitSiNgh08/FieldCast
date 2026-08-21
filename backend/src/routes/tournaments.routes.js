@@ -16,6 +16,7 @@ router.get('/:id', asyncHandler(ctrl.get));
 router.get('/:id/standings', asyncHandler(ctrl.standings));
 router.post('/', requireAuth, asyncHandler(ctrl.create));
 router.patch('/:id', requireAuth, asyncHandler(ctrl.update));
+router.post('/:id/pools', requireAuth, asyncHandler(ctrl.addPool));
 router.post('/:id/teams', requireAuth, asyncHandler(ctrl.addTeam));
 router.patch('/:id/teams/:teamId', requireAuth, asyncHandler(ctrl.updateTeam));
 router.patch('/:id/teams/:teamId/lineup', requireAuth, asyncHandler(ctrl.updateLineup));

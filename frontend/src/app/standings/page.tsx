@@ -1,8 +1,9 @@
 import { api } from "@/lib/api";
+import { KnockoutBracket } from "@/components/KnockoutBracket";
 import { SPORT_EMOJI, SPORT_LABEL, formatDate } from "@/lib/format";
 import { Badge } from "@/ui/Badge";
 import { Card, CardHeader, CardTitle, CardBody } from "@/ui/Card";
-import type { Tournament, StandingRow } from "@/lib/types";
+import type { Match, Tournament, StandingRow } from "@/lib/types";
 
 export const revalidate = 0;
 
@@ -17,10 +18,10 @@ async function getData() {
     const standingsMap = await Promise.all(
       tournaments.map(async (t) => {
         try {
-          const rows = await api.getStandings(t.id);
-          return { tournament: t, rows };
+          const [rows, matches] = await Promise.all([api.getStandings(t.id), api.listMatches({ tournamentId: String(t.id) })]);
+          return { tournament: t, rows, matches };
         } catch {
-          return { tournament: t, rows: [] };
+          return { tournament: t, rows: [], matches: [] };
         }
       })
     );
@@ -59,8 +60,8 @@ export default async function StandingsPage({ searchParams }: { searchParams: Pr
       )}
 
       <div className="flex flex-col gap-10">
-        {active.map(({ tournament, rows }) => (
-          <TournamentStandings key={tournament.id} tournament={tournament} rows={rows} />
+        {active.map(({ tournament, rows, matches }) => (
+          <TournamentStandings key={tournament.id} tournament={tournament} rows={rows} matches={matches} />
         ))}
       </div>
     </div>
@@ -70,9 +71,11 @@ export default async function StandingsPage({ searchParams }: { searchParams: Pr
 function TournamentStandings({
   tournament,
   rows,
+  matches,
 }: {
   tournament: Tournament;
   rows: StandingRow[];
+  matches: Match[];
 }) {
   const statusTone =
     tournament.status === "ongoing"
@@ -82,7 +85,9 @@ function TournamentStandings({
         : "accent";
 
   const isFootball = tournament.sport === "football";
-  const isBasketball = tournament.sport === "basketball";
+  const poolGroups = tournament.pools.length
+    ? [...tournament.pools.map((pool) => ({ name: pool.name, rows: rows.filter((row) => row.poolId === pool.id) })), ...(rows.some((row) => !row.poolId) ? [{ name: "Unassigned", rows: rows.filter((row) => !row.poolId) }] : [])]
+    : [{ name: null, rows }];
 
   return (
     <Card>
@@ -113,10 +118,13 @@ function TournamentStandings({
           </Badge>
         </div>
       </CardHeader>
-      <CardBody className="p-0 overflow-x-auto">
+      <CardBody className="p-0">
         {rows.length === 0 ? (
           <p className="px-5 py-4 text-sm text-muted">No matches played yet.</p>
         ) : (
+          <div className={poolGroups.length > 1 ? "grid gap-px bg-border lg:grid-cols-2" : ""}>
+          {poolGroups.map((group) => <div key={group.name || "table"} className="overflow-x-auto bg-surface">
+          {group.name && <h3 className="border-b border-border px-5 py-3 text-sm font-semibold text-foreground">{group.name}</h3>}
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-surface-2 text-left text-xs text-muted">
@@ -126,18 +134,12 @@ function TournamentStandings({
                 <th className="px-3 py-3 font-medium text-center">W</th>
                 <th className="px-3 py-3 font-medium text-center">L</th>
                 {isFootball && <th className="px-3 py-3 font-medium text-center">D</th>}
-                {(isFootball || isBasketball) && (
-                  <>
-                    <th className="px-3 py-3 font-medium text-center hidden sm:table-cell">F</th>
-                    <th className="px-3 py-3 font-medium text-center hidden sm:table-cell">A</th>
-                    <th className="px-3 py-3 font-medium text-center hidden sm:table-cell">Diff</th>
-                  </>
-                )}
+                {isFootball && <th className="px-3 py-3 font-medium text-center">GD</th>}
                 <th className="px-5 py-3 font-semibold text-center text-foreground">Pts</th>
               </tr>
             </thead>
             <tbody>
-              {rows.map((row, idx) => (
+              {group.rows.map((row, idx) => (
                 <tr
                   key={row.teamId}
                   className="border-b border-border/50 last:border-b-0 hover:bg-surface-2/60 transition-colors"
@@ -157,24 +159,17 @@ function TournamentStandings({
                   {isFootball && (
                     <td className="px-3 py-3 text-center tabular-nums text-muted">{row.drawn}</td>
                   )}
-                  {(isFootball || isBasketball) && (
-                    <>
-                      <td className="px-3 py-3 text-center tabular-nums text-muted hidden sm:table-cell">{row.scoredFor}</td>
-                      <td className="px-3 py-3 text-center tabular-nums text-muted hidden sm:table-cell">{row.scoredAgainst}</td>
-                      <td className="px-3 py-3 text-center tabular-nums hidden sm:table-cell">
-                        <span className={row.scoreDiff >= 0 ? "text-accent" : "text-live"}>
-                          {row.scoreDiff >= 0 ? "+" : ""}{row.scoreDiff}
-                        </span>
-                      </td>
-                    </>
-                  )}
+                  {isFootball && <td className="px-3 py-3 text-center tabular-nums"><span className={row.scoreDiff >= 0 ? "text-accent" : "text-live"}>{row.scoreDiff > 0 ? "+" : ""}{row.scoreDiff}</span></td>}
                   <td className="px-5 py-3 text-center font-bold tabular-nums text-foreground">{row.points}</td>
                 </tr>
               ))}
             </tbody>
           </table>
+          </div>)}
+          </div>
         )}
       </CardBody>
+      {matches.some((match) => match.stageType === "knockout") && <div className="border-t border-border p-5"><div className="mb-4"><p className="text-xs font-semibold uppercase tracking-widest text-accent">Playoffs</p><h3 className="mt-1 text-lg font-semibold text-foreground">Knockout bracket</h3></div><KnockoutBracket matches={matches} /></div>}
     </Card>
   );
 }

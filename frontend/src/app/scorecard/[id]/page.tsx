@@ -3,9 +3,10 @@ import { notFound } from "next/navigation";
 import { SPORT_EMOJI, SPORT_LABEL, formatDateTime } from "@/lib/format";
 import { Badge } from "@/ui/Badge";
 import { Card, CardHeader, CardTitle, CardBody } from "@/ui/Card";
-import type { CricketEvent, FootballEvent, BasketballQuarter } from "@/lib/types";
+import type { CricketEvent, BasketballQuarter } from "@/lib/types";
 import Link from "next/link";
 import { ScorecardLiveRefresh } from "@/components/ScorecardLiveRefresh";
+import { FootballTimeline } from "@/components/FootballTimeline";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -228,49 +229,6 @@ function CricketScorecard({
             </div>
           );
         })}
-      </CardBody>
-    </Card>
-  );
-}
-
-const EVENT_ICON: Record<string, string> = {
-  goal: "⚽",
-  yellow_card: "🟨",
-  red_card: "🟥",
-  substitution: "🔄",
-};
-
-function FootballTimeline({
-  events,
-}: {
-  events: FootballEvent[];
-}) {
-  return (
-    <Card className="mb-6">
-      <CardHeader>
-        <CardTitle>Match Timeline</CardTitle>
-      </CardHeader>
-      <CardBody>
-        <div className="flex flex-col gap-3">
-          {events.map((e) => (
-            <div key={e.id} className="flex items-start gap-3">
-              <span className="mt-0.5 text-lg leading-none">{EVENT_ICON[e.event_type] || "·"}</span>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-foreground">
-                  {e.minute}{e.extra_time_minute ? `+${e.extra_time_minute}` : ""}&apos;{" "}
-                  <span className="capitalize">{e.event_type.replace("_", " ")}</span>
-                  {e.player_name && (
-                    <span className="text-muted"> — {e.jersey_number ? `#${e.jersey_number} ` : ""}{e.player_name}</span>
-                  )}
-                </p>
-                {(e.team_name || e.team_short) && (
-                  <p className="text-xs text-muted">{e.team_name || e.team_short}</p>
-                )}
-              </div>
-              <span className="shrink-0 text-xs text-muted">Half {e.half}</span>
-            </div>
-          ))}
-        </div>
       </CardBody>
     </Card>
   );

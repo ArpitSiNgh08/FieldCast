@@ -13,10 +13,12 @@ export function ScorecardLiveRefresh({ matchId }: { matchId: number }) {
       if (payload.matchId === matchId) router.refresh();
     };
     socket.on("score:updated", refresh);
+    socket.on("match:status", refresh);
     socket.emit("match:join", { matchId });
     return () => {
       socket.emit("match:leave", { matchId });
       socket.off("score:updated", refresh);
+      socket.off("match:status", refresh);
     };
   }, [socket, matchId, connected, router]);
 

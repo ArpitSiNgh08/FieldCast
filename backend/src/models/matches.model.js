@@ -42,6 +42,10 @@ function shapeMatch(m) {
     id: m.id,
     tournamentId: m.tournamentId,
     tournamentName: m.tournament?.name ?? null,
+    stageType: m.stageType,
+    poolId: m.poolId,
+    poolName: m.pool?.name ?? null,
+    knockoutStage: m.knockoutStage,
     sport: m.sport,
     scheduledAt: m.scheduledAt,
     status: m.status,
@@ -64,6 +68,7 @@ function shapeMatch(m) {
 
 const MATCH_INCLUDE = {
   tournament: { select: { name: true, approvalStatus: true, creatorId: true } },
+  pool: { select: { id: true, name: true } },
   teamA: { include: { players: { include: { player: true }, orderBy: { jerseyNumber: 'asc' } } } },
   teamB: { include: { players: { include: { player: true }, orderBy: { jerseyNumber: 'asc' } } } },
   state: true,
@@ -102,10 +107,13 @@ async function findById(id) {
   return m ? shapeMatch(m) : null;
 }
 
-async function create({ tournamentId, teamAId, teamBId, sport, scheduledAt, venue }) {
+async function create({ tournamentId, teamAId, teamBId, sport, scheduledAt, venue, stageType, poolId, knockoutStage }) {
   const m = await prisma.match.create({
     data: {
       tournamentId: tournamentId ? Number(tournamentId) : null,
+      stageType,
+      poolId: stageType === 'pool' ? Number(poolId) : null,
+      knockoutStage: stageType === 'knockout' ? knockoutStage : null,
       teamAId: Number(teamAId),
       teamBId: Number(teamBId),
       sport,

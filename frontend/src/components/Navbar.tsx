@@ -33,8 +33,9 @@ export function Navbar() {
 
         <nav className="flex items-center gap-1">
           {NAV.filter((n) => (!n.adminOnly || isAdmin) && (!n.authOnly || user)).map((n) => {
-            const active =
-              n.href === "/" ? pathname === "/" : pathname.startsWith(n.href);
+            const active = n.href === "/" || n.href === "/admin"
+              ? pathname === n.href
+              : pathname.startsWith(n.href);
             return (
               <Link
                 key={n.href}

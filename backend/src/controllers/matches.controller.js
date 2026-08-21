@@ -10,6 +10,17 @@ const crypto = require('crypto');
 
 const FOOTBALL_CHECKS = ['networkStable', 'powerReady', 'audioChecked', 'permissionsConfirmed', 'cameraOperatorsReady'];
 
+function broadcastMatchStatus(req, match) {
+  const io = req.app.get('io');
+  if (!io || !match) return;
+  io.to(`match:${match.id}`).emit('match:status', {
+    matchId: match.id,
+    status: match.status,
+    resultType: match.resultType,
+    winnerTeamId: match.winnerTeamId,
+  });
+}
+
 async function requireManager(req, res, matchId = req.params.id) {
   if (!(await authorization.canManageMatch(req.user, matchId))) {
     res.status(403).json({ error: 'Tournament organiser access required' });
@@ -36,6 +47,7 @@ function withStreamUrl(match) {
     cameras: (match.cameras || []).map((camera) => ({
       ...camera,
       ingestUrl: `rtmp://${env.stream.rtmpHost}:${env.stream.rtmpPort}/live/${camera.streamKey}`,
+      srtIngestUrl: `srt://${env.stream.rtmpHost}:${env.stream.srtPort}?streamid=#!::r=live/${camera.streamKey},m=publish`,
     })),
   };
 }
@@ -57,17 +69,26 @@ async function get(req, res) {
 }
 
 async function create(req, res) {
-  const { tournamentId, teamAId, teamBId, sport, scheduledAt, venue } = req.body;
+  const { tournamentId, teamAId, teamBId, sport, scheduledAt, venue, stageType, poolId } = req.body;
+  const knockoutStage = typeof req.body.knockoutStage === 'string' ? req.body.knockoutStage.trim() : '';
   if (!tournamentId || !teamAId || !teamBId || !sport) {
     return res.status(400).json({ error: 'tournamentId, teamAId, teamBId and sport are required' });
   }
   if (!(await authorization.canManageTournament(req.user, tournamentId))) return res.status(403).json({ error: 'Tournament organiser access required' });
-  const tournament = await prisma.tournament.findUnique({ where: { id: Number(tournamentId) }, include: { teams: true } });
+  const tournament = await prisma.tournament.findUnique({ where: { id: Number(tournamentId) }, include: { teams: true, pools: true } });
   if (!tournament || tournament.approvalStatus !== 'approved') return res.status(409).json({ error: 'Only approved tournaments can schedule matches' });
   if (tournament.sport !== sport) return res.status(400).json({ error: 'Match sport must match the tournament' });
   const teamIds = new Set(tournament.teams.map((x) => x.teamId));
   if (!teamIds.has(Number(teamAId)) || !teamIds.has(Number(teamBId)) || Number(teamAId) === Number(teamBId)) return res.status(400).json({ error: 'Choose two different teams from this tournament' });
-  const match = await Matches.create({ tournamentId, teamAId, teamBId, sport, scheduledAt, venue });
+  if (!['pool', 'knockout'].includes(stageType)) return res.status(400).json({ error: 'Choose whether this is a pool or knockout match' });
+  if (stageType === 'pool') {
+    const pool = tournament.pools.find((entry) => entry.id === Number(poolId));
+    if (!pool) return res.status(400).json({ error: 'Choose a valid tournament pool' });
+    const selectedTeams = tournament.teams.filter((entry) => [Number(teamAId), Number(teamBId)].includes(entry.teamId));
+    if (selectedTeams.some((entry) => entry.poolId !== pool.id)) return res.status(400).json({ error: 'Pool matches can only use teams assigned to the selected pool' });
+  }
+  if (stageType === 'knockout' && (!knockoutStage || knockoutStage.length > 50)) return res.status(400).json({ error: 'Choose or enter a knockout stage of 50 characters or fewer' });
+  const match = await Matches.create({ tournamentId, teamAId, teamBId, sport, scheduledAt, venue, stageType, poolId, knockoutStage });
   res.status(201).json(withStreamUrl(match));
 }
 
@@ -98,10 +119,12 @@ async function updateStatus(req, res) {
       : candidate.state.teamAScore > candidate.state.teamBScore ? candidate.teamA.id : candidate.teamB.id;
     const completed = await Matches.setResult(req.params.id, { winnerTeamId, resultType: 'played' });
     if (completed.tournamentId) await standingsService.recomputeForTournament(completed.tournamentId);
+    broadcastMatchStatus(req, completed);
     return res.json(withStreamUrl(completed));
   }
   const match = await Matches.setStatus(req.params.id, status);
   if (!match) return res.status(404).json({ error: 'Match not found' });
+  broadcastMatchStatus(req, match);
   res.json(withStreamUrl(match));
 }
 
@@ -125,6 +148,7 @@ async function setResult(req, res) {
   if (match.tournamentId) {
     await standingsService.recomputeForTournament(match.tournamentId);
   }
+  broadcastMatchStatus(req, match);
   res.json(withStreamUrl(match));
 }
 

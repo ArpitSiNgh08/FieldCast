@@ -2,10 +2,12 @@
 
 Part of [[FieldCast]]
 
+> Status: future scale phase. No Phase 2 infrastructure has been provisioned.
+
 ## What changes from Phase 1
 | Component | Phase 1 | Phase 2 |
 |---|---|---|
-| RTMP ingest + HLS | [[Phase 1 — Oracle VM]] | AWS EC2 (same Docker setup) |
+| RTMP/SRT ingest + HLS | [[Phase 1 — Oracle VM]] | AWS EC2 (same Docker setup) |
 | Backend | Oracle VM | EC2 (or ECS for scaling) |
 | Frontend | Vercel | Vercel (unchanged) |
 | Database | Neon | Neon (or RDS if needed) |

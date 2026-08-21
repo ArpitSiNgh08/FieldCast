@@ -3,7 +3,7 @@
 Part of [[FieldCast]] · Part of [[Backend — Express + Socket.io]]
 
 ## What it does
-Pushes live score and active-camera updates from the backend to connected browsers instantly, without polling.
+Pushes live score, active-camera, and match-status updates from the backend to connected browsers instantly, without polling.
 
 ## Current events
 | Event | Direction | Purpose |
@@ -14,6 +14,7 @@ Pushes live score and active-camera updates from the backend to connected browse
 | `score:updated` | server → room | Broadcast persisted state |
 | `camera:switch` | organiser → server | Select a configured match stream key |
 | `camera:switched` | server → room | Broadcast selected camera |
+| `match:status` | server → room | Broadcast live/completed/washout transition |
 
 ## Football score flow
 ```
@@ -22,17 +23,17 @@ Organiser updates score in [[Tournament Organiser]] control room
   → backend verifies match/tournament permission
   → backend writes MatchState and optional FootballEvent via Prisma
   → backend emits score:updated to the match room
-  → [[Frontend — Next.js]] ScoreOverlay redraws Canvas
+  → [[Frontend — Next.js]] ScoreOverlay updates the live score graphic
 ```
 
 ## Mutation authorization
-Viewer connections may remain anonymous. A JWT in the Socket.io handshake identifies signed-in users. Every score or camera mutation verifies that the caller is either:
-- a global admin, or
-- a member of the relevant tournament's organiser list.
+Viewer connections may remain anonymous. A JWT in the Socket.io handshake identifies signed-in users. Every score or camera mutation verifies that the caller is a member of the relevant tournament's organiser list. The global admin role does not bypass this tournament-scoped authorization.
 
 Camera switching also verifies that the stream key belongs to a configured camera for that match. See [[Tournament Organiser]] and [[Camera Switching]].
 
-For football, `score:update` includes a roster-backed event detail. The backend verifies that the player belongs to one of the match teams, saves the event, and derives goal score increments server-side before emitting `score:updated`.
+For Football, `score:update` includes roster-backed event detail. The backend validates minute/extra time and current match participation, saves player/jersey snapshots, and derives goal increments server-side. Substitutions require different outgoing/incoming players from the same team; the server rebuilds the active-player set from the starting squad plus prior substitutions before accepting the event.
+
+Every organiser control device joins the match room and consumes `score:updated` and `camera:switched`. Public match and bracket refresh components also consume `match:status`. Finalization therefore unmounts the live player without reload even if the phone continues publishing. Per-match score updates are serialized in the Phase 1 backend process, goals use the latest persisted total, and non-goal Football events preserve that total instead of trusting potentially stale client score fields.
 
 ## Key design point
 The score overlay latency is independent of video stream latency. Even if LL-HLS is several seconds behind real time, score updates travel on the Socket.io channel immediately.
@@ -41,7 +42,8 @@ The score overlay latency is independent of video stream latency. Even if LL-HLS
 - `backend/src/sockets/index.js` — Socket.io server and JWT handshake
 - `backend/src/sockets/handlers.js` — rooms, score updates, events, and camera switching
 - `backend/src/services/authorization.service.js` — scoped permission checks
-- `frontend/src/components/ScoreOverlay.tsx` — Canvas renderer
+- `frontend/src/components/ScoreOverlay.tsx` — live score, connection state, and goal-scorer graphic
+- `frontend/src/components/ScorecardLiveRefresh.tsx` — refreshes server-rendered event history after score updates
 
 ## Related
 - [[Backend — Express + Socket.io]]

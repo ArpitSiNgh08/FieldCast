@@ -6,19 +6,31 @@ Part of [[FieldCast]]
 | Model | Purpose |
 |---|---|
 | `TournamentTeam` | Many-to-many tournament membership for reusable teams |
+| `TournamentPool` | Ordered creator-defined pools within a tournament |
 | `Player` | Reusable player identity owned by its creator |
 | `TeamPlayer` | Team-specific jersey number, position, and persisted playing/bench squad role |
 | `TournamentOrganizer` | Scoped organiser membership for approved tournaments |
 | `MatchCamera` | Match phone name, angle, and unique RTMP stream key |
+| `StandingOverride` | Persistent admin correction layered over calculated standings |
 
 `Tournament` now includes creator, photo, draft/review state, rejection feedback, and review metadata. `Match` now includes venue and its broadcast checklist. `User` may have a bcrypt password hash.
 
 Migrations:
+- `0001_init` — initial core, match state, sport event, and standings schema
 - `0002_tournament_workflow` — credentials, drafts/review, reusable teams and players
 - `0003_organizer_broadcast` — organiser memberships, match cameras, and preflight data
 - `0004_football_roster_events` — player-linked football events, jersey snapshots, and added-time minutes
+- `0005_washouts_and_squads` — match result type plus persisted playing/bench membership
+- `0006_reset_existing_squads_to_bench` — historical reset to explicit bench selection (later superseded for empty lineups by `0011`)
+- `0007_admin_corrections` — persistent per-team standings overrides for historical admin corrections
+- `0008_tournament_pools` — tournament pools and per-team pool membership
+- `0009_match_stages` — pool/knockout fixture classification and knockout round labels
+- `0010_substitution_players` — outgoing/incoming Football player links and historical snapshots
+- `0011_default_starting_squads` — repairs empty lineups and establishes sport-sized default starters
 
-`FootballEvent` now references the reusable `Player`, retains the player's name and jersey snapshot for historical accuracy, and stores `extraTimeMinute` separately from the regulation minute.
+`FootballEvent` references reusable players, retains name/jersey snapshots for historical accuracy, stores `extraTimeMinute` separately, and captures both outgoing and incoming players for substitutions.
+
+Calculated standings are replaced inside a transaction protected by a tournament-scoped PostgreSQL advisory lock. This serializes concurrent result/correction recomputations and prevents duplicate `(tournament_id, team_id)` inserts.
 
 Related: [[Tournament Submission]], [[Tournament Organiser]].
 
@@ -59,17 +71,23 @@ const prisma = new PrismaClient(); // no adapter
 ## Schema overview
 | Model | Purpose |
 |---|---|
-| `Match` | Core match row — teams, sport, status, result type (`pending`, `played`, or `washout`), activeCamera |
+| `User` | bcrypt/JWT or Google identity and global viewer/admin role |
+| `Tournament` | Creator, photo, draft/review lifecycle, public metadata |
+| `TournamentOrganizer` | Tournament-scoped management role |
+| `TournamentTeam` | Tournament/team membership |
+| `TournamentPool` | Ordered pool metadata and team grouping |
+| `Team` | Reusable team identity |
+| `Player` | Reusable player identity |
+| `TeamPlayer` | Team jersey, position, and playing/bench role |
+| `Match` | Core match row — teams, pool/knockout stage, sport, status, result type, and activeCamera |
 | `MatchState` | Live overlay data — score, period, status (Socket.io reads this) |
-
-Prisma Client is regenerated automatically before both `npm run dev` and `npm start`. This prevents a migrated database/schema from being queried by a stale runtime client (for example, rejecting the newer `resultType` field).
 | `CricketEvent` | Ball-by-ball history |
 | `FootballEvent` | Goals, cards, substitutions timeline |
 | `BasketballQuarter` | Per-quarter scoring |
-| `Tournament` | Tournament container |
-| `Team` | Team details |
 | `Standing` | Points table row per tournament |
-| `User` | Admin users (Google OAuth) |
+| `StandingOverride` | Persistent admin-supplied values layered over calculated rows |
+
+Prisma Client is regenerated automatically before both `npm run dev` and `npm start`. This prevents a migrated database/schema from being queried by a stale runtime client (for example, rejecting the newer `resultType` field).
 
 ## Migration workflow
 ```

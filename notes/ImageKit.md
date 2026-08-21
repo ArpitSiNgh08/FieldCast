@@ -5,13 +5,17 @@ Part of [[FieldCast]]
 ## What it does
 Handles **VOD delivery and transcoding** for match replays — no custom transcoding pipeline needed.
 
+## Current implementation status
+
+Planned, not wired end to end. `Match.replayUrl` and public replay playback support exist, but automatic recording, upload, confirmation, and local-file cleanup are still pending.
+
 ## Phase 1 workflow
 ```
 Match ends
   → Recording on [[Phase 1 — Oracle VM]] local disk
   → Upload to ImageKit via API
   → ImageKit returns HLS delivery URL
-  → Admin pastes URL into "Replay URL" field in [[Admin Panel]]
+  → Backend/organiser result workflow saves the returned replay URL
   → `replayUrl` saved in [[Database — Prisma + Neon]] Match row
   → Local file deleted from VM disk
   → Viewers watch replay at that URL

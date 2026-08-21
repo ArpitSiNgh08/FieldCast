@@ -1,27 +1,29 @@
-# Larix Broadcaster → RTMP → SRS
+# Mobile Broadcaster → RTMP/SRT → SRS
 
 Part of [[FieldCast]] · Part of [[Streaming — SRS + LL-HLS]]
 
 ## What it is
-**Larix Broadcaster** is a free mobile app (iOS + Android) that turns any smartphone into an RTMP broadcast camera.
+FieldCast accepts custom RTMP from Larix or IRL Pro and SRT contribution from IRL Pro. Larix remains a valid RTMP broadcaster, but its current watermark policy may make IRL Pro preferable on Android. The historical note filename is retained so existing Obsidian links continue working.
 
 ## Setup on the phone
-1. Install Larix Broadcaster (free — App Store / Play Store)
-2. Open → gear icon → Connections → Add new connection
-3. Set URL: `rtmp://<SERVER_IP>:1935/live/camera1`
-4. Tap Save → tap the red record button to go live
+1. In `/organizer/matches/[id]`, add the camera and copy its generated URL.
+2. IRL Pro: choose SRT/Caller and use `srt://<SERVER_IP>:10080?streamid=#!::r=live/<match-camera-key>,m=publish`.
+3. IRL Pro or Larix RTMP fallback: `rtmp://<SERVER_IP>:1935/live/<match-camera-key>`.
+4. If RTMP is stable, it is not necessary to change to SRT. Use SRT when IRL Pro reports connection/H.264 packetization failures.
+5. Never include Markdown backslashes, a trailing `&#x20;`, or surrounding whitespace in the broadcaster URL.
 
 ## Stream keys
-- `camera1` — main/sideline camera
-- `camera2` — end-on / opposite angle
-- `camera3` — third angle if needed
+
+Keys are server-generated for each `MatchCamera`. Camera names and angles remain human-readable, while the unique key prevents collisions between matches. Always copy the URL from the organiser control room.
 
 ## What happens next
 ```
-Phone taps record
-  → Larix pushes RTMP to SRS on port 1935
+Phone starts publishing
+  → RTMP reaches SRS on TCP 1935, or SRT reaches SRS on UDP 10080
+  → SRT is converted into the same /live/<match-camera-key> source
   → SRS packages as LL-HLS
-  → Viewers watch at http://<SERVER>:8080/live/camera1.m3u8
+  → One-camera viewers use /live/<match-camera-key>.m3u8
+  → Multi-camera viewers use /live/active_<matchId>.m3u8
 ```
 
 ## Verify stream is live
@@ -32,6 +34,6 @@ Returns JSON list of active streams.
 
 ## Related
 - [[Streaming — SRS + LL-HLS]] — what receives the push
-- [[Camera Switching]] — admin selects which phone is "live"
+- [[Camera Switching]] — organiser selects which phone is "live"
 - [[Phase 1 — Oracle VM]] — production server IP
 - [[HOW_TO_USE]] — full step-by-step

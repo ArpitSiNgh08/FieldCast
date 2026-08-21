@@ -32,12 +32,13 @@ export function FootballTimeline({ events }: { events: FootballEvent[] }) {
                   <p className="text-sm font-medium text-foreground">
                     <span className="mr-2 tabular-nums">{eventMinute(event)}</span>
                     <span className="capitalize">{event.event_type.replace("_", " ")}</span>
-                    {event.player_name && (
+                    {event.event_type !== "substitution" && event.player_name && (
                       <span className="text-muted">
                         {" — "}{event.jersey_number ? `#${event.jersey_number} ` : ""}{event.player_name}
                       </span>
                     )}
                   </p>
+                  {event.event_type === "substitution" && <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm"><span className="font-medium text-accent">↑ In: {event.player_in_jersey ? `#${event.player_in_jersey} ` : ""}{event.player_in_name || "Unknown player"}</span><span className="text-live">↓ Out: {event.player_out_jersey ? `#${event.player_out_jersey} ` : ""}{event.player_out_name || event.player_name || "Unknown player"}</span></div>}
                   {(event.team_name || event.team_short) && (
                     <p className="text-xs text-muted">{event.team_name || event.team_short}</p>
                   )}
@@ -51,4 +52,3 @@ export function FootballTimeline({ events }: { events: FootballEvent[] }) {
     </Card>
   );
 }
-

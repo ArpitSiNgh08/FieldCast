@@ -72,6 +72,7 @@ export function MatchCard({ match }: { match: Match }) {
             <Badge tone="accent">Upcoming</Badge>
           )}
         </div>
+        {(match.poolName || match.knockoutStage) && <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-accent">{match.poolName || match.knockoutStage}</p>}
 
         <div className="flex flex-col gap-2">
           <TeamRow

@@ -49,6 +49,7 @@ const env = {
     simulate: bool(process.env.SIMULATE_STREAM, true),
     rtmpHost: process.env.RTMP_HOST || 'localhost',
     rtmpPort: parseInt(process.env.RTMP_PORT || '1935', 10),
+    srtPort: parseInt(process.env.SRT_PORT || '10080', 10),
     hlsBase: process.env.SRS_HLS_BASE || 'http://localhost:8080',
     apiBase: process.env.SRS_API_BASE || 'http://localhost:1985',
     ffmpegPath: process.env.FFMPEG_PATH || 'ffmpeg',

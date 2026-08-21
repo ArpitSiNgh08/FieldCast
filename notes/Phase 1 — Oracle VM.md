@@ -2,8 +2,10 @@
 
 Part of [[FieldCast]]
 
+> Status: designed but not provisioned. Current development runs locally with native PostgreSQL and local SRS testing.
+
 ## What runs here
-- **SRS** — RTMP ingest + LL-HLS output (Docker)
+- **SRS 6.0.184** — RTMP `:1935/TCP` and SRT `:10080/UDP` ingest plus LL-HLS output (Docker)
 - **Backend** — Node.js + Express + Socket.io (Docker or pm2)
 - **ffmpeg** — [[Camera Switching]] child processes
 
@@ -20,7 +22,7 @@ Oracle has a documented history of reclaiming idle Always Free instances after e
 
 ## Migration to Phase 2
 [[Phase 2 — AWS EC2]] replaces Oracle. Steps:
-1. Repoint Larix Broadcaster RTMP URL from Oracle IP to EC2 IP
+1. Repoint phone RTMP/SRT broadcaster URLs from the Oracle IP to the EC2 IP
 2. Pull same Docker images on EC2
 3. GitHub Actions SSH target changes — nothing else
 

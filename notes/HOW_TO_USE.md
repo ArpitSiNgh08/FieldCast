@@ -3,12 +3,16 @@
 Pointer to `HOW_TO_USE.md` in the project root.
 
 ## What it covers
-- [[#One-time local dev setup]] — create Postgres user/DB, migrate, seed, start servers
-- [[#Create a tournament]] — admin panel walkthrough
-- [[#Stream from a phone]] — Larix Broadcaster setup
-- [[#Update live scores]] — per sport (cricket/football/basketball)
-- [[#End the match]] — set completed status, upload VOD to [[ImageKit]]
-- Troubleshooting — port conflicts, auth failures, stream not showing
+- Native Postgres, migrations `0001`–`0011`, and starting one backend instance
+- bcrypt/JWT account creation and env-backed administrator login
+- Creator draft → admin review → approved organiser workflow
+- Optional creator-defined pools, per-pool team assignment, and pool/knockout fixtures
+- Drag-and-drop Playing 11/bench selection
+- Match-specific generated IRL Pro SRT and RTMP fallback camera destinations
+- Football preflight, go live, score events, public stream/timeline, completion, and washout
+- Two-player substitutions with match-specific active-player tracking
+- Pool standings, knockout brackets, admin historical corrections, and public tournament hubs
+- Stale Prisma Client, duplicate nodemon, auth, and streaming troubleshooting
 
 ## Quick start commands
 ```powershell
@@ -23,11 +27,14 @@ cd frontend && npm run dev   # :3000
 | URL | What |
 |---|---|
 | `http://localhost:3000` | [[Frontend — Next.js]] — fixtures |
-| `http://localhost:3000/admin` | [[Admin Panel]] |
+| `http://localhost:3000/admin` | [[Admin Panel]] historical corrections |
+| `http://localhost:3000/admin/tournaments` | [[Admin Panel]] review queue |
+| `http://localhost:3000/organizer` | [[Tournament Organiser]] workspace |
 | `http://localhost:4000/api/matches` | [[Backend — Express + Socket.io]] — API |
-| `http://<SERVER>:8080/live/camera1.m3u8` | [[Streaming — SRS + LL-HLS]] — live HLS |
+| `http://<SERVER>:8080/live/<generated-key>.m3u8` | [[Streaming — SRS + LL-HLS]] — one-camera HLS |
 
 ## Related
-- [[Admin Panel]] — all match/score management lives here
+- [[Admin Panel]] — tournament review and completed-record corrections
+- [[Tournament Organiser]] — match, lineup, camera, score, and result management
 - [[Larix Broadcaster → RTMP → SRS]] — mobile streaming setup
 - [[Database — Prisma + Neon]] — local dev DB setup detail

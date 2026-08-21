@@ -41,6 +41,12 @@ async function addFootballEvent(matchId, e = {}) {
       playerId: e.playerId ? Number(e.playerId) : null,
       playerName: e.playerName ?? null,
       jerseyNumber: e.jerseyNumber ?? null,
+      playerOutId: e.playerOutId ? Number(e.playerOutId) : null,
+      playerOutName: e.playerOutName ?? null,
+      playerOutJersey: e.playerOutJersey ?? null,
+      playerInId: e.playerInId ? Number(e.playerInId) : null,
+      playerInName: e.playerInName ?? null,
+      playerInJersey: e.playerInJersey ?? null,
     },
   });
 }
@@ -67,6 +73,12 @@ async function listFootballEvents(matchId) {
     player_name: r.playerName,
     player_id: r.playerId,
     jersey_number: r.jerseyNumber,
+    player_out_id: r.playerOutId,
+    player_out_name: r.playerOutName,
+    player_out_jersey: r.playerOutJersey,
+    player_in_id: r.playerInId,
+    player_in_name: r.playerInName,
+    player_in_jersey: r.playerInJersey,
     team_name: r.team?.name ?? null,
     team_short: r.team?.shortName ?? null,
   }));

@@ -17,21 +17,21 @@ Hard constraints for FieldCast. These are non-negotiable unless Arpit explicitly
 
 ## Architecture
 
-7. **mediasoup is rejected.** This is a broadcast (one-to-many) use case, not many-to-many WebRTC conferencing — do not reintroduce it.
-8. **Camera switching happens via Node.js-managed ffmpeg child processes** re-piping the admin-selected RTMP feed into a single output stream. Do not replace this with a different switching mechanism without an explicit design discussion.
-9. **`README.md` is the single source of truth for architecture.** It replaces any prior/separate ARCHITECTURE.md. If a doc conflicts with README.md on architecture, README.md wins.
+8. **mediasoup is rejected.** This is a broadcast (one-to-many) use case, not many-to-many WebRTC conferencing — do not reintroduce it.
+9. **Camera switching happens via Node.js-managed ffmpeg child processes** re-piping the organiser-selected RTMP feed into a single output stream. Do not replace this with a different switching mechanism without an explicit design discussion.
+10. **`README.md` is the single source of truth for architecture.** It replaces any prior/separate ARCHITECTURE.md. If a doc conflicts with README.md on architecture, README.md wins.
 
 ## UI
 
-10. **Component sourcing order is strict:** Untitled UI MCP (free tier) first → Magic UI MCP or shadcn/ui MCP only if the component isn't available there → custom-built component only as a last resort, and only if explicitly flagged. Full detail in `DESIGN.md`.
-11. **Fonts are locked to Geist and Inter.** No third typeface without updating `DESIGN.md` first.
-12. **Theme is light-only.** No dark mode variant without updating `DESIGN.md` first.
-
-## Local Dev
-
-15. **Local dev uses native Windows PostgreSQL 18 on port 5432** — not Docker. The Docker `postgres` service in `docker-compose.yml` is for reference/CI only; on Windows the native Postgres service always wins the port. Use pgAdmin or psql as postgres superuser to create the `fieldcast` user/DB once. Do not fight Docker over port 5432 on Windows.
+11. **Component sourcing order is strict:** Untitled UI MCP (free tier) first → Magic UI MCP or shadcn/ui MCP only if the component isn't available there → custom-built component only as a last resort, and only if explicitly flagged. Full detail in `DESIGN.md`.
+12. **Fonts are locked to Geist and Inter.** No third typeface without updating `DESIGN.md` first.
+13. **Theme is light-only.** No dark mode variant without updating `DESIGN.md` first.
 
 ## Process
 
-13. **This is an interview-defensible system design project.** Where a "quick and dirty" option and a "properly justified" option both solve the immediate problem, prefer the one with a good answer behind it (this is why CI-driven migrations were chosen over hand-run ones).
-14. **New dependencies, services, or paid resources require explicit confirmation** before being added — don't introduce them mid-task because they seemed convenient.
+14. **This is an interview-defensible system design project.** Where a "quick and dirty" option and a "properly justified" option both solve the immediate problem, prefer the one with a good answer behind it (this is why CI-driven migrations were chosen over hand-run ones).
+15. **New dependencies, services, or paid resources require explicit confirmation** before being added — don't introduce them mid-task because they seemed convenient.
+
+## Local Dev
+
+16. **Local database development uses native Windows PostgreSQL 18 on port 5432** — not Docker. The Docker `postgres` service in `docker-compose.yml` is for reference/CI only; on Windows the native Postgres service always wins the port. SRS still runs in Docker when testing video streaming locally. Use pgAdmin or psql as postgres superuser to create the `fieldcast` user/DB once. Do not fight Docker over port 5432 on Windows.

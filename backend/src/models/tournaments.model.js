@@ -7,6 +7,7 @@ const DETAIL_INCLUDE = {
   teams: {
     orderBy: { createdAt: 'asc' },
     include: {
+      pool: true,
       team: {
         include: {
           players: {
@@ -17,6 +18,7 @@ const DETAIL_INCLUDE = {
       },
     },
   },
+  pools: { orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }] },
   organizers: {
     orderBy: { createdAt: 'asc' },
     include: { user: { select: { id: true, name: true, email: true, avatarUrl: true } } },
@@ -40,13 +42,16 @@ function findById(id) {
   return prisma.tournament.findUnique({ where: { id: Number(id) }, include: DETAIL_INCLUDE });
 }
 
-function create({ name, sport, format, startDate, endDate, imageUrl, creatorId }) {
+function create({ name, sport, format, startDate, endDate, imageUrl, creatorId, poolNames = [] }) {
   return prisma.tournament.create({
     data: {
       name, sport, format: format ?? null, imageUrl: imageUrl ?? null,
       startDate: startDate ? new Date(startDate) : null,
       endDate: endDate ? new Date(endDate) : null,
       creatorId: Number(creatorId), approvalStatus: 'draft',
+      pools: poolNames.length ? {
+        create: poolNames.map((poolName, index) => ({ name: poolName, sortOrder: index })),
+      } : undefined,
     },
     include: DETAIL_INCLUDE,
   });
@@ -62,11 +67,21 @@ function update(id, data) {
   return prisma.tournament.update({ where: { id: Number(id) }, data: allowed, include: DETAIL_INCLUDE });
 }
 
-async function addTeam(tournamentId, { name, shortName, sport, ownerId }) {
+async function addTeam(tournamentId, { name, shortName, sport, ownerId, poolId }) {
   return prisma.$transaction(async (tx) => {
     const team = await tx.team.create({ data: { name, shortName, sport, ownerId: Number(ownerId) } });
-    await tx.tournamentTeam.create({ data: { tournamentId: Number(tournamentId), teamId: team.id } });
+    await tx.tournamentTeam.create({ data: { tournamentId: Number(tournamentId), teamId: team.id, poolId: poolId ? Number(poolId) : null } });
     return team;
+  });
+}
+
+async function addPool(tournamentId, name) {
+  const aggregate = await prisma.tournamentPool.aggregate({
+    where: { tournamentId: Number(tournamentId) },
+    _max: { sortOrder: true },
+  });
+  return prisma.tournamentPool.create({
+    data: { tournamentId: Number(tournamentId), name, sortOrder: (aggregate._max.sortOrder ?? -1) + 1 },
   });
 }
 
@@ -74,6 +89,13 @@ function updateTeam(teamId, data) {
   return prisma.team.update({
     where: { id: Number(teamId) },
     data: { name: data.name, shortName: data.shortName, logoUrl: data.logoUrl ?? undefined },
+  });
+}
+
+async function updateTeamPool(tournamentId, teamId, poolId) {
+  return prisma.tournamentTeam.update({
+    where: { tournamentId_teamId: { tournamentId: Number(tournamentId), teamId: Number(teamId) } },
+    data: { poolId: poolId ? Number(poolId) : null },
   });
 }
 
@@ -91,13 +113,24 @@ async function updateLineup(teamId, playingPlayerIds) {
   });
 }
 
-async function addPlayer(teamId, { playerId, name, jerseyNumber, position, squadRole = 'bench', ownerId }) {
+async function addPlayer(teamId, { playerId, name, jerseyNumber, position, squadRole, ownerId }) {
   return prisma.$transaction(async (tx) => {
+    const numericTeamId = Number(teamId);
+    const team = await tx.team.findUniqueOrThrow({
+      where: { id: numericTeamId },
+      select: {
+        sport: true,
+        players: { select: { squadRole: true } },
+      },
+    });
+    const playingLimit = team.sport === 'basketball' ? 5 : 11;
+    const playingCount = team.players.filter((membership) => membership.squadRole === 'playing').length;
+    const assignedSquadRole = squadRole || (playingCount < playingLimit ? 'playing' : 'bench');
     const player = playerId
       ? await tx.player.findFirstOrThrow({ where: { id: Number(playerId), ownerId: Number(ownerId) } })
       : await tx.player.create({ data: { name: name.trim(), ownerId: Number(ownerId) } });
     return tx.teamPlayer.create({
-      data: { teamId: Number(teamId), playerId: player.id, jerseyNumber: String(jerseyNumber), position: position || null, squadRole },
+      data: { teamId: numericTeamId, playerId: player.id, jerseyNumber: String(jerseyNumber), position: position || null, squadRole: assignedSquadRole },
       include: { player: true },
     });
   });
@@ -163,4 +196,4 @@ async function addOrganizer(tournamentId, email, addedById) {
   return findById(tournamentId);
 }
 
-module.exports = { list, findById, create, update, addTeam, updateTeam, updateLineup, addPlayer, removePlayer, removeTeam, setSubmission, review, listPlayers, listOrganized, addOrganizer };
+module.exports = { list, findById, create, update, addPool, addTeam, updateTeam, updateTeamPool, updateLineup, addPlayer, removePlayer, removeTeam, setSubmission, review, listPlayers, listOrganized, addOrganizer };

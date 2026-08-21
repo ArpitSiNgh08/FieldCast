@@ -14,20 +14,20 @@ datasource db {
 // ─── Auth ─────────────────────────────────────────────────────────────────
 
 model User {
-  id        Int      @id @default(autoincrement())
-  email     String   @unique
-  name      String?
-  avatarUrl String?  @map("avatar_url")
-  passwordHash String? @map("password_hash")
+  id           Int      @id @default(autoincrement())
+  email        String   @unique
+  name         String?
+  avatarUrl    String?  @map("avatar_url")
+  passwordHash String?  @map("password_hash")
   // 'viewer' | 'admin'
-  role      String   @default("viewer")
-  createdAt DateTime @default(now()) @map("created_at")
+  role         String   @default("viewer")
+  createdAt    DateTime @default(now()) @map("created_at")
 
-  tournamentsCreated  Tournament[] @relation("TournamentCreator")
-  tournamentsReviewed Tournament[] @relation("TournamentReviewer")
+  tournamentsCreated       Tournament[]          @relation("TournamentCreator")
+  tournamentsReviewed      Tournament[]          @relation("TournamentReviewer")
   tournamentOrganiserRoles TournamentOrganizer[]
-  teamsCreated        Team[]
-  playersCreated      Player[]
+  teamsCreated             Team[]
+  playersCreated           Player[]
 
   @@map("users")
 }
@@ -44,58 +44,76 @@ model Team {
   ownerId   Int?     @map("owner_id")
   createdAt DateTime @default(now()) @map("created_at")
 
-  matchesAsA     Match[]        @relation("TeamA")
-  matchesAsB     Match[]        @relation("TeamB")
-  wonMatches     Match[]        @relation("Winner")
-  standings      Standing[]
-  cricketEvents  CricketEvent[]
-  footballEvents FootballEvent[]
-  owner           User?            @relation(fields: [ownerId], references: [id], onDelete: SetNull)
-  tournaments     TournamentTeam[]
-  players         TeamPlayer[]
+  matchesAsA        Match[]            @relation("TeamA")
+  matchesAsB        Match[]            @relation("TeamB")
+  wonMatches        Match[]            @relation("Winner")
+  standings         Standing[]
+  standingOverrides StandingOverride[]
+  cricketEvents     CricketEvent[]
+  footballEvents    FootballEvent[]
+  owner             User?              @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  tournaments       TournamentTeam[]
+  players           TeamPlayer[]
 
   @@map("teams")
 }
 
 model Tournament {
-  id        Int       @id @default(autoincrement())
-  name      String
+  id              Int       @id @default(autoincrement())
+  name            String
   // 'cricket' | 'football' | 'basketball'
-  sport     String
+  sport           String
   // 'league' | 'knockout' | free text
-  format    String?
-  startDate DateTime? @map("start_date") @db.Date
-  endDate   DateTime? @map("end_date") @db.Date
+  format          String?
+  startDate       DateTime? @map("start_date") @db.Date
+  endDate         DateTime? @map("end_date") @db.Date
   // 'upcoming' | 'ongoing' | 'completed'
-  status    String    @default("upcoming")
-  imageUrl  String?   @map("image_url") @db.Text
+  status          String    @default("upcoming")
+  imageUrl        String?   @map("image_url") @db.Text
   // 'draft' | 'submitted' | 'approved' | 'rejected'
-  approvalStatus String @default("draft") @map("approval_status")
-  rejectionReason String? @map("rejection_reason")
-  creatorId Int? @map("creator_id")
-  reviewedById Int? @map("reviewed_by_id")
-  submittedAt DateTime? @map("submitted_at")
-  reviewedAt DateTime? @map("reviewed_at")
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @default(now()) @updatedAt @map("updated_at")
+  approvalStatus  String    @default("draft") @map("approval_status")
+  rejectionReason String?   @map("rejection_reason")
+  creatorId       Int?      @map("creator_id")
+  reviewedById    Int?      @map("reviewed_by_id")
+  submittedAt     DateTime? @map("submitted_at")
+  reviewedAt      DateTime? @map("reviewed_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at")
 
-  matches   Match[]
-  standings Standing[]
-  creator   User? @relation("TournamentCreator", fields: [creatorId], references: [id], onDelete: SetNull)
-  reviewedBy User? @relation("TournamentReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
-  teams TournamentTeam[]
-  organizers TournamentOrganizer[]
+  matches           Match[]
+  standings         Standing[]
+  standingOverrides StandingOverride[]
+  creator           User?                 @relation("TournamentCreator", fields: [creatorId], references: [id], onDelete: SetNull)
+  reviewedBy        User?                 @relation("TournamentReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  teams             TournamentTeam[]
+  pools             TournamentPool[]
+  organizers        TournamentOrganizer[]
 
   @@index([approvalStatus])
   @@index([creatorId])
-
   @@map("tournaments")
 }
 
+model TournamentPool {
+  id           Int      @id @default(autoincrement())
+  tournamentId Int      @map("tournament_id")
+  name         String
+  sortOrder    Int      @default(0) @map("sort_order")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  tournament Tournament       @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  teams      TournamentTeam[]
+  matches    Match[]
+
+  @@unique([tournamentId, name])
+  @@index([tournamentId, sortOrder])
+  @@map("tournament_pools")
+}
+
 model TournamentOrganizer {
-  tournamentId Int @map("tournament_id")
-  userId       Int @map("user_id")
-  addedById    Int? @map("added_by_id")
+  tournamentId Int      @map("tournament_id")
+  userId       Int      @map("user_id")
+  addedById    Int?     @map("added_by_id")
   createdAt    DateTime @default(now()) @map("created_at")
 
   tournament Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
@@ -107,15 +125,18 @@ model TournamentOrganizer {
 }
 
 model TournamentTeam {
-  tournamentId Int @map("tournament_id")
-  teamId       Int @map("team_id")
+  tournamentId Int      @map("tournament_id")
+  teamId       Int      @map("team_id")
+  poolId       Int?     @map("pool_id")
   seed         Int?
   createdAt    DateTime @default(now()) @map("created_at")
 
-  tournament Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
-  team       Team       @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  tournament Tournament      @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  team       Team            @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  pool       TournamentPool? @relation(fields: [poolId], references: [id], onDelete: SetNull)
 
   @@id([tournamentId, teamId])
+  @@index([poolId])
   @@map("tournament_teams")
 }
 
@@ -126,21 +147,23 @@ model Player {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
 
-  owner User? @relation(fields: [ownerId], references: [id], onDelete: SetNull)
-  teams TeamPlayer[]
-  footballEvents FootballEvent[]
+  owner            User?           @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  teams            TeamPlayer[]
+  footballEvents   FootballEvent[]
+  substitutionsOut FootballEvent[] @relation("FootballSubOut")
+  substitutionsIn  FootballEvent[] @relation("FootballSubIn")
 
   @@index([ownerId])
   @@map("players")
 }
 
 model TeamPlayer {
-  teamId       Int    @map("team_id")
-  playerId     Int    @map("player_id")
-  jerseyNumber String @map("jersey_number")
+  teamId       Int      @map("team_id")
+  playerId     Int      @map("player_id")
+  jerseyNumber String   @map("jersey_number")
   position     String?
   // 'playing' | 'bench'
-  squadRole    String @default("bench") @map("squad_role")
+  squadRole    String   @default("bench") @map("squad_role")
   createdAt    DateTime @default(now()) @map("created_at")
 
   team   Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
@@ -152,32 +175,37 @@ model TeamPlayer {
 }
 
 model Match {
-  id           Int       @id @default(autoincrement())
-  tournamentId Int?      @map("tournament_id")
-  teamAId      Int       @map("team_a_id")
-  teamBId      Int       @map("team_b_id")
+  id                 Int       @id @default(autoincrement())
+  tournamentId       Int?      @map("tournament_id")
+  // 'pool' | 'knockout'; null only for legacy fixtures
+  stageType          String?   @map("stage_type")
+  poolId             Int?      @map("pool_id")
+  knockoutStage      String?   @map("knockout_stage")
+  teamAId            Int       @map("team_a_id")
+  teamBId            Int       @map("team_b_id")
   // 'cricket' | 'football' | 'basketball'
-  sport        String
-  scheduledAt  DateTime? @map("scheduled_at")
+  sport              String
+  scheduledAt        DateTime? @map("scheduled_at")
   // 'upcoming' | 'live' | 'completed'
-  status       String    @default("upcoming")
-  winnerTeamId Int?      @map("winner_team_id")
+  status             String    @default("upcoming")
+  winnerTeamId       Int?      @map("winner_team_id")
   // 'pending' | 'played' | 'washout'
-  resultType   String    @default("pending") @map("result_type")
+  resultType         String    @default("pending") @map("result_type")
   // 'camera1' | 'camera2' | 'camera3'
-  activeCamera String    @default("camera1") @map("active_camera")
+  activeCamera       String    @default("camera1") @map("active_camera")
   // Optional explicit stream override; null → frontend derives from SRS_HLS_BASE
-  streamUrl    String?   @map("stream_url")
+  streamUrl          String?   @map("stream_url")
   // ImageKit / HLS VOD URL when completed
-  replayUrl    String?   @map("replay_url")
-  venue        String?
-  broadcastChecklist Json @default("{}") @map("broadcast_checklist")
-  createdAt    DateTime  @default(now()) @map("created_at")
+  replayUrl          String?   @map("replay_url")
+  venue              String?
+  broadcastChecklist Json      @default("{}") @map("broadcast_checklist")
+  createdAt          DateTime  @default(now()) @map("created_at")
 
-  tournament         Tournament?        @relation(fields: [tournamentId], references: [id])
-  teamA              Team               @relation("TeamA", fields: [teamAId], references: [id])
-  teamB              Team               @relation("TeamB", fields: [teamBId], references: [id])
-  winner             Team?              @relation("Winner", fields: [winnerTeamId], references: [id])
+  tournament         Tournament?         @relation(fields: [tournamentId], references: [id])
+  pool               TournamentPool?     @relation(fields: [poolId], references: [id], onDelete: SetNull)
+  teamA              Team                @relation("TeamA", fields: [teamAId], references: [id])
+  teamB              Team                @relation("TeamB", fields: [teamBId], references: [id])
+  winner             Team?               @relation("Winner", fields: [winnerTeamId], references: [id])
   state              MatchState?
   cricketEvents      CricketEvent[]
   footballEvents     FootballEvent[]
@@ -185,6 +213,7 @@ model Match {
   cameras            MatchCamera[]
 
   @@index([tournamentId])
+  @@index([poolId])
   @@index([status])
   @@map("matches")
 }
@@ -221,6 +250,26 @@ model Standing {
 
   @@unique([tournamentId, teamId])
   @@map("standings")
+}
+
+model StandingOverride {
+  id            Int      @id @default(autoincrement())
+  tournamentId  Int      @map("tournament_id")
+  teamId        Int      @map("team_id")
+  played        Int?
+  won           Int?
+  lost          Int?
+  drawn         Int?
+  points        Int?
+  scoredFor     Int?     @map("scored_for")
+  scoredAgainst Int?     @map("scored_against")
+  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at")
+
+  tournament Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  team       Team       @relation(fields: [teamId], references: [id], onDelete: Cascade)
+
+  @@unique([tournamentId, teamId])
+  @@map("standing_overrides")
 }
 
 // ─── Live overlay state (one row per match) ───────────────────────────────
@@ -270,25 +319,35 @@ model CricketEvent {
 }
 
 model FootballEvent {
-  id         Int      @id @default(autoincrement())
-  matchId    Int      @map("match_id")
-  half       Int      @default(1)
-  minute     Int      @default(0)
-  extraTimeMinute Int @default(0) @map("extra_time_minute")
+  id              Int      @id @default(autoincrement())
+  matchId         Int      @map("match_id")
+  half            Int      @default(1)
+  minute          Int      @default(0)
+  extraTimeMinute Int      @default(0) @map("extra_time_minute")
   // 'goal' | 'yellow_card' | 'red_card' | 'substitution'
-  eventType  String   @map("event_type")
-  teamId     Int?     @map("team_id")
-  playerId   Int?     @map("player_id")
-  playerName String?  @map("player_name")
-  jerseyNumber String? @map("jersey_number")
-  createdAt  DateTime @default(now()) @map("created_at")
+  eventType       String   @map("event_type")
+  teamId          Int?     @map("team_id")
+  playerId        Int?     @map("player_id")
+  playerName      String?  @map("player_name")
+  jerseyNumber    String?  @map("jersey_number")
+  playerOutId     Int?     @map("player_out_id")
+  playerOutName   String?  @map("player_out_name")
+  playerOutJersey String?  @map("player_out_jersey")
+  playerInId      Int?     @map("player_in_id")
+  playerInName    String?  @map("player_in_name")
+  playerInJersey  String?  @map("player_in_jersey")
+  createdAt       DateTime @default(now()) @map("created_at")
 
-  match Match @relation(fields: [matchId], references: [id], onDelete: Cascade)
-  team  Team? @relation(fields: [teamId], references: [id])
-  player Player? @relation(fields: [playerId], references: [id], onDelete: SetNull)
+  match     Match   @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  team      Team?   @relation(fields: [teamId], references: [id])
+  player    Player? @relation(fields: [playerId], references: [id], onDelete: SetNull)
+  playerOut Player? @relation("FootballSubOut", fields: [playerOutId], references: [id], onDelete: SetNull)
+  playerIn  Player? @relation("FootballSubIn", fields: [playerInId], references: [id], onDelete: SetNull)
 
   @@index([matchId])
   @@index([playerId])
+  @@index([playerOutId])
+  @@index([playerInId])
   @@map("football_events")
 }
 

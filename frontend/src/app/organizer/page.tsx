@@ -22,10 +22,17 @@ export default function OrganizerPage() {
   const [teamB, setTeamB] = useState("");
   const [scheduledAt, setScheduledAt] = useState("");
   const [venue, setVenue] = useState("");
+  const [matchStageType, setMatchStageType] = useState<"pool" | "knockout" | "">("");
+  const [poolId, setPoolId] = useState("");
+  const [knockoutChoice, setKnockoutChoice] = useState("Semi-final");
+  const [customKnockoutStage, setCustomKnockoutStage] = useState("");
   const [createAsWashout, setCreateAsWashout] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const selected = tournaments.find((tournament) => tournament.id === selectedId);
+  const effectiveStageType = matchStageType || (selected?.pools.length ? "pool" : "knockout");
+  const effectivePoolId = selected?.pools.some((pool) => String(pool.id) === poolId) ? poolId : String(selected?.pools[0]?.id || "");
+  const eligibleTeams = selected?.teams.filter((membership) => effectiveStageType !== "pool" || String(membership.poolId) === effectivePoolId) || [];
 
   const load = useCallback(async () => {
     const data = await api.organizedTournaments();
@@ -77,6 +84,9 @@ export default function OrganizerPage() {
         sport: selected.sport,
         scheduledAt,
         venue,
+        stageType: effectiveStageType,
+        poolId: effectiveStageType === "pool" ? Number(effectivePoolId) : undefined,
+        knockoutStage: effectiveStageType === "knockout" ? (knockoutChoice === "custom" ? customKnockoutStage : knockoutChoice) : undefined,
       });
       if (createAsWashout) {
         await api.setMatchResult(match.id, { resultType: "washout" });
@@ -108,7 +118,7 @@ export default function OrganizerPage() {
       ) : (
         <>
           <Field label="Choose approved tournament" className="mb-6 max-w-md">
-            <Select value={selectedId} onChange={(event) => { setSelectedId(Number(event.target.value)); setTeamA(""); setTeamB(""); }}>
+            <Select value={selectedId} onChange={(event) => { setSelectedId(Number(event.target.value)); setTeamA(""); setTeamB(""); setMatchStageType(""); setPoolId(""); }}>
               {tournaments.map((tournament) => <option key={tournament.id} value={tournament.id}>{tournament.name} · {tournament.sport}</option>)}
             </Select>
           </Field>
@@ -121,7 +131,7 @@ export default function OrganizerPage() {
                     <div className="space-y-3">
                       {matches.map((match) => (
                         <Link href={`/organizer/matches/${match.id}`} key={match.id} className="flex items-center justify-between rounded-lg border border-border p-4 transition-colors hover:border-accent">
-                          <div><p className="font-medium">{match.teamA.name} vs {match.teamB.name}</p><p className="mt-1 text-xs text-muted">{match.venue || "Venue pending"} · {match.cameras.length} camera{match.cameras.length === 1 ? "" : "s"}</p></div>
+                          <div><p className="font-medium">{match.teamA.name} vs {match.teamB.name}</p><p className="mt-1 text-xs text-muted">{match.poolName || match.knockoutStage || "Legacy fixture"} · {match.venue || "Venue pending"} · {match.cameras.length} camera{match.cameras.length === 1 ? "" : "s"}</p></div>
                           <Badge tone={match.status === "live" ? "accent" : "muted"}>{match.resultType === "washout" ? "washout" : match.status}</Badge>
                         </Link>
                       ))}
@@ -137,8 +147,11 @@ export default function OrganizerPage() {
                     <CardHeader><CardTitle>Create football match</CardTitle><p className="mt-1 text-sm text-muted">Kickoff and venue are part of the required broadcast preflight.</p></CardHeader>
                     <CardBody>
                       <form onSubmit={createMatch} className="grid gap-4 sm:grid-cols-2">
-                        <Field label="Home team"><Select value={teamA} onChange={(event) => setTeamA(event.target.value)} required><option value="">Choose team</option>{selected.teams.map((membership) => <option key={membership.teamId} value={membership.teamId}>{membership.team.name}</option>)}</Select></Field>
-                        <Field label="Away team"><Select value={teamB} onChange={(event) => setTeamB(event.target.value)} required><option value="">Choose team</option>{selected.teams.filter((membership) => String(membership.teamId) !== teamA).map((membership) => <option key={membership.teamId} value={membership.teamId}>{membership.team.name}</option>)}</Select></Field>
+                        <Field label="Match stage"><Select value={effectiveStageType} onChange={(event) => { setMatchStageType(event.target.value as "pool" | "knockout"); setTeamA(""); setTeamB(""); }}>{selected.pools.length > 0 && <option value="pool">Pool stage</option>}<option value="knockout">Knockout stage</option></Select></Field>
+                        {effectiveStageType === "pool" ? <Field label="Pool"><Select value={effectivePoolId} onChange={(event) => { setPoolId(event.target.value); setTeamA(""); setTeamB(""); }} required>{selected.pools.map((pool) => <option key={pool.id} value={pool.id}>{pool.name}</option>)}</Select></Field> : <Field label="Knockout round"><Select value={knockoutChoice} onChange={(event) => setKnockoutChoice(event.target.value)}><option value="Semi-final">Semi-final</option><option value="Final">Final</option><option value="custom">Add another stage…</option></Select></Field>}
+                        {effectiveStageType === "knockout" && knockoutChoice === "custom" && <Field label="Stage name" className="sm:col-span-2"><Input value={customKnockoutStage} onChange={(event) => setCustomKnockoutStage(event.target.value)} required maxLength={50} placeholder="Round of 16 or Quarterfinal" /></Field>}
+                        <Field label="Home team"><Select value={teamA} onChange={(event) => setTeamA(event.target.value)} required><option value="">Choose team</option>{eligibleTeams.map((membership) => <option key={membership.teamId} value={membership.teamId}>{membership.team.name}</option>)}</Select></Field>
+                        <Field label="Away team"><Select value={teamB} onChange={(event) => setTeamB(event.target.value)} required><option value="">Choose team</option>{eligibleTeams.filter((membership) => String(membership.teamId) !== teamA).map((membership) => <option key={membership.teamId} value={membership.teamId}>{membership.team.name}</option>)}</Select></Field>
                         <Field label="Kickoff"><Input type="datetime-local" value={scheduledAt} onChange={(event) => setScheduledAt(event.target.value)} required /></Field>
                         <Field label="Venue"><Input value={venue} onChange={(event) => setVenue(event.target.value)} required placeholder="College football ground" /></Field>
                         <label className="flex items-start gap-3 rounded-lg border border-border p-3 sm:col-span-2"><input type="checkbox" checked={createAsWashout} onChange={(event) => setCreateAsWashout(event.target.checked)} className="mt-1 h-4 w-4 accent-accent" /><span><span className="block text-sm font-medium">Declare this fixture a washout</span><span className="block text-xs text-muted">Creates the fixture as completed without affecting played, wins, draws, losses, or points.</span></span></label>

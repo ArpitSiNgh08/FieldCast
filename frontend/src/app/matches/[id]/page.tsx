@@ -71,6 +71,7 @@ export default async function MatchPage({ params }: Props) {
               <span className="text-muted font-normal">vs</span>{" "}
               {match.teamB.name}
             </h1>
+            {(match.poolName || match.knockoutStage) && <p className="mt-2 text-sm font-semibold text-accent">{match.poolName || match.knockoutStage}</p>}
             {match.venue && <p className="mt-2 text-sm text-muted">{match.venue}</p>}
           </div>
           <div>
@@ -95,9 +96,9 @@ export default async function MatchPage({ params }: Props) {
             ) : (
               <div className="flex aspect-video w-full flex-col items-center justify-center rounded-xl border border-dashed border-border bg-surface text-center px-6">
                 <span className="mb-3 text-4xl">{SPORT_EMOJI[match.sport]}</span>
-                <p className="text-base font-medium text-foreground">Stream not started yet</p>
+                <p className="text-base font-medium text-foreground">{isDone ? "Live stream has ended" : "Stream not started yet"}</p>
                 <p className="mt-1 text-sm text-muted">
-                  The live feed will appear here once cameras go live.
+                  {isDone ? "This match has been finalized by the organiser." : "The live feed will appear here once cameras go live."}
                 </p>
               </div>
             )}
