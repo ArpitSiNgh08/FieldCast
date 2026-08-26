@@ -160,6 +160,9 @@ The UI primitives (`Badge`, `Button`, `Card`, `Navbar`, etc.) were custom-built 
 
 ## Session log
 
+- **2026-08-27** — Fixed Vercel Actions monorepo path.
+  - The Vercel project already configures `frontend` as its Root Directory, so the production CLI deploy now runs from the repository root instead of incorrectly resolving `frontend/frontend`.
+
 - **2026-08-26** — Production runbook and documentation audit.
   - Documented `SCORE_SYNC_DELAY_MS = 15_000` as the temporary public score/video holdback and distinguished it from Vercel's required `NEXT_PUBLIC_SOCKET_URL`.
   - Added the post-push Actions, VM, Socket.IO, SRS, migration, and external-phone verification checklist to the root guides and synchronized the Obsidian production notes.

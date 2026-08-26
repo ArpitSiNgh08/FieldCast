@@ -51,6 +51,8 @@ Do not also run `prisma migrate deploy` manually when the workflow succeeds. The
 
 The 2026-08-26 production dependency audit also found high-severity advisories in the Next.js, Socket.IO parser, and Prisma CLI dependency trees. Dependency upgrades require a separate tested change; do not use `npm audit fix --force` directly on the VM.
 
+The Vercel CLI step runs from the repository root because the linked Vercel project already sets its Root Directory to `frontend`. Running the step from `frontend/` would incorrectly resolve `frontend/frontend`.
+
 ## Related
 - [[Database — Prisma + Neon]] — migration workflow detail
 - [[Phase 1 — Oracle VM]] — deploy target (SSH)

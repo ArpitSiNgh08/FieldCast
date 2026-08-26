@@ -103,7 +103,9 @@ jobs:
 
       - name: Deploy to Vercel (production)
         run: vercel deploy --prod --token=${{ secrets.VERCEL_TOKEN }}
-        working-directory: frontend
+        # The linked Vercel project already has Root Directory set to
+        # `frontend`; running from that folder would resolve frontend/frontend.
+        working-directory: .
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
