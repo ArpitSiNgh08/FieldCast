@@ -6,7 +6,7 @@ type Size = "sm" | "md" | "lg";
 
 const VARIANTS: Record<Variant, string> = {
   primary:
-    "bg-accent text-black font-semibold hover:bg-accent-strong hover:text-white",
+    "bg-accent text-white font-semibold hover:bg-accent-strong hover:text-white",
   secondary: "bg-surface-2 text-foreground hover:bg-border",
   ghost: "bg-transparent text-muted hover:text-foreground hover:bg-surface-2",
   danger: "bg-live text-white hover:brightness-110",
@@ -34,7 +34,7 @@ export function Button({
   return (
     <button
       className={cn(
-        "inline-flex items-center justify-center gap-2 rounded-lg transition-colors",
+        "inline-flex items-center justify-center gap-2 rounded-lg transition-colors whitespace-nowrap",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60",
         "disabled:cursor-not-allowed disabled:opacity-50",
         VARIANTS[variant],

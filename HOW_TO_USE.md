@@ -63,7 +63,7 @@ npm run db:generate
 npm run db:seed
 ```
 
-The repository currently contains migrations `0001` through `0011`.
+The repository currently contains migrations `0001` through `0012`. Migration `0012_match_viewers` is required for the live/unique viewer counters.
 
 ### Start the application
 
@@ -211,6 +211,8 @@ For IRL Pro, use SRT/Caller mode with the exact recommended URL shown on the org
 srt://SERVER:10080?streamid=#!::r=live/MATCH_CAMERA_KEY,m=publish
 ```
 
+IRL Pro may request these as separate values. In that case enter `srt://SERVER:10080` in its Server field and `#!::r=live/MATCH_CAMERA_KEY,m=publish` in its Stream ID field. On iPhone, Moblin can publish the same custom SRT/Caller destination without Larix Broadcaster's free-tier overlay.
+
 If RTMP is stable, it remains fully supported and is not necessary to replace. Larix and other RTMP broadcasters use:
 
 ```text
@@ -313,7 +315,23 @@ Washouts stop the broadcast and appear as completed fixtures, but do not change 
 
 Public viewing does not require login.
 
+Live match pages display both the current active-browser count and an anonymous unique-browser total for that match. Multiple tabs from the same browser count once; clearing browser storage counts as a new browser.
+
 ## 10. Troubleshooting
+
+### Oracle VM API works locally but not from the internet
+
+On the VM, verify the service and listener first:
+
+```bash
+systemctl is-active fieldcast-backend
+sudo ss -ltnp | grep ':4000'
+sudo ufw status verbose
+```
+
+The service must be `active`, and Node should listen on `0.0.0.0:4000` or `:::4000`. In Oracle Cloud, confirm the public subnet security list permits stateful inbound `4000/TCP` from the intended source. The production SRS API remains private at `127.0.0.1:1985`; do not open port `1985` publicly.
+
+Until a custom domain and TLS reverse proxy are configured, an HTTPS Vercel frontend cannot call `http://<VM-IP>:4000` or play `http://<VM-IP>:8080` without browser mixed-content restrictions.
 
 ### `Unknown argument resultType`
 

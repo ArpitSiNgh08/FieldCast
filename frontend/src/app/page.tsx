@@ -4,6 +4,7 @@ import type { Match } from "@/lib/types";
 import { SPORTS, SPORT_LABEL, SPORT_EMOJI } from "@/lib/format";
 import type { Tournament } from "@/lib/types";
 import Link from "next/link";
+import { AddTournamentButton } from "@/components/AddTournamentButton";
 
 export const revalidate = 0; // reflect organiser status changes immediately
 
@@ -38,21 +39,34 @@ export default async function HomePage() {
           real-time scores, multi-camera, no OBS needed.
         </p>
         </div>
-        <Link href="/tournaments/new" className="inline-flex h-10 shrink-0 items-center justify-center rounded-lg bg-accent px-4 text-sm font-semibold text-black transition-colors hover:bg-accent-strong hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60">
-          + Add tournament
-        </Link>
+        <AddTournamentButton />
       </div>
 
-      {tournaments.length > 0 && <section className="mb-10" aria-label="Approved tournaments">
-        <h2 className="mb-4 text-sm font-semibold uppercase tracking-widest text-muted">Tournaments</h2>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {tournaments.map((t) => <Link key={t.id} href={`/tournaments/${t.id}`} aria-label={`Open ${t.name}`} className="group overflow-hidden rounded-xl border border-border bg-surface shadow-sm transition-all hover:-translate-y-0.5 hover:border-accent hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={t.imageUrl || "/tournament-placeholder.svg"} alt="" className="h-36 w-full object-cover transition-transform group-hover:scale-[1.02]" />
-            <div className="p-4"><p className="text-xs font-medium uppercase tracking-wide text-muted">{SPORT_LABEL[t.sport]}</p><h3 className="mt-1 font-semibold text-foreground">{t.name}</h3><p className="mt-2 text-xs text-muted">{t.teams.length} teams · {t.format || "Format to be announced"}</p></div>
-          </Link>)}
-        </div>
-      </section>}
+      {/* Sport quick-filters — informational browse by sport */}
+      {matches.length > 0 && (
+        <section aria-label="Browse by sport" className="mb-10 border-b border-border pb-8">
+          <h2 className="mb-4 text-sm font-semibold uppercase tracking-widest text-muted">
+            Browse by sport
+          </h2>
+          <div className="flex flex-wrap gap-3">
+            {SPORTS.map((sport) => {
+              const count = matches.filter((m) => m.sport === sport).length;
+              if (!count) return null;
+              return (
+                <a
+                  key={sport}
+                  href={`/?sport=${sport}`}
+                  className="flex items-center gap-2 rounded-full border border-border bg-surface px-4 py-2 text-sm font-medium text-foreground shadow-sm transition-colors hover:border-accent hover:text-accent"
+                >
+                  <span>{SPORT_EMOJI[sport]}</span>
+                  <span>{SPORT_LABEL[sport]}</span>
+                  <span className="text-xs text-muted">({count})</span>
+                </a>
+              );
+            })}
+          </div>
+        </section>
+      )}
 
       {/* Live matches — shown prominently first */}
       {live.length > 0 && (
@@ -85,6 +99,17 @@ export default async function HomePage() {
         </section>
       )}
 
+      {tournaments.length > 0 && <section className="mb-10" aria-label="Approved tournaments">
+        <h2 className="mb-4 text-sm font-semibold uppercase tracking-widest text-muted">Tournaments</h2>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {tournaments.map((t) => <Link key={t.id} href={`/tournaments/${t.id}`} aria-label={`Open ${t.name}`} className="group overflow-hidden rounded-xl border border-border bg-surface shadow-sm transition-all hover:-translate-y-0.5 hover:border-accent hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={t.imageUrl || "/tournament-placeholder.svg"} alt="" className="h-36 w-full object-cover transition-transform group-hover:scale-[1.02]" />
+            <div className="p-4"><p className="text-xs font-medium uppercase tracking-wide text-muted">{SPORT_LABEL[t.sport]}</p><h3 className="mt-1 font-semibold text-foreground">{t.name}</h3><p className="mt-2 text-xs text-muted">{t.teams.length} teams · {t.format || "Format to be announced"}</p></div>
+          </Link>)}
+        </div>
+      </section>}
+
       {/* Recent results */}
       {completed.length > 0 && (
         <section className="mb-10" aria-label="Recent results">
@@ -110,31 +135,6 @@ export default async function HomePage() {
         </div>
       )}
 
-      {/* Sport quick-filters — informational browse by sport */}
-      {matches.length > 0 && (
-        <section aria-label="Browse by sport" className="mt-6 border-t border-border pt-8">
-          <h2 className="mb-4 text-sm font-semibold uppercase tracking-widest text-muted">
-            Browse by sport
-          </h2>
-          <div className="flex flex-wrap gap-3">
-            {SPORTS.map((sport) => {
-              const count = matches.filter((m) => m.sport === sport).length;
-              if (!count) return null;
-              return (
-                <a
-                  key={sport}
-                  href={`/?sport=${sport}`}
-                  className="flex items-center gap-2 rounded-full border border-border bg-surface px-4 py-2 text-sm font-medium text-foreground shadow-sm transition-colors hover:border-accent hover:text-accent"
-                >
-                  <span>{SPORT_EMOJI[sport]}</span>
-                  <span>{SPORT_LABEL[sport]}</span>
-                  <span className="text-xs text-muted">({count})</span>
-                </a>
-              );
-            })}
-          </div>
-        </section>
-      )}
     </div>
   );
 }

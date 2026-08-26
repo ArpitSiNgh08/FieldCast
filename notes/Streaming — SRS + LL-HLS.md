@@ -18,12 +18,12 @@ Phone → RTMP :1935/TCP or SRT :10080/UDP → SRS → LL-HLS → hls.js in brow
 |---|---|
 | 1935 | RTMP ingest (phones push here) |
 | 10080/UDP | SRT ingest (IRL Pro recommended fallback) |
-| 8080 | HLS output (viewers pull from here) |
+| 8080 | Internal HLS output (Nginx proxies it as HTTPS `/live`) |
 | 1985 | SRS HTTP API (check active streams) |
 
 ## Deployment
 - **Local dev:** `docker compose up -d srs`
-- **Production:** Docker on [[Phase 1 — Oracle VM]]
+- **Production:** Docker on [[Phase 1 — Oracle VM]]; `fieldcast-srs` is provisioned and its local API is verified
 - Config: `infra/srs.conf`
 
 ## Stream keys
@@ -32,11 +32,12 @@ Current organiser-created cameras use unique backend-generated keys per match, f
 
 ## HLS stream URL
 ```
-http://<server-ip>:8080/live/<match-camera-key>.m3u8
+https://<duckdns-host>/live/<match-camera-key>.m3u8
 ```
 
 - Single camera: viewer plays the camera-specific manifest directly.
 - Multiple cameras: ffmpeg republishes the selected feed to `/live/active_<matchId>.m3u8`.
+- The raw IP/port URL is for VM-only diagnostics. Production browser playback uses Nginx HTTPS on the DuckDNS hostname; do not expose SRS `1985` or direct HLS `8080` publicly.
 
 ## Related
 - [[Camera Switching]] — selects which camera feed goes to viewers

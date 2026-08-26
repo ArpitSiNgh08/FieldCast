@@ -5,9 +5,41 @@ const events = require('../models/events.model');
 const Matches = require('../models/matches.model');
 const cameraSwitcher = require('../services/cameraSwitcher');
 const authorization = require('../services/authorization.service');
+const prisma = require('../config/prisma');
 
 const room = (matchId) => `match:${matchId}`;
 const scoreQueues = new Map();
+// matchId -> browser viewer ID -> socket IDs. Several tabs from one browser
+// count as one live viewer, while a browser reconnect remains live.
+const activeViewers = new Map();
+
+function getLiveViewerCount(matchId) {
+  return activeViewers.get(Number(matchId))?.size || 0;
+}
+
+function removeLiveViewer(socket, matchId) {
+  const id = Number(matchId);
+  const viewerId = socket.data.streamViews?.get(id);
+  if (!viewerId) return false;
+
+  socket.data.streamViews.delete(id);
+  const viewers = activeViewers.get(id);
+  const sockets = viewers?.get(viewerId);
+  sockets?.delete(socket.id);
+  if (sockets?.size === 0) viewers.delete(viewerId);
+  if (viewers?.size === 0) activeViewers.delete(id);
+  return true;
+}
+
+async function broadcastViewerCount(io, matchId) {
+  const id = Number(matchId);
+  const unique = await prisma.matchView.count({ where: { matchId: id } });
+  io.to(room(id)).emit('stream:viewers', {
+    matchId: id,
+    live: getLiveViewerCount(id),
+    unique,
+  });
+}
 
 /** Guard: only an explicit organiser of this match's tournament may mutate. */
 async function assertManager(socket, matchId) {
@@ -101,6 +133,60 @@ async function recordDetail(matchId, sport, payload) {
 }
 
 function register(io, socket) {
+  socket.data.streamViews = new Map();
+
+  // A browser reports its stable, anonymous local ID after the player mounts.
+  // The database insert is idempotent so "unique viewers" is per browser per
+  // match rather than per reconnect or tab.
+  socket.on('stream:watch', async ({ matchId, viewerId }, ack) => {
+    const id = Number(matchId);
+    if (!Number.isInteger(id) || id <= 0 || typeof viewerId !== 'string' || viewerId.length < 8 || viewerId.length > 128) {
+      if (typeof ack === 'function') ack({ ok: false, error: 'Invalid viewer data' });
+      return;
+    }
+
+    try {
+      const previous = socket.data.streamViews.get(id);
+      if (previous && previous !== viewerId) removeLiveViewer(socket, id);
+      socket.join(room(id));
+      const viewers = activeViewers.get(id) || new Map();
+      const sockets = viewers.get(viewerId) || new Set();
+      sockets.add(socket.id);
+      viewers.set(viewerId, sockets);
+      activeViewers.set(id, viewers);
+      socket.data.streamViews.set(id, viewerId);
+
+      await prisma.matchView.upsert({
+        where: { matchId_viewerId: { matchId: id, viewerId } },
+        update: {},
+        create: { matchId: id, viewerId },
+      });
+      await broadcastViewerCount(io, id);
+      if (typeof ack === 'function') ack({ ok: true });
+    } catch (err) {
+      removeLiveViewer(socket, id);
+      if (typeof ack === 'function') ack({ ok: false, error: 'Unable to record viewer' });
+    }
+  });
+
+  socket.on('stream:leave', async ({ matchId }) => {
+    try {
+      if (removeLiveViewer(socket, matchId)) await broadcastViewerCount(io, matchId);
+    } catch (err) {
+      // Viewer analytics must never interrupt playback or take down the API.
+      console.error('Unable to update stream viewer count:', err.message);
+    }
+  });
+
+  socket.on('disconnect', () => {
+    const watchedMatches = [...socket.data.streamViews.keys()];
+    for (const matchId of watchedMatches) {
+      if (removeLiveViewer(socket, matchId)) {
+        broadcastViewerCount(io, matchId).catch(() => {});
+      }
+    }
+  });
+
   // Viewers and organisers join the same match room to receive live updates.
   socket.on('match:join', async ({ matchId }, ack) => {
     if (!matchId) return;

@@ -211,11 +211,26 @@ model Match {
   footballEvents     FootballEvent[]
   basketballQuarters BasketballQuarter[]
   cameras            MatchCamera[]
+  views              MatchView[]
 
   @@index([tournamentId])
   @@index([poolId])
   @@index([status])
   @@map("matches")
+}
+
+// One anonymous, browser-scoped viewer identifier per match. This lets the
+// public counter survive backend restarts without storing IP addresses.
+model MatchView {
+  matchId   Int      @map("match_id")
+  viewerId  String   @map("viewer_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  match Match @relation(fields: [matchId], references: [id], onDelete: Cascade)
+
+  @@id([matchId, viewerId])
+  @@index([matchId])
+  @@map("match_views")
 }
 
 model MatchCamera {

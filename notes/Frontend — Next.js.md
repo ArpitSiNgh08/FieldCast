@@ -35,7 +35,7 @@ Part of [[FieldCast]]
 `3000` — start with `npm run dev` from `frontend/`
 
 ## Deployment
-**Vercel free tier** — no raw ports needed, purely HTTP
+**Vercel free tier** — deployment is live, but production `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_SOCKET_URL` must point to the HTTPS API origin before it can use the Oracle backend.
 
 ## Key pages
 | Route | What it shows |
@@ -68,9 +68,11 @@ Part of [[FieldCast]]
 
 ## Env vars
 ```
-NEXT_PUBLIC_API_URL=http://localhost:4000   # or Oracle VM IP in prod
+NEXT_PUBLIC_API_URL=http://localhost:4000   # local development
 NEXT_PUBLIC_SOCKET_URL=http://localhost:4000
 ```
+
+For production, use HTTPS domain origins (for example `https://api.example.com`), not a raw HTTP VM IP. An HTTPS Vercel site cannot use HTTP API or HLS resources without mixed-content restrictions.
 
 ## Related
 - [[Streaming — SRS + LL-HLS]] — video stream source

@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
 import { Navbar } from "@/components/Navbar";
+import { Agentation } from "agentation";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -37,6 +38,7 @@ export default function RootLayout({
           <footer className="border-t border-border py-6 text-center text-xs text-muted">
             FieldCast — built for the ground, designed for scale.
           </footer>
+          {process.env.NODE_ENV === "development" && <Agentation endpoint="http://localhost:4747" />}
         </Providers>
       </body>
     </html>

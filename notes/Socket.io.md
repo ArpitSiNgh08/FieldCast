@@ -3,7 +3,7 @@
 Part of [[FieldCast]] · Part of [[Backend — Express + Socket.io]]
 
 ## What it does
-Pushes live score, active-camera, and match-status updates from the backend to connected browsers instantly, without polling.
+Pushes live score, active-camera, match-status, and viewer-metric updates from the backend to connected browsers instantly, without polling.
 
 ## Current events
 | Event | Direction | Purpose |
@@ -15,6 +15,20 @@ Pushes live score, active-camera, and match-status updates from the backend to c
 | `camera:switch` | organiser → server | Select a configured match stream key |
 | `camera:switched` | server → room | Broadcast selected camera |
 | `match:status` | server → room | Broadcast live/completed/washout transition |
+| `stream:watch` | viewer → server | Register an anonymous browser as watching a live match |
+| `stream:leave` | viewer → server | Remove that browser from the live viewer count |
+| `stream:viewers` | server → room | Broadcast current live and persisted unique-viewer totals |
+
+## Viewer metrics
+
+`stream:watch` receives a random ID stored in the browser's local storage. `MatchView` stores one row per `(matchId, viewerId)`, so the unique total survives process restarts and duplicate browser tabs count once. The in-memory socket map supplies the live count. No IP address or personally identifying viewer data is stored.
+
+Apply migration `0012_match_viewers` before deploying this feature:
+
+```bash
+npx prisma migrate deploy
+npx prisma generate
+```
 
 ## Football score flow
 ```

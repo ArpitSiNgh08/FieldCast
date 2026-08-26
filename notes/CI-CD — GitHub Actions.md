@@ -4,7 +4,7 @@ Part of [[FieldCast]]
 
 ## Workflows
 
-Workflow files are written, but production secrets, Neon, Oracle VM, and Vercel project linkage are not configured yet.
+The workflow files are written. Neon and the Oracle VM now exist, while GitHub Actions secrets, Vercel production API/Socket variables, and HTTPS/domain routing still need configuration.
 
 ### `ci.yml` — runs on every PR
 1. Checkout code
@@ -14,7 +14,7 @@ Workflow files are written, but production secrets, Neon, Oracle VM, and Vercel 
 
 ### `deploy.yml` — runs on merge to `main`
 1. `npx prisma migrate deploy` — applies pending migrations to Neon production DB
-2. SSH into [[Phase 1 — Oracle VM]] → `git pull` + `docker compose restart backend`
+2. SSH into [[Phase 1 — Oracle VM]] → fetch `main`, install production backend dependencies, regenerate Prisma Client, and restart `fieldcast-backend` through systemd (or PM2 if explicitly installed)
 3. Vercel CLI → deploy [[Frontend — Next.js]]
 
 ## Secrets required
@@ -36,6 +36,8 @@ local dev → npx prisma migrate dev (against Neon branch)
          → Merge to main
          → GitHub Actions: npx prisma migrate deploy
 ```
+
+The initial production bootstrap applied existing migrations from the VM. From now on, use the GitHub Actions deployment job for production migration releases.
 
 ## Related
 - [[Database — Prisma + Neon]] — migration workflow detail

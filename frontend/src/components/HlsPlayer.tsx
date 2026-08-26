@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Hls from "hls.js";
 import type { Match } from "@/lib/types";
+import { getSocket } from "@/lib/socket";
 
 interface Props {
   match: Match;
@@ -15,6 +16,35 @@ export function HlsPlayer({ match, liveUrl }: Props) {
   const usedFallbackRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [viewerCounts, setViewerCounts] = useState({ live: 0, unique: 0 });
+
+  useEffect(() => {
+    if (match.status !== "live") return;
+    // This is intentionally browser-scoped rather than account-scoped: live
+    // matches are public and viewers do not need to sign in.
+    const storageKey = "fieldcast-viewer-id";
+    let viewerId = localStorage.getItem(storageKey);
+    if (!viewerId) {
+      viewerId = crypto.randomUUID();
+      localStorage.setItem(storageKey, viewerId);
+    }
+
+    const socket = getSocket();
+    const report = () => socket.emit("stream:watch", { matchId: match.id, viewerId });
+    const onViewerCount = (payload: { matchId: number; live: number; unique: number }) => {
+      if (payload.matchId === match.id) setViewerCounts({ live: payload.live, unique: payload.unique });
+    };
+
+    socket.on("stream:viewers", onViewerCount);
+    if (socket.connected) report();
+    socket.on("connect", report);
+
+    return () => {
+      socket.emit("stream:leave", { matchId: match.id });
+      socket.off("connect", report);
+      socket.off("stream:viewers", onViewerCount);
+    };
+  }, [match.id, match.status]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -71,7 +101,8 @@ export function HlsPlayer({ match, liveUrl }: Props) {
   }, [liveUrl, match.cameraFallbackUrl]);
 
   return (
-    <div className="relative aspect-video w-full overflow-hidden rounded-xl bg-foreground/5 border border-border">
+    <div>
+      <div className="relative aspect-video w-full overflow-hidden rounded-xl bg-foreground/5 border border-border">
       {loading && !error && (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-muted">
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-border border-t-accent" />
@@ -99,6 +130,13 @@ export function HlsPlayer({ match, liveUrl }: Props) {
         muted
         style={{ display: error ? "none" : "block" }}
       />
+      </div>
+      {match.status === "live" && (
+        <div className="mt-2 flex items-center gap-4 px-1 text-xs text-muted" aria-live="polite">
+          <span><span className="mr-1 inline-block h-2 w-2 rounded-full bg-red-500" />{viewerCounts.live} watching now</span>
+          <span>{viewerCounts.unique} unique viewers</span>
+        </div>
+      )}
     </div>
   );
 }

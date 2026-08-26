@@ -62,7 +62,7 @@ See [[Tournament Submission]] and [[Tournament Organiser]].
 
 ## Deployment
 - **Local:** `npm run dev` → nodemon
-- **Production:** Docker on [[Phase 1 — Oracle VM]], managed by `pm2` or systemd
+- **Production:** host-installed Node.js on [[Phase 1 — Oracle VM]], managed by systemd as `fieldcast-backend.service`; SRS is the Docker-managed service
 
 ## Key files
 ```

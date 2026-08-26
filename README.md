@@ -18,13 +18,13 @@ Implemented locally as of August 2026:
 - Searchable Football event entry using the match's current active players, with jersey number and team abbreviation.
 - Goal, card, and substitution events with regulation and extra-time minutes.
 - Automatic goal scoring and live Socket.io updates.
-- A public HLS match page with stream, compact live score graphic, goal scorers, and match timeline.
+- A public HLS match page with stream, compact live score graphic, goal scorers, match timeline, live watcher count, and anonymous unique-viewer total.
 - Detailed scorecards that refresh after live score updates.
 - Result-aware standings that recompute after completed matches.
 - Explicit washouts that stop a stream without affecting standings.
 - Drag-and-drop Playing 11 and bench management. The first sport-sized group of registered players becomes the default starting squad; additional players begin on the bench and organisers can adjust the lineup.
 
-Database migrations `0001` through `0011` are included and applied in the current local development database.
+Database migrations `0001` through `0012` are included. Migration `0012_match_viewers` adds anonymous per-match unique viewer counts.
 
 ## Roles and workflow
 
@@ -125,7 +125,7 @@ Viewer browser    <------- live updates ---------+
 FieldCast/
 ├── backend/                 Express, Socket.io, Prisma, streaming control
 │   ├── prisma/
-│   │   ├── migrations/      Versioned migrations 0001–0011
+│   │   ├── migrations/      Versioned migrations 0001–0012
 │   │   ├── schema.prisma
 │   │   └── seed.js
 │   └── src/
@@ -369,7 +369,7 @@ The same application and container layout can move to EC2/ECS, with S3 added as 
 
 - Complete live event/control surfaces for Cricket and Basketball are not yet implemented.
 - ImageKit replay upload is planned but not wired end to end.
-- Production deployment to Oracle, Neon, and Vercel is not complete.
+- Neon, the Oracle VM, SRS, and the systemd backend service have been provisioned. Public API reachability, Vercel production environment variables, HTTPS/domain routing, CI secrets, and the first production camera test remain incomplete.
 - Multi-camera switching requires ffmpeg and an environment reachable by SRS.
 - Automated test coverage is limited; validation currently relies on linting, TypeScript, builds, API smoke tests, and local browser checks.
 

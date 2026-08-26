@@ -22,6 +22,7 @@ export default function OrganizerPage() {
   const [teamB, setTeamB] = useState("");
   const [scheduledAt, setScheduledAt] = useState("");
   const [venue, setVenue] = useState("");
+  const [startMatchId, setStartMatchId] = useState("");
   const [matchStageType, setMatchStageType] = useState<"pool" | "knockout" | "">("");
   const [poolId, setPoolId] = useState("");
   const [knockoutChoice, setKnockoutChoice] = useState("Semi-final");
@@ -37,7 +38,12 @@ export default function OrganizerPage() {
   const load = useCallback(async () => {
     const data = await api.organizedTournaments();
     setTournaments(data);
-    setSelectedId((current) => current || data[0]?.id || 0);
+    let initialId = 0;
+    if (typeof window !== "undefined") {
+      const paramId = new URLSearchParams(window.location.search).get("tournamentId");
+      if (paramId) initialId = Number(paramId);
+    }
+    setSelectedId((current) => current || initialId || data[0]?.id || 0);
   }, []);
 
   const loadMatches = useCallback(async () => {
@@ -141,10 +147,29 @@ export default function OrganizerPage() {
                 </Card>
 
                 {selected.sport === "football" && <TournamentSquadEditor key={selected.id} tournament={selected} onSaved={load} />}
+                
+                {selected.sport === "football" && matches.filter(m => m.status === "upcoming").length > 0 && (
+                  <Card>
+                    <CardHeader><CardTitle>Start scheduled match</CardTitle><p className="mt-1 text-sm text-muted">Select an upcoming fixture to setup cameras and go live.</p></CardHeader>
+                    <CardBody>
+                      <form onSubmit={(e) => { e.preventDefault(); if (startMatchId) window.location.assign(`/organizer/matches/${startMatchId}`); }} className="grid gap-4 sm:grid-cols-2">
+                        <Field label="Upcoming match" className="sm:col-span-2">
+                          <Select value={startMatchId} onChange={(e) => setStartMatchId(e.target.value)} required>
+                            <option value="">Choose match</option>
+                            {matches.filter(m => m.status === "upcoming").map(m => (
+                              <option key={m.id} value={m.id}>{m.teamA.name} vs {m.teamB.name}</option>
+                            ))}
+                          </Select>
+                        </Field>
+                        <Button type="submit" disabled={!startMatchId} className="sm:col-span-2">Setup & Start</Button>
+                      </form>
+                    </CardBody>
+                  </Card>
+                )}
 
                 {selected.sport === "football" ? (
                   <Card>
-                    <CardHeader><CardTitle>Create football match</CardTitle><p className="mt-1 text-sm text-muted">Kickoff and venue are part of the required broadcast preflight.</p></CardHeader>
+                    <CardHeader><CardTitle>Create new match</CardTitle><p className="mt-1 text-sm text-muted">Kickoff and venue are part of the required broadcast preflight.</p></CardHeader>
                     <CardBody>
                       <form onSubmit={createMatch} className="grid gap-4 sm:grid-cols-2">
                         <Field label="Match stage"><Select value={effectiveStageType} onChange={(event) => { setMatchStageType(event.target.value as "pool" | "knockout"); setTeamA(""); setTeamB(""); }}>{selected.pools.length > 0 && <option value="pool">Pool stage</option>}<option value="knockout">Knockout stage</option></Select></Field>

@@ -2,7 +2,7 @@
 
 Pointer to the living status tracker: `PROGRESS.md`
 
-## Current status (as of 2026-08-21)
+## Current status (as of 2026-08-26)
 
 ### Done ✅
 - [[Database — Prisma + Neon]] — migrations `0001`–`0011`, pools, match stages, substitutions, default squads, and standings overrides working locally
@@ -11,22 +11,24 @@ Pointer to the living status tracker: `PROGRESS.md`
 - [[CI/CD — GitHub Actions]] — CI + deploy workflows written (secrets not yet added)
 - [[HOW_TO_USE]] and repository Markdown — synchronized with current workflows
 - Local IRL Pro RTMP → SRS → HLS verified at 1080p; SRT/UDP → SRS → HLS fallback also tested
+- Neon production project is created and the existing Prisma schema is applied.
+- [[Phase 1 — Oracle VM]] is running with Node.js, Docker/Compose, ffmpeg, SRS, and the `fieldcast-backend` systemd service. Local API and SRS API checks pass.
+- Existing Vercel frontend deployment is live.
 
 ### Not started ⬜
-- Neon project provisioning (need `DATABASE_URL` from Neon dashboard)
-- [[Phase 1 — Oracle VM]] provisioning (install Docker, deploy, run SRS)
 - GitHub Actions secrets (see `PROGRESS.md` Note 4 for full list)
-- Vercel deployment (`vercel link` in `frontend/`)
+- Public reachability of the Oracle backend on `4000/TCP` (local API works; external request timed out)
+- Vercel production API/Socket environment variables
+- Domain and HTTPS reverse proxy for API, Socket.IO, and HLS playback
 - Production end-to-end stream test on Oracle VM
 - [[ImageKit]] VOD integration (post-match upload + `replayUrl`)
 
 ## Next up
-1. Provision Neon and establish the branch-per-migration workflow.
-2. Add GitHub Actions secrets.
-3. Provision the Oracle VM and deploy SRS/backend.
-4. Link/deploy the frontend on Vercel.
-5. Run the production phone → SRS → viewer test.
-6. Implement ImageKit recording/upload and complete Cricket/Basketball live controls.
+1. Fix public backend reachability, then configure Vercel API/Socket variables.
+2. Add domain + TLS reverse proxy for API/Socket.IO/HLS.
+3. Add GitHub Actions secrets and validate deployment automation.
+4. Run the production phone → SRS → viewer test.
+5. Implement ImageKit recording/upload and complete Cricket/Basketball live controls.
 
 ## 2026-08-12 update
 

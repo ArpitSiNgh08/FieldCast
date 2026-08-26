@@ -2,7 +2,7 @@
 
 Living status tracker for FieldCast. Update this file whenever meaningful work happens — it's how the next session (human or agent) picks up context without re-reading every past conversation.
 
-**Last updated:** 2026-08-21
+**Last updated:** 2026-08-26
 
 ---
 
@@ -12,16 +12,16 @@ Living status tracker for FieldCast. Update this file whenever meaningful work h
 |---|---|
 | System architecture & Phase 1/2 split | ✅ Designed (`README.md`) |
 | Governance docs (AGENTS/CLAUDE/RULES/DESIGN) | ✅ Drafted |
-| Database schema design | ✅ Prisma schema + migrations `0001`–`0011` |
-| Prisma migration (backend) | ✅ Current through `0011` — pools, match stages, organisers, cameras, roster/substitution events, washouts, squads, and admin overrides applied locally |
+| Database schema design | ✅ Prisma schema + migrations `0001`–`0012` |
+| Prisma migration (backend) | ⚠️ Current through `0012` — apply `0012_match_viewers` to every local/production database before viewer metrics are used |
 | Prisma seed script | ✅ Done — `prisma/seed.js` runs cleanly with pg adapter |
 | Local Postgres (dev) | ✅ Native Windows PostgreSQL 18 running on port 5432 |
 | `fieldcast` DB user + database | ✅ Created in native Postgres — migration + seed applied |
 | `prisma.config.js` (Prisma 7 config) | ✅ CJS format — reads DATABASE_URL via fs, uses `datasource.url` |
 | Backend running locally | ✅ `npm run dev` starts on port 4000, connects to DB, no errors |
-| Neon project + branching setup | ⬜ Not started — needs DATABASE_URL from Neon dashboard |
-| Oracle Cloud Free Tier VM provisioning | ⬜ Not started |
-| SRS + Docker setup on VM | ⬜ Not started (docker-compose.yml + infra/srs.conf exist locally) |
+| Neon production database | ✅ Created; production schema migrated (connection string is stored only on the VM / in future GitHub secrets) |
+| Oracle Cloud Free Tier VM provisioning | ✅ Running Ubuntu 24.04 Minimal aarch64 on `VM.Standard.A1.Flex` (1 OCPU, 6 GB RAM) |
+| SRS + Docker setup on VM | ✅ `fieldcast-srs` is running; its local API responds on `127.0.0.1:1985` |
 | ffmpeg camera-switcher (Node.js) | ✅ Implemented (`backend/src/services/cameraSwitcher.js`) |
 | Backend (Express + Socket.io) scaffolding | ✅ Done |
 | Next.js frontend scaffolding | ✅ Done |
@@ -44,8 +44,11 @@ Living status tracker for FieldCast. Update this file whenever meaningful work h
 | ImageKit VOD integration | ⬜ Not started |
 | Local stream test (phone → SRS → viewer) | ✅ IRL Pro RTMP verified at 1080p; SRT fallback and camera-specific HLS tested |
 | IRL Pro ingest | ✅ RTMP verified at 1080p; SRT/UDP fallback implemented and tested end-to-end through HLS |
-| Production end-to-end stream | ⬜ Not started (needs Oracle VM deployment) |
-| Markdown documentation | ✅ Synchronized 2026-08-21 — README, operational guide, progress, and Obsidian context |
+| Oracle network rules | ✅ HTTPS path verified; retain `22`, `80`, `443`, `1935/TCP`, and `10080/UDP`; remove direct `4000/TCP` and `8080/TCP` from OCI and UFW after final verification |
+| Production backend service | ✅ systemd service `fieldcast-backend` starts the API; local API smoke test passes |
+| Vercel frontend | ✅ Deployed with HTTPS API/Socket/HLS URLs through DuckDNS + Nginx |
+| Production end-to-end stream | 🔄 Backend, TLS, and frontend are deployed; complete a real external phone ingest/playback test |
+| Markdown documentation | ✅ Synchronized 2026-08-26 — deployment progress and Obsidian context updated |
 
 Legend: ✅ done · 🔄 in progress · ⬜ not started · 🚫 blocked · ⚠️ attention needed
 
@@ -111,7 +114,17 @@ No Docker is needed for database and app-only development. Native Postgres 18 ru
 - `VERCEL_ORG_ID` — from `vercel whoami`
 - `VERCEL_PROJECT_ID` — from `.vercel/project.json` after first `vercel link`
 
-### Note 5 — UI components
+### Note 5 — Production VM bootstrap (2026-08-24 to 2026-08-26)
+
+- The repository was cloned to `/opt/fieldcast` on the Oracle VM.
+- Node.js 20, Docker Engine + Compose, ffmpeg, Git, and Nano are installed.
+- `backend/.env` exists on the VM, is mode `600`, uses `NODE_ENV=production`, and must never be committed or copied into documentation.
+- SRS runs as `docker compose up -d srs`; its public ports are RTMP `1935/TCP`, SRT `10080/UDP`, and temporary direct HLS `8080/TCP`. Keep its API `1985/TCP` private.
+- The Express backend runs under `fieldcast-backend.service`, with a local `curl http://127.0.0.1:4000/api/tournaments` smoke test returning `[]`.
+- The Oracle public-IP path was created, but a Windows request to public port `4000` timed out. Check service binding, Ubuntu UFW, and the OCI security list before frontend integration.
+- A Neon connection string was exposed during setup and must be rotated. Store the replacement only in the VM `.env` and GitHub secret store.
+
+### Note 6 — UI components
 
 The UI primitives (`Badge`, `Button`, `Card`, `Navbar`, etc.) were custom-built before the Untitled UI MCP was adopted. They are acceptable as-is; replacing them is low priority.
 
@@ -133,11 +146,11 @@ The UI primitives (`Badge`, `Button`, `Card`, `Navbar`, etc.) were custom-built 
 
 ## Next up
 
-1. **Provision Neon** — create the project and establish the branch-per-migration workflow.
-2. **Configure GitHub repository secrets** — see Note 4.
-3. **Provision Oracle Cloud VM** — install Docker, deploy SRS/backend, and open the required ports.
-4. **Deploy the frontend** — link the Vercel project and configure API/Socket.io URLs.
-5. **Run the production stream test** — phone → RTMP → SRS → HLS → public FieldCast page.
+1. **Fix public API reachability** — verify the `fieldcast-backend` binding, Ubuntu firewall, and OCI rule for port `4000`.
+2. **Configure Vercel production variables** — set `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_SOCKET_URL` after the public API is reachable.
+3. **Add a domain and HTTPS reverse proxy** — proxy API/Socket.IO and HLS through TLS; do not keep public production traffic on raw HTTP IP addresses.
+4. **Configure GitHub repository secrets** — see Note 4, then validate the existing deployment workflow.
+5. **Run the production stream test** — phone → RTMP/SRT → SRS → HLS → public FieldCast page.
 6. **Implement ImageKit VOD** — recording, confirmed upload, `replayUrl`, and safe local cleanup.
 7. **Complete Cricket/Basketball organiser controls** — live event entry and sport-specific finalization.
 8. **Add automated coverage** — standings, washouts, lineup authorization, and Socket.io scoring.
@@ -145,6 +158,12 @@ The UI primitives (`Badge`, `Button`, `Card`, `Navbar`, etc.) were custom-built 
 ---
 
 ## Session log
+
+- **2026-08-26** — Production HTTPS, mobile ingest, and viewer metrics.
+  - Oracle's backend is publicly available through Nginx and a Let's Encrypt certificate at the configured DuckDNS hostname; Vercel uses HTTPS API, Socket.IO, and HLS endpoints.
+  - Production firewall intent is `22`, `80`, `443`, `1935/TCP`, and `10080/UDP`; direct backend/HLS ports `4000` and `8080` are obsolete once the reverse proxy is verified.
+  - Added `0012_match_viewers` plus Socket.IO live and unique viewer metrics. Run `npx prisma migrate deploy` and `npx prisma generate` for every database before using it.
+  - Documented IRL Pro's separate SRT Server and Stream ID fields, production hostname use, and Moblin as the iPhone SRT broadcaster option.
 
 - **2026-08-21** — Default starting squads.
   - Newly registered players fill the sport-sized starting squad first (Football/Cricket 11, Basketball 5); later players begin on the bench.
