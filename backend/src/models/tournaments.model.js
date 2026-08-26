@@ -136,6 +136,20 @@ async function addPlayer(teamId, { playerId, name, jerseyNumber, position, squad
   });
 }
 
+async function updatePlayer(teamId, playerId, { name, jerseyNumber, position }) {
+  return prisma.$transaction(async (tx) => {
+    const membership = await tx.teamPlayer.findUniqueOrThrow({
+      where: { teamId_playerId: { teamId: Number(teamId), playerId: Number(playerId) } },
+    });
+    if (name !== undefined) await tx.player.update({ where: { id: membership.playerId }, data: { name } });
+    return tx.teamPlayer.update({
+      where: { teamId_playerId: { teamId: Number(teamId), playerId: Number(playerId) } },
+      data: { ...(jerseyNumber !== undefined ? { jerseyNumber } : {}), ...(position !== undefined ? { position: position || null } : {}) },
+      include: { player: true },
+    });
+  });
+}
+
 function removePlayer(teamId, playerId) {
   return prisma.teamPlayer.delete({ where: { teamId_playerId: { teamId: Number(teamId), playerId: Number(playerId) } } });
 }
@@ -196,4 +210,4 @@ async function addOrganizer(tournamentId, email, addedById) {
   return findById(tournamentId);
 }
 
-module.exports = { list, findById, create, update, addPool, addTeam, updateTeam, updateTeamPool, updateLineup, addPlayer, removePlayer, removeTeam, setSubmission, review, listPlayers, listOrganized, addOrganizer };
+module.exports = { list, findById, create, update, addPool, addTeam, updateTeam, updateTeamPool, updateLineup, addPlayer, updatePlayer, removePlayer, removeTeam, setSubmission, review, listPlayers, listOrganized, addOrganizer };

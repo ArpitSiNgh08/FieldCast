@@ -2,6 +2,14 @@
 
 const prisma = require('../config/prisma');
 
+const UPCOMING_RETENTION_MS = 4 * 60 * 60 * 1000;
+
+/** Upcoming fixtures remain publicly/workspace-visible until four hours after kickoff. */
+function isUpcomingVisible(match, now = Date.now()) {
+  if (match.status !== 'upcoming' || !match.scheduledAt) return true;
+  return new Date(match.scheduledAt).getTime() >= now - UPCOMING_RETENTION_MS;
+}
+
 // ─── shape helpers ───────────────────────────────────────────────────────────
 // Convert Prisma's camelCase relation output to the API response contract the
 // frontend and socket handlers already expect.
@@ -96,7 +104,7 @@ async function list({ sport, status, tournamentId } = {}) {
     ],
   });
 
-  return rows.map(shapeMatch);
+  return rows.filter((match) => isUpcomingVisible(match)).map(shapeMatch);
 }
 
 async function findById(id) {
@@ -196,4 +204,4 @@ async function updateBroadcastSetup(id, { venue, scheduledAt, checklist }) {
   return findById(id);
 }
 
-module.exports = { list, findById, create, setStatus, setResult, setActiveCamera, addCamera, removeCamera, updateBroadcastSetup, shapeMatch };
+module.exports = { list, findById, create, setStatus, setResult, setActiveCamera, addCamera, removeCamera, updateBroadcastSetup, shapeMatch, isUpcomingVisible };

@@ -126,6 +126,7 @@ export const api = {
   updateTournamentTeam: (id: number, teamId: number, body: unknown) => apiFetch<Team>(`/tournaments/${id}/teams/${teamId}`, { method: "PATCH", body }),
   removeTournamentTeam: (id: number, teamId: number) => apiFetch<void>(`/tournaments/${id}/teams/${teamId}`, { method: "DELETE" }),
   addTeamPlayer: (id: number, teamId: number, body: unknown) => apiFetch<TeamPlayer>(`/tournaments/${id}/teams/${teamId}/players`, { method: "POST", body }),
+  updateTeamPlayer: (id: number, teamId: number, playerId: number, body: { name?: string; jerseyNumber?: string; position?: string }) => apiFetch<TeamPlayer>(`/tournaments/${id}/teams/${teamId}/players/${playerId}`, { method: "PATCH", body }),
   removeTeamPlayer: (id: number, teamId: number, playerId: number) => apiFetch<void>(`/tournaments/${id}/teams/${teamId}/players/${playerId}`, { method: "DELETE" }),
   updateTeamLineup: (id: number, teamId: number, playingPlayerIds: number[]) => apiFetch<Team>(`/tournaments/${id}/teams/${teamId}/lineup`, { method: "PATCH", body: { playingPlayerIds } }),
   submitTournament: (id: number) => apiFetch<Tournament>(`/tournaments/${id}/submit`, { method: "POST" }),

@@ -24,6 +24,14 @@ async function requireEditable(req, res) {
   return null;
 }
 
+async function requireTeamEditor(req, res) {
+  const t = await Tournaments.findById(req.params.id);
+  if (!t) res.status(404).json({ error: 'Tournament not found' });
+  else if (!canEdit(t, req.user) && !(await authorization.canManageTournament(req.user, t.id))) res.status(403).json({ error: 'Tournament organiser access required' });
+  else return t;
+  return null;
+}
+
 async function list(req, res) { res.json(await Tournaments.list({ sport: req.query.sport })); }
 async function mine(req, res) { res.json(await Tournaments.list({ creatorId: req.user.sub, approvalStatus: null })); }
 async function pending(_req, res) { res.json(await Tournaments.list({ approvalStatus: 'submitted' })); }
@@ -77,7 +85,7 @@ async function addTeam(req, res) {
 }
 
 async function updateTeam(req, res) {
-  const t = await requireEditable(req, res); if (!t) return;
+  const t = await requireTeamEditor(req, res); if (!t) return;
   if (!t.teams.some((x) => x.teamId === Number(req.params.teamId))) return res.status(404).json({ error: 'Team not in tournament' });
   if (req.body.poolId !== undefined) {
     if (t.pools.length && !t.pools.some((pool) => pool.id === Number(req.body.poolId))) return res.status(400).json({ error: 'Choose a valid pool for this team' });
@@ -92,13 +100,27 @@ async function deleteTeam(req, res) {
 }
 
 async function addPlayer(req, res) {
-  const t = await requireEditable(req, res); if (!t) return;
+  const t = await requireTeamEditor(req, res); if (!t) return;
   const team = t.teams.find((x) => x.teamId === Number(req.params.teamId));
   if (!team) return res.status(404).json({ error: 'Team not in tournament' });
   const { playerId, name, jerseyNumber, position } = req.body;
   if ((!playerId && !name?.trim()) || jerseyNumber === undefined || jerseyNumber === '') return res.status(400).json({ error: 'Player and jersey number are required' });
   if (team.team.players.length >= RULES[t.sport].maxPlayers) return res.status(400).json({ error: `Maximum roster size is ${RULES[t.sport].maxPlayers}` });
   res.status(201).json(await Tournaments.addPlayer(team.teamId, { playerId, name, jerseyNumber, position, ownerId: req.user.sub }));
+}
+
+async function updatePlayer(req, res) {
+  const t = await requireTeamEditor(req, res); if (!t) return;
+  const team = t.teams.find((entry) => entry.teamId === Number(req.params.teamId));
+  if (!team) return res.status(404).json({ error: 'Team not in tournament' });
+  const membership = team.team.players.find((entry) => entry.playerId === Number(req.params.playerId));
+  if (!membership) return res.status(404).json({ error: 'Player is not in this team' });
+  const name = typeof req.body.name === 'string' ? req.body.name.trim() : undefined;
+  const jerseyNumber = req.body.jerseyNumber !== undefined ? String(req.body.jerseyNumber).trim() : undefined;
+  const position = typeof req.body.position === 'string' ? req.body.position.trim() : undefined;
+  if (name !== undefined && !name) return res.status(400).json({ error: 'Player name is required' });
+  if (jerseyNumber !== undefined && !jerseyNumber) return res.status(400).json({ error: 'Jersey number is required' });
+  res.json(await Tournaments.updatePlayer(team.teamId, membership.playerId, { name, jerseyNumber, position }));
 }
 
 async function updateLineup(req, res) {
@@ -127,8 +149,8 @@ async function submit(req, res) {
   const rule = RULES[t.sport];
   if (t.teams.length < rule.minTeams) return res.status(400).json({ error: `Add at least ${rule.minTeams} teams` });
   if (t.pools.length && t.teams.some((team) => !team.poolId)) return res.status(400).json({ error: 'Assign every team to a pool before submitting' });
-  const invalid = t.teams.find(({ team }) => team.players.length < rule.minPlayers || team.players.length > rule.maxPlayers);
-  if (invalid) return res.status(400).json({ error: `${invalid.team.name} needs ${rule.minPlayers}–${rule.maxPlayers} players` });
+  const invalid = t.teams.find(({ team }) => team.players.length > rule.maxPlayers);
+  if (invalid) return res.status(400).json({ error: `${invalid.team.name} can have at most ${rule.maxPlayers} players` });
   res.json(await Tournaments.setSubmission(t.id));
 }
 
@@ -157,4 +179,4 @@ async function standings(req, res) {
 }
 async function players(req, res) { res.json(await Tournaments.listPlayers(req.user.sub)); }
 
-module.exports = { list, mine, pending, organized, get, create, update, addPool, addTeam, updateTeam, updateLineup, deleteTeam, addPlayer, deletePlayer, submit, review, addOrganizer, standings, players, RULES };
+module.exports = { list, mine, pending, organized, get, create, update, addPool, addTeam, updateTeam, updateLineup, deleteTeam, addPlayer, updatePlayer, deletePlayer, submit, review, addOrganizer, standings, players, RULES };

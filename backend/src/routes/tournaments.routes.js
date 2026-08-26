@@ -22,6 +22,7 @@ router.patch('/:id/teams/:teamId', requireAuth, asyncHandler(ctrl.updateTeam));
 router.patch('/:id/teams/:teamId/lineup', requireAuth, asyncHandler(ctrl.updateLineup));
 router.delete('/:id/teams/:teamId', requireAuth, asyncHandler(ctrl.deleteTeam));
 router.post('/:id/teams/:teamId/players', requireAuth, asyncHandler(ctrl.addPlayer));
+router.patch('/:id/teams/:teamId/players/:playerId', requireAuth, asyncHandler(ctrl.updatePlayer));
 router.delete('/:id/teams/:teamId/players/:playerId', requireAuth, asyncHandler(ctrl.deletePlayer));
 router.post('/:id/submit', requireAuth, asyncHandler(ctrl.submit));
 router.post('/:id/review', requireAdmin, asyncHandler(ctrl.review));
