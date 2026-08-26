@@ -170,7 +170,6 @@ model TeamPlayer {
   player Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
 
   @@id([teamId, playerId])
-  @@unique([teamId, jerseyNumber])
   @@map("team_players")
 }
 
