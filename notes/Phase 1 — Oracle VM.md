@@ -31,8 +31,14 @@ Free tier options like Vercel, Netlify, Render only proxy HTTP(S) — they rejec
 
 `backend/.env` is production-only, mode `600`, and must never be committed. It uses the Vercel production URL for `FRONTEND_URL`, the HTTPS DuckDNS hostname for `SRS_HLS_BASE`, and the DuckDNS hostname for `RTMP_HOST`. The Neon credential used during bootstrap was exposed and must be rotated.
 
+Vercel uses `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_SOCKET_URL`, both set to the HTTPS DuckDNS origin. The Socket value is required for live scores; the temporary 15-second score holdback is a frontend code constant and is unrelated to VM environment configuration.
+
 ## Known risk
 Oracle has a documented history of reclaiming idle Always Free instances after extended inactivity. Before match weekends: log in and check the instance is still running.
+
+Also verify migration `0012_match_viewers`, rotate the exposed Neon bootstrap credential, confirm Nginx forwards Socket.IO upgrades, and remove direct public `4000`, `8080`, and `1985` access. Automatic VOD upload is not implemented, and the fixed 15-second score holdback may drift relative to actual HLS latency.
+
+The active Nginx site configuration is currently VM-managed rather than versioned in the repository. Keep a secure backup and recheck `/api`, `/socket.io`, `/live`, WebSocket upgrade headers, TLS renewal, and request-size limits after any VM rebuild or proxy edit.
 
 ## Migration to Phase 2
 [[Phase 2 — AWS EC2]] replaces Oracle. Steps:

@@ -12,13 +12,13 @@ function eventMinute(event: FootballEvent) {
   return `${event.minute}${event.extra_time_minute ? `+${event.extra_time_minute}` : ""}'`;
 }
 
-export function FootballTimeline({ events }: { events: FootballEvent[] }) {
+export function FootballTimeline({ events, embedded = false }: { events: FootballEvent[]; embedded?: boolean }) {
   return (
-    <Card>
-      <CardHeader>
+    <Card className={embedded ? "rounded-none border-0 bg-transparent shadow-none" : undefined}>
+      <CardHeader className={embedded ? "px-0" : undefined}>
         <CardTitle>Match timeline</CardTitle>
       </CardHeader>
-      <CardBody>
+      <CardBody className={embedded ? "px-0" : undefined}>
         {events.length === 0 ? (
           <p className="text-sm text-muted">No match events recorded yet.</p>
         ) : (

@@ -156,10 +156,12 @@ function register(io, socket) {
       activeViewers.set(id, viewers);
       socket.data.streamViews.set(id, viewerId);
 
-      await prisma.matchView.upsert({
-        where: { matchId_viewerId: { matchId: id, viewerId } },
-        update: {},
-        create: { matchId: id, viewerId },
+      // Multiple mount/reconnect events can arrive at the same time. A
+      // duplicate-safe insert avoids an upsert race on the composite unique
+      // key while keeping viewer analytics idempotent.
+      await prisma.matchView.createMany({
+        data: { matchId: id, viewerId },
+        skipDuplicates: true,
       });
       await broadcastViewerCount(io, id);
       if (typeof ack === 'function') ack({ ok: true });
@@ -208,6 +210,9 @@ function register(io, socket) {
         const match = await Matches.findById(matchId);
         if (!match || match.sport !== sport) throw new Error('Invalid match sport');
         if (sport === 'football' && !detail) throw new Error('Football score updates require a match event');
+        if (sport === 'football' && detail?.eventType === 'halftime') {
+          return matchState.update(matchId, { periodLabel: 'Halftime', status: 'break' });
+        }
         const recorded = await recordDetail(matchId, sport, { detail });
         let statePatch = state || {};
         if (sport === 'football') {

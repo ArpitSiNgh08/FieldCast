@@ -197,9 +197,10 @@ For a phone on the same Wi-Fi network, set `RTMP_HOST` to the computer’s LAN I
 ### Add a match camera
 
 1. Open `/organizer/matches/[match-id]`.
-2. Add a camera name and angle.
+2. Add a descriptive camera name. Camera angle selection is not required.
 3. FieldCast generates a unique stream key and displays an IRL Pro SRT URL plus an RTMP fallback URL.
-4. Add one camera entry for every phone.
+4. Press **Show QR** beside the desired protocol and scan it with the streaming phone. The adjacent **Copy link** action remains available.
+5. Add one camera entry for every phone.
 
 Do not invent fixed `camera1`/`camera2` keys; current match cameras use server-generated keys such as `match8_ab12cd34ef`.
 
@@ -240,20 +241,11 @@ The corresponding HLS URL is:
 http://SERVER:8080/live/MATCH_CAMERA_KEY.m3u8
 ```
 
-### Complete preflight and go live
+### Go live
 
-The Football control room requires:
+The Football control room requires a kickoff time, venue, and at least one registered camera. Configure the phone with the generated SRT destination (or RTMP fallback), start publishing, then press **Go live**. There is no separate broadcast checklist gate.
 
-- Kickoff time.
-- Venue.
-- At least one registered camera.
-- Stable upload tested.
-- Power/thermal readiness.
-- Audio checked.
-- Permissions confirmed.
-- Camera operators briefed.
-
-Press **Go live** once all requirements are complete. The match appears in **Live now** on the public homepage and tournament hub.
+The match appears in **Live now** on the public homepage and tournament hub. During the match, use **Mark halftime** to publish the halftime state. The half is derived automatically from the entered minute. **End stream & finalize** publishes full time and recalculates the result and standings.
 
 For one camera, the public player uses the raw camera HLS manifest. For multiple cameras, ffmpeg republishes the selected camera to `active_[matchId].m3u8`, allowing cuts without changing the viewer URL.
 
@@ -262,16 +254,17 @@ For one camera, the public player uses the raw camera HLS manifest. For multiple
 During a live match:
 
 1. Choose Goal, Yellow card, Red card, or Substitution.
-2. Select the half.
-3. Enter the regulation minute.
-4. Optionally enter the extra-time minute. For `45+2'`, enter `45` and `2`.
-5. For a goal or card, search and choose a player currently on the field.
-6. For a substitution, choose **Player off** from the players currently on the field, then choose **Player on** from that team’s substitutes.
-7. Press **Update scorecard** or **Record substitution**.
+2. Enter the regulation minute. The half is assigned automatically from the minute.
+3. Optionally enter the extra-time minute. For `45+2'`, enter `45` and `2`.
+4. For a goal or card, search and choose a player currently on the field.
+5. For a substitution, choose **Player off** from the players currently on the field, then choose **Player on** from that team’s substitutes.
+6. Press **Update scorecard** or **Record substitution**. Use **Mark halftime** for the halftime event; full time is created by **End stream & finalize**.
 
 Recorded substitutions appear in the organiser’s match timeline and all public event timelines with both players clearly labelled. Match-specific active-player tracking means the incoming player can receive later goals or cards without changing the tournament’s saved squad for future fixtures.
 
 The backend validates the player’s team and current match participation. It saves the event, automatically increments the correct team for goals, and broadcasts the state through Socket.io.
+
+Public score updates are temporarily held for 15 seconds to better align with delayed HLS video. The setting is the code constant `SCORE_SYNC_DELAY_MS = 15_000` in `frontend/src/hooks/useMatchState.ts`; it is not an environment variable. Realtime score delivery in production additionally depends on Vercel's `NEXT_PUBLIC_SOCKET_URL` pointing to the HTTPS backend/Nginx origin.
 
 Public viewers see:
 
@@ -317,9 +310,11 @@ Public viewing does not require login.
 
 Live match pages display both the current active-browser count and an anonymous unique-browser total for that match. Multiple tabs from the same browser count once; clearing browser storage counts as a new browser.
 
+The homepage orders **Recent matches** by the match-state update written during finalization, rather than by the originally scheduled kickoff. A successfully finalized match should therefore move into the first eight recent results after the new frontend is deployed and refreshed.
+
 ## 10. Troubleshooting
 
-### Oracle VM API works locally but not from the internet
+### Production API or Socket.IO is unreachable
 
 On the VM, verify the service and listener first:
 
@@ -329,9 +324,9 @@ sudo ss -ltnp | grep ':4000'
 sudo ufw status verbose
 ```
 
-The service must be `active`, and Node should listen on `0.0.0.0:4000` or `:::4000`. In Oracle Cloud, confirm the public subnet security list permits stateful inbound `4000/TCP` from the intended source. The production SRS API remains private at `127.0.0.1:1985`; do not open port `1985` publicly.
+The service must be `active`, and Node should listen internally on `4000`. Production browsers should use the Nginx HTTPS origin: `/api` and `/socket.io` proxy to the backend, while `/live` proxies to SRS HLS. Ensure the Socket.IO location forwards the `Upgrade` and `Connection` headers.
 
-Until a custom domain and TLS reverse proxy are configured, an HTTPS Vercel frontend cannot call `http://<VM-IP>:4000` or play `http://<VM-IP>:8080` without browser mixed-content restrictions.
+Set the backend `FRONTEND_URL` to the exact Vercel production origin, without a trailing path, because both Express and Socket.IO use it for CORS. Keep direct `4000/TCP`, `8080/TCP`, and SRS API `1985/TCP` closed publicly after the HTTPS routes work.
 
 ### `Unknown argument resultType`
 
@@ -381,6 +376,75 @@ Current standings writes are serialized with a PostgreSQL advisory lock. Restart
 - Save exactly 11 Playing 11 players first.
 - Select a player from the current match teams.
 - Verify `NEXT_PUBLIC_SOCKET_URL` points to the running backend.
+
+## 11. Production after pushing `main`
+
+Pushing to `main` triggers `.github/workflows/deploy.yml`. Before the first automated deploy, add these GitHub **production environment** secrets:
+
+- `DATABASE_URL`
+- `VM_HOST`
+- `VM_USER`
+- `VM_SSH_KEY`
+- `VERCEL_TOKEN`
+- `VERCEL_ORG_ID`
+- `VERCEL_PROJECT_ID`
+
+Set these Vercel **Production** variables and redeploy if they were added or changed:
+
+```dotenv
+NEXT_PUBLIC_API_URL=https://<duckdns-host>
+NEXT_PUBLIC_SOCKET_URL=https://<duckdns-host>
+```
+
+The URL contains only the origin; the frontend appends `/api`, and Socket.IO uses `/socket.io`. The backend VM's `/opt/fieldcast/backend/.env` should retain at least:
+
+```dotenv
+NODE_ENV=production
+FRONTEND_URL=https://<vercel-production-host>
+DATABASE_URL=<neon-production-url>
+JWT_SECRET=<long-random-secret>
+SESSION_SECRET=<different-long-random-secret>
+SIMULATE_STREAM=false
+RTMP_HOST=<duckdns-host-without-scheme>
+RTMP_PORT=1935
+SRT_PORT=10080
+SRS_HLS_BASE=https://<duckdns-host>
+SRS_API_BASE=http://127.0.0.1:1985
+FFMPEG_PATH=/usr/bin/ffmpeg
+```
+
+After the push:
+
+1. Wait for both GitHub Actions workflows. **CI** must compile the frontend; **Deploy** must complete the migration, backend, and Vercel jobs. Do not manually run `prisma migrate deploy` against production when the job succeeded.
+2. Confirm the backend restarted cleanly:
+
+   ```bash
+   sudo systemctl is-active fieldcast-backend
+   sudo journalctl -u fieldcast-backend -n 100 --no-pager
+   curl -fsS http://127.0.0.1:4000/api/health
+   curl -fsS https://<duckdns-host>/api/health
+   ```
+
+3. Confirm Socket.IO passes through Nginx. A polling request should return a Socket.IO open packet beginning with `0`:
+
+   ```bash
+   curl -sS 'https://<duckdns-host>/socket.io/?EIO=4&transport=polling'
+   ```
+
+4. Confirm SRS and ffmpeg prerequisites:
+
+   ```bash
+   cd /opt/fieldcast
+   sudo docker compose ps srs
+   curl -fsS http://127.0.0.1:1985/api/v1/streams/
+   ffmpeg -version
+   ```
+
+5. Verify migration `0012_match_viewers` was applied by checking the successful migration job. It is required before live/unique viewer metrics are used.
+6. Open the Vercel site in a fresh/private browser, sign in as an organiser, update a test score, and confirm another device receives it after the temporary 15-second public holdback.
+7. Run a real external-phone SRT test, confirm HTTPS HLS playback, finalize the match, refresh `/`, and confirm it appears under **Recent matches**.
+
+Before tournament use, also rotate the Neon credential exposed during bootstrap, update both the VM `.env` and GitHub `DATABASE_URL` secret, verify TLS renewal, and remove public `4000`, `8080`, and `1985` rules. Run `npm audit --omit=dev` in both projects: the 2026-08-26 audit found five high-severity frontend findings (including `next@16.2.10`) and five high/four moderate/one low backend findings (mainly Prisma CLI tooling and Socket.IO parser). Upgrade deliberately and rerun build/smoke tests rather than using a blind forced audit fix. Automatic replay recording/upload is not implemented, and Cricket/Basketball still lack the complete Football live-control workflow.
 
 ## Replays
 

@@ -10,15 +10,15 @@ Part of [[FieldCast]]
 | `Player` | Reusable player identity owned by its creator |
 | `TeamPlayer` | Team-specific jersey number, position, and persisted playing/bench squad role |
 | `TournamentOrganizer` | Scoped organiser membership for approved tournaments |
-| `MatchCamera` | Match phone name, angle, and unique RTMP stream key |
+| `MatchCamera` | Match phone name, legacy angle metadata, and unique ingest stream key |
 | `StandingOverride` | Persistent admin correction layered over calculated standings |
 
-`Tournament` now includes creator, photo, draft/review state, rejection feedback, and review metadata. `Match` now includes venue and its broadcast checklist. `User` may have a bcrypt password hash.
+`Tournament` now includes creator, photo, draft/review state, rejection feedback, and review metadata. `Match` includes kickoff/venue broadcast setup and camera destinations. `User` may have a bcrypt password hash.
 
 Migrations:
 - `0001_init` — initial core, match state, sport event, and standings schema
 - `0002_tournament_workflow` — credentials, drafts/review, reusable teams and players
-- `0003_organizer_broadcast` — organiser memberships, match cameras, and preflight data
+- `0003_organizer_broadcast` — organiser memberships, match cameras, and broadcast setup data
 - `0004_football_roster_events` — player-linked football events, jersey snapshots, and added-time minutes
 - `0005_washouts_and_squads` — match result type plus persisted playing/bench membership
 - `0006_reset_existing_squads_to_bench` — historical reset to explicit bench selection (later superseded for empty lineups by `0011`)

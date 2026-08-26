@@ -6,9 +6,8 @@ const env = require('../config/env');
 const prisma = require('../config/prisma');
 const authorization = require('../services/authorization.service');
 const cameraSwitcher = require('../services/cameraSwitcher');
+const matchState = require('../models/matchState.model');
 const crypto = require('crypto');
-
-const FOOTBALL_CHECKS = ['networkStable', 'powerReady', 'audioChecked', 'permissionsConfirmed', 'cameraOperatorsReady'];
 
 function broadcastMatchStatus(req, match) {
   const io = req.app.get('io');
@@ -102,10 +101,6 @@ async function updateStatus(req, res) {
     const candidate = await Matches.findById(req.params.id);
     if (!candidate?.scheduledAt || !candidate.venue) return res.status(400).json({ error: 'Kickoff time and venue are required before going live' });
     if (!candidate.cameras.length) return res.status(400).json({ error: 'Add at least one camera before going live' });
-    if (candidate.sport === 'football') {
-      const missing = FOOTBALL_CHECKS.filter((key) => candidate.broadcastChecklist?.[key] !== true);
-      if (missing.length) return res.status(400).json({ error: 'Complete every football broadcast preflight check before going live' });
-    }
     const selected = candidate.cameras.find((camera) => camera.streamKey === candidate.activeCamera) || candidate.cameras[0];
     await Matches.setActiveCamera(candidate.id, selected.streamKey);
     cameraSwitcher.switchCamera(candidate.id, selected.streamKey);
@@ -118,6 +113,8 @@ async function updateStatus(req, res) {
       ? null
       : candidate.state.teamAScore > candidate.state.teamBScore ? candidate.teamA.id : candidate.teamB.id;
     const completed = await Matches.setResult(req.params.id, { winnerTeamId, resultType: 'played' });
+    const finalState = await matchState.update(req.params.id, { periodLabel: 'Full time', status: 'completed' });
+    req.app.get('io')?.to(`match:${Number(req.params.id)}`).emit('score:updated', { matchId: Number(req.params.id), state: finalState });
     if (completed.tournamentId) await standingsService.recomputeForTournament(completed.tournamentId);
     broadcastMatchStatus(req, completed);
     return res.json(withStreamUrl(completed));

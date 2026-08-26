@@ -4,7 +4,7 @@ Part of [[FieldCast]]
 
 ## Workflows
 
-The workflow files are written. Neon and the Oracle VM now exist, while GitHub Actions secrets, Vercel production API/Socket variables, and HTTPS/domain routing still need configuration.
+The workflow files are written, and Neon, the Oracle VM, Nginx HTTPS routing, and Vercel now exist. The remaining operational requirement is to verify every GitHub production secret, the Vercel Production API/Socket values, and one completely green deployment after pushing `main`.
 
 ### `ci.yml` — runs on every PR
 1. Checkout code
@@ -38,6 +38,18 @@ local dev → npx prisma migrate dev (against Neon branch)
 ```
 
 The initial production bootstrap applied existing migrations from the VM. From now on, use the GitHub Actions deployment job for production migration releases.
+
+## After pushing `main`
+
+1. Confirm **CI** passes.
+2. Confirm **Deploy / Prisma migrate deploy** passes and includes `0012_match_viewers` where it was not already applied.
+3. Confirm **Deploy backend to VM** restarts `fieldcast-backend`; check `systemctl is-active`, recent journal logs, and both local and HTTPS `/api/health`.
+4. Confirm **Deploy frontend to Vercel** uses the Production `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_SOCKET_URL` values.
+5. Verify the HTTPS `/socket.io` polling handshake, SRS container/API, a two-device score update, an external-phone stream, finalization, and the homepage Recent matches rail.
+
+Do not also run `prisma migrate deploy` manually when the workflow succeeds. The current workflow does not perform a post-restart health check, and the Vercel job depends on migration but not backend success. A frontend deployment can therefore finish while the backend job fails; inspect every job and follow the SSH step with the service/API checks above.
+
+The 2026-08-26 production dependency audit also found high-severity advisories in the Next.js, Socket.IO parser, and Prisma CLI dependency trees. Dependency upgrades require a separate tested change; do not use `npm audit fix --force` directly on the VM.
 
 ## Related
 - [[Database — Prisma + Neon]] — migration workflow detail

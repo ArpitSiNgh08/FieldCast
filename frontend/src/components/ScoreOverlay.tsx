@@ -1,9 +1,9 @@
 "use client";
+/* eslint-disable @next/next/no-img-element -- team logos may be local data URLs. */
 
 import { useMatchState } from "@/hooks/useMatchState";
 import type { FootballEvent, Match } from "@/lib/types";
 import { num, str } from "@/lib/format";
-import { LiveBadge } from "@/ui/Badge";
 
 interface Props {
   match: Match;
@@ -11,114 +11,53 @@ interface Props {
 }
 
 export function ScoreOverlay({ match, footballEvents = [] }: Props) {
-  const { state, activeCamera, connected } = useMatchState(
+  const { state } = useMatchState(
     match.id,
     match.state,
     match.activeCamera
   );
 
   const { teamAScore, teamBScore, periodLabel, extra } = state;
+  const phaseLabel = periodLabel === "Halftime" || periodLabel === "Full time" ? periodLabel : "";
 
   return (
     <div
-      className="rounded-xl border border-border bg-surface shadow-sm p-5"
+      className="rounded-xl border border-border bg-surface p-5 shadow-sm"
       aria-label="Live scorecard"
     >
-      {/* Status row */}
-      <div className="mb-4 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <LiveBadge />
-          {periodLabel && (
-            <span className="text-xs text-muted">{periodLabel}</span>
-          )}
+      {/* Mirrored teams around the central score, matching a broadcast scoreboard. */}
+      <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 sm:gap-6">
+        <TeamIdentity name={match.teamA.name} short={match.teamA.shortName} logoUrl={match.teamA.logoUrl} side="left" />
+        <div className="min-w-[6.5rem] text-center">
+          {phaseLabel && <p className="text-[11px] font-medium text-muted">{phaseLabel}</p>}
+          <p className="mt-1 text-3xl font-bold tracking-wide text-foreground sm:text-4xl">{teamAScore} - {teamBScore}</p>
+          <p className="mt-1 text-xs text-muted">{state.status === "completed" ? "Full Time" : "In progress"}</p>
         </div>
-        <div className="flex items-center gap-2 text-xs text-muted">
-          <span
-            className={`h-2 w-2 rounded-full ${
-              connected ? "bg-accent" : "bg-muted"
-            }`}
-          />
-          {connected ? "Live" : "Reconnecting…"}
-        </div>
+        <TeamIdentity name={match.teamB.name} short={match.teamB.shortName} logoUrl={match.teamB.logoUrl} side="right" />
       </div>
 
-      {/* Teams + scores */}
-      <div className="flex items-center justify-between gap-4">
-        <TeamScore
-          name={match.teamA.name}
-          short={match.teamA.shortName}
-          score={teamAScore}
-          sport={match.sport}
-          extra={extra}
-          side="A"
-          goals={footballEvents.filter((event) => event.event_type === "goal" && event.team_id === match.teamA.id)}
-        />
-        <span className="text-xl font-bold text-muted">–</span>
-        <TeamScore
-          name={match.teamB.name}
-          short={match.teamB.shortName}
-          score={teamBScore}
-          sport={match.sport}
-          extra={extra}
-          side="B"
-          goals={footballEvents.filter((event) => event.event_type === "goal" && event.team_id === match.teamB.id)}
-        />
+      <div className="mt-4 grid grid-cols-2 gap-3 text-[11px] text-muted">
+        <GoalList goals={footballEvents.filter((event) => event.event_type === "goal" && event.team_id === match.teamA.id)} align="left" />
+        <GoalList goals={footballEvents.filter((event) => event.event_type === "goal" && event.team_id === match.teamB.id)} align="right" />
       </div>
 
       {/* Sport-specific sub-info */}
       <SportDetail sport={match.sport} extra={extra} />
 
-      {/* Active camera label */}
-      <p className="mt-4 border-t border-border pt-3 text-xs text-muted">
-        Camera: <span className="font-medium text-foreground">{activeCamera}</span>
-      </p>
     </div>
   );
 }
 
-function TeamScore({
-  name,
-  short,
-  score,
-  sport,
-  extra,
-  side,
-  goals,
-}: {
-  name: string;
-  short: string;
-  score: number;
-  sport: Match["sport"];
-  extra: Record<string, unknown>;
-  side: "A" | "B";
-  goals: FootballEvent[];
-}) {
-  const wickets = sport === "cricket" ? num(extra, side === "A" ? "teamAWickets" : "teamBWickets") : null;
+function TeamIdentity({ name, short, logoUrl, side }: { name: string; short: string; logoUrl?: string | null; side: "left" | "right" }) {
+  return <div className={`min-w-0 ${side === "left" ? "text-left" : "text-right"}`}>
+    {logoUrl ? <img src={logoUrl} alt="" className={`h-14 w-14 rounded-xl object-cover sm:h-16 sm:w-16 ${side === "right" ? "ml-auto" : ""}`} /> : <span className={`grid h-14 w-14 place-items-center rounded-xl bg-surface-2 text-xs font-bold text-foreground sm:h-16 sm:w-16 ${side === "right" ? "ml-auto" : ""}`}>{short}</span>}
+    <p className="mt-2 truncate text-xs font-semibold text-foreground sm:text-sm">{name}</p>
+  </div>;
+}
 
-  return (
-    <div className="flex flex-col items-center gap-1">
-      <span className="grid h-10 w-10 place-items-center rounded-xl bg-surface-2 text-sm font-bold text-foreground">
-        {short}
-      </span>
-      <p className="text-xs text-muted truncate max-w-[6rem] text-center">{name}</p>
-      <p className="text-3xl font-bold tabular-nums text-foreground">
-        {score}
-        {wickets !== null && (
-          <span className="text-base font-normal text-muted">/{wickets}</span>
-        )}
-      </p>
-      {sport === "football" && goals.length > 0 && (
-        <div className="mt-1 max-w-[8rem] space-y-0.5 text-center text-[11px] leading-tight text-muted">
-          {goals.map((goal) => (
-            <p key={goal.id}>
-              <span className="font-medium text-foreground">{goal.player_name || "Unknown scorer"}</span>{" "}
-              <span className="tabular-nums">{goal.minute}{goal.extra_time_minute ? `+${goal.extra_time_minute}` : ""}&apos;</span>
-            </p>
-          ))}
-        </div>
-      )}
-    </div>
-  );
+function GoalList({ goals, align }: { goals: FootballEvent[]; align: "left" | "right" }) {
+  if (!goals.length) return <span />;
+  return <div className={`space-y-0.5 ${align === "right" ? "text-right" : "text-left"}`}>{goals.map((goal) => <p key={goal.id}><span className="font-medium text-foreground">{goal.player_name || "Unknown scorer"}</span>{" "}<span>{goal.minute}{goal.extra_time_minute ? `+${goal.extra_time_minute}` : ""}&apos;</span></p>)}</div>;
 }
 
 function SportDetail({

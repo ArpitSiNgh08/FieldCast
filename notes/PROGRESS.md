@@ -5,30 +5,36 @@ Pointer to the living status tracker: `PROGRESS.md`
 ## Current status (as of 2026-08-26)
 
 ### Done ✅
-- [[Database — Prisma + Neon]] — migrations `0001`–`0011`, pools, match stages, substitutions, default squads, and standings overrides working locally
+- [[Database — Prisma + Neon]] — migrations `0001`–`0012`, including viewer metrics, pools, match stages, substitutions, default squads, and standings overrides
 - [[Backend — Express + Socket.io]] — running on :4000 with no errors
 - [[Frontend — Next.js]] — public tournament hub/bracket, stream/timeline, pooled standings, auth, admin correction/review, creator, and organiser pages running on :3000
-- [[CI/CD — GitHub Actions]] — CI + deploy workflows written (secrets not yet added)
+- [[CI/CD — GitHub Actions]] — CI + deploy workflows written; production secrets and one complete green deploy still need verification
 - [[HOW_TO_USE]] and repository Markdown — synchronized with current workflows
 - Local IRL Pro RTMP → SRS → HLS verified at 1080p; SRT/UDP → SRS → HLS fallback also tested
 - Neon production project is created and the existing Prisma schema is applied.
 - [[Phase 1 — Oracle VM]] is running with Node.js, Docker/Compose, ffmpeg, SRS, and the `fieldcast-backend` systemd service. Local API and SRS API checks pass.
 - Existing Vercel frontend deployment is live.
+- Nginx HTTPS routes API, Socket.IO, and HLS through the DuckDNS hostname; Vercel targets that origin.
+- Organiser camera destinations have SRT/RTMP QR transfer, and newly finalized matches sort into Recent matches by finalization activity.
+
+### Needs production verification ⚠️
+- GitHub Actions production secrets and one successful migrate/backend/Vercel deployment
+- Production migration `0012_match_viewers`
+- Neon bootstrap credential rotation and secret replacement
+- Removal of direct public `4000`, `8080`, and `1985` access after HTTPS verification
+- Production end-to-end external-phone stream, two-device score sync, finalization, and Recent matches test
+- Replacement of the temporary `SCORE_SYNC_DELAY_MS = 15_000` holdback with timestamp-based video synchronization
+- Dependency upgrades for the 2026-08-26 production audit findings in Next.js, Socket.IO parser, and Prisma CLI tooling
 
 ### Not started ⬜
-- GitHub Actions secrets (see `PROGRESS.md` Note 4 for full list)
-- Public reachability of the Oracle backend on `4000/TCP` (local API works; external request timed out)
-- Vercel production API/Socket environment variables
-- Domain and HTTPS reverse proxy for API, Socket.IO, and HLS playback
-- Production end-to-end stream test on Oracle VM
 - [[ImageKit]] VOD integration (post-match upload + `replayUrl`)
 
 ## Next up
-1. Fix public backend reachability, then configure Vercel API/Socket variables.
-2. Add domain + TLS reverse proxy for API/Socket.IO/HLS.
-3. Add GitHub Actions secrets and validate deployment automation.
-4. Run the production phone → SRS → viewer test.
-5. Implement ImageKit recording/upload and complete Cricket/Basketball live controls.
+1. Verify GitHub production secrets, deployment jobs, and migration `0012`.
+2. Rotate the exposed Neon credential and tighten public firewall rules.
+3. Run the production phone → SRS → HTTPS viewer, two-device score, completion, and Recent matches test.
+4. Upgrade audited dependencies and rerun build/API/streaming checks.
+5. Replace fixed-delay score synchronization when SRS exposes usable timestamps, then implement ImageKit and non-Football live controls.
 
 ## 2026-08-12 update
 
@@ -36,7 +42,7 @@ Pointer to the living status tracker: `PROGRESS.md`
 
 - Tournament drafts, reusable players, admin approval/rejection, and approved-only public listings are implemented.
 - Approved creators automatically become tournament organisers and can add co-organisers by account email.
-- Football organisers can create matches, complete broadcast preflight, register IRL Pro/Larix cameras with SRT or RTMP destinations, switch the active feed, and manage live scores/events.
+- Football organisers can create matches, configure kickoff/venue and IRL Pro/Larix cameras with SRT or RTMP destinations, switch the active feed, and manage live scores/events.
 - 2026-08-13: creatorless demo fixtures are hidden from the homepage; Go live now shows explicit blockers, and anonymous one-camera playback falls back directly to the raw SRS HLS feed.
 - 2026-08-13: football events now use searchable registered players with jersey/team labels, regulation plus added-time minute, automatic goal scoring, and live full-scorecard refresh.
 - 2026-08-13: the public match page now shows its football timeline below the stream and goal scorers with minutes beneath each team score; both refresh from live score updates.

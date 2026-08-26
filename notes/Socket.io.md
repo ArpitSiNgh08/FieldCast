@@ -3,7 +3,7 @@
 Part of [[FieldCast]] · Part of [[Backend — Express + Socket.io]]
 
 ## What it does
-Pushes live score, active-camera, match-status, and viewer-metric updates from the backend to connected browsers instantly, without polling.
+Pushes live score, active-camera, match-status, and viewer-metric updates from the backend to connected browsers without polling. Organiser controls receive score changes immediately; public score display currently applies a temporary 15-second holdback to align better with delayed HLS playback.
 
 ## Current events
 | Event | Direction | Purpose |
@@ -50,7 +50,9 @@ For Football, `score:update` includes roster-backed event detail. The backend va
 Every organiser control device joins the match room and consumes `score:updated` and `camera:switched`. Public match and bracket refresh components also consume `match:status`. Finalization therefore unmounts the live player without reload even if the phone continues publishing. Per-match score updates are serialized in the Phase 1 backend process, goals use the latest persisted total, and non-goal Football events preserve that total instead of trusting potentially stale client score fields.
 
 ## Key design point
-The score overlay latency is independent of video stream latency. Even if LL-HLS is several seconds behind real time, score updates travel on the Socket.io channel immediately.
+Socket.io score updates and HLS video have separate clocks. Organisers see their updates immediately, while public viewers use the temporary 15-second client holdback. SRS playlists currently do not emit `EXT-X-PROGRAM-DATE-TIME`, so timestamp-based HLS synchronization remains future work.
+
+The holdback variable is `SCORE_SYNC_DELAY_MS = 15_000` in `frontend/src/hooks/useMatchState.ts`. It does not belong in Vercel or the backend `.env`. Production connectivity separately requires Vercel's `NEXT_PUBLIC_SOCKET_URL=https://<duckdns-host>` and an Nginx `/socket.io` proxy that forwards WebSocket upgrade headers. After deployment, verify the polling handshake returns a Socket.IO open packet before testing score updates on two devices.
 
 ## Code location
 - `backend/src/sockets/index.js` — Socket.io server and JWT handshake

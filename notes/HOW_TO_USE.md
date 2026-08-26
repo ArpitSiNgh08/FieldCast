@@ -3,16 +3,17 @@
 Pointer to `HOW_TO_USE.md` in the project root.
 
 ## What it covers
-- Native Postgres, migrations `0001`–`0011`, and starting one backend instance
+- Native Postgres, migrations `0001`–`0012`, and starting one backend instance
 - bcrypt/JWT account creation and env-backed administrator login
 - Creator draft → admin review → approved organiser workflow
 - Optional creator-defined pools, per-pool team assignment, and pool/knockout fixtures
 - Drag-and-drop Playing 11/bench selection
-- Match-specific generated IRL Pro SRT and RTMP fallback camera destinations
-- Football preflight, go live, score events, public stream/timeline, completion, and washout
+- Match-specific generated IRL Pro SRT and RTMP fallback destinations with on-demand QR transfer
+- Football setup, go live, score events, halftime/full-time states, public stream/timeline, completion, and washout
 - Two-player substitutions with match-specific active-player tracking
 - Pool standings, knockout brackets, admin historical corrections, and public tournament hubs
 - Stale Prisma Client, duplicate nodemon, auth, and streaming troubleshooting
+- Production post-push checks for Actions, systemd, Nginx/Socket.IO, SRS, migration `0012`, and a real phone stream
 
 ## Quick start commands
 ```powershell

@@ -18,7 +18,10 @@ async function getTournaments(): Promise<Tournament[]> {
 export default async function HomePage() {
   const [matches, tournaments] = await Promise.all([getMatches(), getTournaments()]);
   const live = matches.filter((match) => match.status === "live");
-  const recent = matches.filter((match) => match.status === "completed").slice(0, 8);
+  const recent = matches
+    .filter((match) => match.status === "completed")
+    .sort((a, b) => completedAt(b) - completedAt(a))
+    .slice(0, 8);
 
   return <div className="mx-auto max-w-6xl px-4 py-6 sm:py-10">
     <section aria-label="Filter by sports" className="mb-8 border-b border-border pb-6">
@@ -39,6 +42,11 @@ export default async function HomePage() {
 
     {matches.length === 0 && <div className="flex min-h-64 flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-surface py-20 text-center"><span className="mb-3 text-4xl">🏟️</span><p className="text-base font-medium text-foreground">No matches scheduled yet</p><p className="mt-1 text-sm text-muted">Approved tournament matches will appear here when organisers create them.</p></div>}
   </div>;
+}
+
+function completedAt(match: Match) {
+  const timestamp = match.state.updatedAt || match.scheduledAt;
+  return timestamp ? new Date(timestamp).getTime() : 0;
 }
 
 function MatchRailSection({ title, matches, live = false }: { title: string; matches: Match[]; live?: boolean }) {

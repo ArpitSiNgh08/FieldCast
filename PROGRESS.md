@@ -13,7 +13,7 @@ Living status tracker for FieldCast. Update this file whenever meaningful work h
 | System architecture & Phase 1/2 split | ✅ Designed (`README.md`) |
 | Governance docs (AGENTS/CLAUDE/RULES/DESIGN) | ✅ Drafted |
 | Database schema design | ✅ Prisma schema + migrations `0001`–`0012` |
-| Prisma migration (backend) | ⚠️ Current through `0012` — apply `0012_match_viewers` to every local/production database before viewer metrics are used |
+| Prisma migration (backend) | ⚠️ Current through `0012` — verify the production deploy applied `0012_match_viewers` before relying on viewer metrics |
 | Prisma seed script | ✅ Done — `prisma/seed.js` runs cleanly with pg adapter |
 | Local Postgres (dev) | ✅ Native Windows PostgreSQL 18 running on port 5432 |
 | `fieldcast` DB user + database | ✅ Created in native Postgres — migration + seed applied |
@@ -40,7 +40,7 @@ Living status tracker for FieldCast. Update this file whenever meaningful work h
 | Match outcomes and standings | ✅ Done — pool/knockout stages, played/draw/washout finalization, pool tables, brackets, and recomputation |
 | Auth callback page `/auth/callback` | ✅ Done |
 | GitHub Actions CI workflow | ✅ Done — `.github/workflows/ci.yml` |
-| GitHub Actions deploy workflow | ✅ Done — `.github/workflows/deploy.yml` (secrets needed before it runs) |
+| GitHub Actions deploy workflow | ✅ Written — verify all production secrets and one successful end-to-end deploy run |
 | ImageKit VOD integration | ⬜ Not started |
 | Local stream test (phone → SRS → viewer) | ✅ IRL Pro RTMP verified at 1080p; SRT fallback and camera-specific HLS tested |
 | IRL Pro ingest | ✅ RTMP verified at 1080p; SRT/UDP fallback implemented and tested end-to-end through HLS |
@@ -48,7 +48,8 @@ Living status tracker for FieldCast. Update this file whenever meaningful work h
 | Production backend service | ✅ systemd service `fieldcast-backend` starts the API; local API smoke test passes |
 | Vercel frontend | ✅ Deployed with HTTPS API/Socket/HLS URLs through DuckDNS + Nginx |
 | Production end-to-end stream | 🔄 Backend, TLS, and frontend are deployed; complete a real external phone ingest/playback test |
-| Markdown documentation | ✅ Synchronized 2026-08-26 — deployment progress and Obsidian context updated |
+| Production dependency audit | ⚠️ 2026-08-26 audit reports high findings in Next.js, Socket.IO parser, and Prisma tooling trees; upgrade and retest before production-hardening |
+| Markdown documentation | ✅ Synchronized 2026-08-26 — QR ingest, score holdback, recent results, and production runbook documented |
 
 Legend: ✅ done · 🔄 in progress · ⬜ not started · 🚫 blocked · ⚠️ attention needed
 
@@ -121,7 +122,7 @@ No Docker is needed for database and app-only development. Native Postgres 18 ru
 - `backend/.env` exists on the VM, is mode `600`, uses `NODE_ENV=production`, and must never be committed or copied into documentation.
 - SRS runs as `docker compose up -d srs`; its public ports are RTMP `1935/TCP`, SRT `10080/UDP`, and temporary direct HLS `8080/TCP`. Keep its API `1985/TCP` private.
 - The Express backend runs under `fieldcast-backend.service`, with a local `curl http://127.0.0.1:4000/api/tournaments` smoke test returning `[]`.
-- The Oracle public-IP path was created, but a Windows request to public port `4000` timed out. Check service binding, Ubuntu UFW, and the OCI security list before frontend integration.
+- Nginx now exposes the backend API, Socket.IO, and HLS through HTTPS on the DuckDNS hostname. Direct public backend `4000` and HLS `8080` access are obsolete and should be removed from UFW/OCI after final verification.
 - A Neon connection string was exposed during setup and must be rotated. Store the replacement only in the VM `.env` and GitHub secret store.
 
 ### Note 6 — UI components
@@ -146,18 +147,34 @@ The UI primitives (`Badge`, `Button`, `Card`, `Navbar`, etc.) were custom-built 
 
 ## Next up
 
-1. **Fix public API reachability** — verify the `fieldcast-backend` binding, Ubuntu firewall, and OCI rule for port `4000`.
-2. **Configure Vercel production variables** — set `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_SOCKET_URL` after the public API is reachable.
-3. **Add a domain and HTTPS reverse proxy** — proxy API/Socket.IO and HLS through TLS; do not keep public production traffic on raw HTTP IP addresses.
-4. **Configure GitHub repository secrets** — see Note 4, then validate the existing deployment workflow.
-5. **Run the production stream test** — phone → RTMP/SRT → SRS → HLS → public FieldCast page.
-6. **Implement ImageKit VOD** — recording, confirmed upload, `replayUrl`, and safe local cleanup.
-7. **Complete Cricket/Basketball organiser controls** — live event entry and sport-specific finalization.
-8. **Add automated coverage** — standings, washouts, lineup authorization, and Socket.io scoring.
+1. **Validate automated production deploys** — confirm every GitHub production secret and one green migrate/backend/Vercel run after pushing `main`.
+2. **Verify production migration `0012_match_viewers`** — viewer metrics require it; do not hand-run migrations when the Actions job succeeds.
+3. **Rotate the exposed Neon bootstrap credential** — replace it in the VM `.env` and GitHub `DATABASE_URL` secret.
+4. **Tighten production networking** — retain `22`, `80`, `443`, `1935/TCP`, and `10080/UDP`; remove direct `4000`, `8080`, and `1985` public access.
+5. **Upgrade audited dependencies deliberately** — address the Next.js, Socket.IO parser, and Prisma tooling advisories, then rerun type, build, API, and streaming checks.
+6. **Run the production stream test** — external phone → RTMP/SRT → SRS → HTTPS HLS → viewer, score update, finalization, and Recent matches.
+7. **Replace the temporary score holdback** — `SCORE_SYNC_DELAY_MS = 15_000` approximates HLS delay but can drift without program-date-time metadata.
+8. **Implement ImageKit VOD, Cricket/Basketball organiser controls, and automated coverage.**
 
 ---
 
 ## Session log
+
+- **2026-08-26** — Production runbook and documentation audit.
+  - Documented `SCORE_SYNC_DELAY_MS = 15_000` as the temporary public score/video holdback and distinguished it from Vercel's required `NEXT_PUBLIC_SOCKET_URL`.
+  - Added the post-push Actions, VM, Socket.IO, SRS, migration, and external-phone verification checklist to the root guides and synchronized the Obsidian production notes.
+  - Recorded remaining production risks: credential rotation, migration/secrets verification, public-port cleanup, fixed-delay score drift, missing VOD, incomplete non-Football controls, and limited automated coverage.
+  - Ran production-only npm audits: frontend reports five high findings (including direct Next.js advisories); backend reports five high, four moderate, and one low, mainly through Prisma CLI tooling plus Socket.IO parser. No dependency upgrade was applied without explicit approval.
+  - Audited deploy mechanics: the workflow lacks a backend health gate, Vercel can deploy even if the backend job fails, and the active Nginx configuration is not stored in the repository.
+
+- **2026-08-26** — Faster mobile camera setup.
+  - Added on-demand QR codes for each generated SRT and RTMP ingest URL so camera operators can transfer destinations directly to another phone.
+  - Reworked the mobile ingest card so long destinations use the full width, actions have large labeled tap targets, and SRT/RTMP sections are visually distinct.
+  - Simplified failed stream playback guidance to tell viewers to refresh the page.
+
+- **2026-08-26** — Recent-match completion refresh.
+  - Recent matches now sort by the match-state timestamp written during finalization instead of the scheduled kickoff, ensuring a match that just finished appears in the first eight.
+  - Successful finalization refreshes the Next.js route cache before the organiser navigates back to public pages.
 
 - **2026-08-26** — Production HTTPS, mobile ingest, and viewer metrics.
   - Oracle's backend is publicly available through Nginx and a Let's Encrypt certificate at the configured DuckDNS hostname; Vercel uses HTTPS API, Socket.IO, and HLS endpoints.

@@ -102,6 +102,11 @@ export default async function MatchPage({ params }: Props) {
                 </p>
               </div>
             )}
+            {isLive && (
+              <div className="mt-6">
+                <ScoreOverlay match={match} footballEvents={footballEvents} />
+              </div>
+            )}
             {match.sport === "football" && (
               <div className="mt-6">
                 <FootballTimeline events={footballEvents} />
@@ -109,15 +114,13 @@ export default async function MatchPage({ params }: Props) {
             )}
           </div>
 
-          {/* Score overlay — 1/3 width on desktop */}
+          {/* Match summary and full-scorecard link */}
           <div className="flex flex-col gap-4">
-            {isLive ? (
-              <ScoreOverlay match={match} footballEvents={footballEvents} />
-            ) : isDone ? (
+            {!isLive && isDone ? (
               match.resultType === "washout" ? <WashoutSummary match={match} /> : <CompletedSummary match={match} />
-            ) : (
+            ) : !isLive ? (
               <UpcomingCard match={match} />
-            )}
+            ) : null}
             {isLive && <a href={`/scorecard/${match.id}`} className="rounded-lg border border-border bg-surface px-4 py-3 text-center text-sm font-medium text-accent hover:bg-surface-2">Open full match stats →</a>}
           </div>
         </div>

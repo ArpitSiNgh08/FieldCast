@@ -14,13 +14,15 @@ Implemented locally as of August 2026:
 - Approved tournament creators automatically become organisers and can invite additional organisers by account email.
 - A public homepage containing approved tournaments and real approved-tournament fixtures; legacy creatorless fixtures are excluded.
 - Public tournament hubs with teams, live matches, upcoming matches, past matches, pool-aware standings, and a connected knockout bracket.
-- Football match creation, broadcast preflight, mobile-camera ingest destinations, going live, active-camera switching, and broadcast completion.
+- Football match creation, mobile-camera ingest destinations, going live, active-camera switching, score events, and broadcast completion.
+- On-demand SRT and RTMP QR codes for transferring ingest destinations directly to a streaming phone.
 - Searchable Football event entry using the match's current active players, with jersey number and team abbreviation.
 - Goal, card, and substitution events with regulation and extra-time minutes.
 - Automatic goal scoring and live Socket.io updates.
 - A public HLS match page with stream, compact live score graphic, goal scorers, match timeline, live watcher count, and anonymous unique-viewer total.
 - Detailed scorecards that refresh after live score updates.
 - Result-aware standings that recompute after completed matches.
+- Recent matches ranked by finalization activity so a match appears promptly after the organiser ends it.
 - Explicit washouts that stop a stream without affecting standings.
 - Drag-and-drop Playing 11 and bench management. The first sport-sized group of registered players becomes the default starting squad; additional players begin on the bench and organisers can adjust the lineup.
 
@@ -63,7 +65,7 @@ For an approved tournament, an organiser can:
 - Drag players between the Playing 11 and bench and save the lineup.
 - Create pool-stage or knockout Football fixtures, including custom knockout round names, or create a fixture directly as a washout.
 - Declare a washout before a broadcast starts.
-- Configure kickoff, venue, cameras, and Football broadcast checks.
+- Configure kickoff, venue, and cameras, then scan or copy the generated SRT/RTMP destination.
 - Start the match and make it visible on the public homepage.
 - Switch the active camera during a multi-camera broadcast.
 - Record Football events for currently active players, including player-off/player-on substitutions that update the match-specific active squad.
@@ -86,7 +88,7 @@ For an approved tournament, an organiser can:
 | `/tournaments/new` | Create a tournament draft |
 | `/tournaments/[id]/edit` | Edit an eligible draft or rejected tournament |
 | `/organizer` | Approved-tournament organiser workspace and squad editor |
-| `/organizer/matches/[id]` | Football broadcast preparation, cameras, scoring, and completion |
+| `/organizer/matches/[id]` | Football broadcast setup, cameras, scoring, halftime, and completion |
 | `/admin` | Administrator workspace for completed-match and standings corrections |
 | `/admin/tournaments` | Administrator tournament review queue |
 
@@ -227,9 +229,9 @@ For a real phone-to-browser test:
 3. Set `RTMP_HOST` to an address reachable from the phone—not `localhost` unless the broadcaster runs on that machine. This host is used in both generated RTMP and SRT URLs.
 4. Set `SRS_HLS_BASE` to an address reachable from viewer browsers.
 5. Open the organiser match page and add a camera.
-6. In IRL Pro, prefer the generated SRT URL; use the RTMP URL when it is stable. Larix and other RTMP broadcasters use the RTMP fallback URL.
+6. Use **Show QR** beside the generated SRT or RTMP destination and scan it with the streaming phone, or use the adjacent copy action. In IRL Pro, prefer SRT; use RTMP when it is stable.
 7. Use H.264, 1080p at 30 fps, 4–6 Mbps, AAC audio, and a two-second keyframe interval.
-8. Start publishing from the phone, complete the broadcast checklist, and press **Go live**.
+8. Start publishing from the phone and press **Go live**. Kickoff, venue, and at least one camera are the required setup fields; there is no separate checklist gate.
 
 Single-camera local broadcasts play that camera’s SRS HLS manifest directly. Multi-camera broadcasts use a stable `active_[matchId]` output produced by the ffmpeg switcher.
 
@@ -247,9 +249,12 @@ Single-camera local broadcasts play that camera’s SRS HLS manifest directly. M
 - Picker labels use `#jersey · Player Name · TEAM`.
 - Events include goal, yellow card, red card, and substitution. Substitutions capture both the player leaving and the player entering.
 - Minute and extra-time minute are stored, such as `45+2'`.
+- The half is derived automatically from the minute. **Mark halftime** publishes the halftime state, while **End stream & finalize** publishes full time.
 - Goals increment the selected player’s team score on the backend to avoid client-side races.
 - **Update scorecard** persists the event and broadcasts the new state over Socket.io.
 - The public match page shows goal scorers below the correct team score and its event timeline below the stream.
+- Public score display currently uses `SCORE_SYNC_DELAY_MS = 15_000` in `frontend/src/hooks/useMatchState.ts`. This temporary 15-second holdback approximates HLS latency; it is a code constant, not a production environment variable.
+- Production realtime score delivery requires `NEXT_PUBLIC_SOCKET_URL` on Vercel to be the same HTTPS origin that proxies `/socket.io` to the backend. `NEXT_PUBLIC_API_URL` must point to that origin for REST requests.
 
 ## Standings and outcomes
 
@@ -291,6 +296,7 @@ The schema uses a sport-agnostic core with sport-specific history:
 - `Player` and `TeamPlayer`: reusable players plus jersey, position, and Playing/bench role.
 - `Match`: fixture, pool/knockout stage, stream configuration, status, winner, and `pending`/`played`/`washout` result type.
 - `MatchCamera`: per-phone ingest configuration.
+- `MatchView`: one anonymous browser identifier per match for unique-viewer totals.
 - `MatchState`: fast live score and period state.
 - `FootballEvent`, `CricketEvent`, and `BasketballQuarter`: detailed sport history.
 - `Standing`: tournament table generated from finalized results.
@@ -308,6 +314,7 @@ The schema uses a sport-agnostic core with sport-specific history:
 | `0009_match_stages` | Pool/knockout fixture classification and custom knockout stage labels |
 | `0010_substitution_players` | Explicit players-off/players-on snapshots for football substitutions |
 | `0011_default_starting_squads` | Promote the first sport-sized roster when a team has no saved starting lineup |
+| `0012_match_viewers` | Persist anonymous per-match unique-browser viewer counts |
 
 Prisma 7 requires the PostgreSQL driver adapter. Reuse `backend/src/config/prisma.js`; do not instantiate a bare `PrismaClient` or pass removed `datasourceUrl`/`datasources` options.
 
@@ -361,6 +368,14 @@ Install ffmpeg and either restart the backend with `ffmpeg` available on `PATH`,
 
 Oracle Always Free instances may be reclaimed after extended inactivity, so tournament-week readiness checks remain important.
 
+### After pushing `main`
+
+The production deploy workflow should apply pending Prisma migrations, update `/opt/fieldcast` on the Oracle VM, install backend dependencies, regenerate Prisma Client, restart `fieldcast-backend`, and deploy the frontend to Vercel. Do not separately run a production migration when the workflow succeeds.
+
+Before relying on that automation, configure the production GitHub environment secrets: `DATABASE_URL`, `VM_HOST`, `VM_USER`, `VM_SSH_KEY`, `VERCEL_TOKEN`, `VERCEL_ORG_ID`, and `VERCEL_PROJECT_ID`. In Vercel Production, set `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_SOCKET_URL` to the HTTPS DuckDNS/Nginx origin and redeploy whenever either value changes.
+
+After each production push, verify the GitHub Actions **CI** and **Deploy** runs, then check the backend service, public API, Socket.IO handshake, SRS container/API, HLS route, and one real phone ingest. See [HOW_TO_USE.md](./HOW_TO_USE.md#11-production-after-pushing-main) for exact commands.
+
 ### Phase 2: scaled deployment
 
 The same application and container layout can move to EC2/ECS, with S3 added as durable archive storage behind ImageKit. This is a deployment-target change, not an application redesign.
@@ -369,7 +384,14 @@ The same application and container layout can move to EC2/ECS, with S3 added as 
 
 - Complete live event/control surfaces for Cricket and Basketball are not yet implemented.
 - ImageKit replay upload is planned but not wired end to end.
-- Neon, the Oracle VM, SRS, and the systemd backend service have been provisioned. Public API reachability, Vercel production environment variables, HTTPS/domain routing, CI secrets, and the first production camera test remain incomplete.
+- The Oracle backend, Nginx TLS route, SRS, Neon, and Vercel frontend are provisioned. Still verify that migration `0012_match_viewers` has run in production, all GitHub Actions secrets are configured, and the Vercel Production API/Socket variables target the HTTPS backend origin.
+- Rotate the Neon credential exposed during the initial bootstrap, then update the VM and GitHub secret with the replacement.
+- Remove direct public access to backend `4000/TCP` and HLS `8080/TCP` after the Nginx routes are verified; keep SRS API `1985/TCP` private.
+- Score/video alignment uses a temporary fixed 15-second holdback and can drift when actual HLS latency changes.
+- A full external phone → SRT/RTMP → SRS → HTTPS HLS → viewer test is still required before a tournament.
+- A 2026-08-26 `npm audit --omit=dev` reports five high-severity findings in the frontend production tree, including direct `next@16.2.10` findings (npm proposes `16.3.3`), and five high/four moderate/one low in the backend production install, largely through Prisma CLI tooling plus Socket.IO parser. Upgrade and retest these dependencies before treating the deployment as production-hardened; do not apply a blind forced audit fix.
+- The deploy workflow has no post-restart backend health check, and its Vercel job can succeed independently while the backend job fails. Always inspect all deploy jobs; a future hardening change should gate frontend production deployment on backend health.
+- The live Nginx reverse-proxy configuration is not versioned in this repository. Back it up and verify `/api`, `/socket.io`, `/live`, WebSocket upgrade headers, TLS renewal, and upload/body-size settings after VM changes.
 - Multi-camera switching requires ffmpeg and an environment reachable by SRS.
 - Automated test coverage is limited; validation currently relies on linting, TypeScript, builds, API smoke tests, and local browser checks.
 

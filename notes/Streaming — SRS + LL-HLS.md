@@ -28,7 +28,7 @@ Phone → RTMP :1935/TCP or SRT :10080/UDP → SRS → LL-HLS → hls.js in brow
 
 ## Stream keys
 
-Current organiser-created cameras use unique backend-generated keys per match, for example `/live/match8_ab12cd34ef`. The organiser page displays the exact recommended IRL Pro SRT URL and an RTMP fallback. Both protocols resolve to the same stream key; fixed `camera1`/`camera2` conventions are legacy only. Local SRS is pinned to stable `6.0.184`.
+Current organiser-created cameras use unique backend-generated keys per match, for example `/live/match8_ab12cd34ef`. The organiser page displays the exact recommended IRL Pro SRT URL and an RTMP fallback, each with an on-demand QR code and copy action. Both protocols resolve to the same stream key; fixed `camera1`/`camera2` conventions are legacy only. Local SRS is pinned to stable `6.0.184`.
 
 ## HLS stream URL
 ```
@@ -38,6 +38,8 @@ https://<duckdns-host>/live/<match-camera-key>.m3u8
 - Single camera: viewer plays the camera-specific manifest directly.
 - Multiple cameras: ffmpeg republishes the selected feed to `/live/active_<matchId>.m3u8`.
 - The raw IP/port URL is for VM-only diagnostics. Production browser playback uses Nginx HTTPS on the DuckDNS hostname; do not expose SRS `1985` or direct HLS `8080` publicly.
+
+The current SRS playlists expose segment timing but do not include `EXT-X-PROGRAM-DATE-TIME`. Public score updates use the temporary frontend constant `SCORE_SYNC_DELAY_MS = 15_000` to reduce visible drift from HLS latency; it is not an environment variable. Timestamp-based synchronization is a future enhancement.
 
 ## Related
 - [[Camera Switching]] — selects which camera feed goes to viewers

@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element -- team logos may be local data URLs. */
 import { api } from "@/lib/api";
 import { notFound } from "next/navigation";
 import { SPORT_EMOJI, SPORT_LABEL, formatDateTime } from "@/lib/format";
@@ -6,6 +7,7 @@ import { Card, CardHeader, CardTitle, CardBody } from "@/ui/Card";
 import type { CricketEvent, BasketballQuarter } from "@/lib/types";
 import Link from "next/link";
 import { ScorecardLiveRefresh } from "@/components/ScorecardLiveRefresh";
+import { ScoreOverlay } from "@/components/ScoreOverlay";
 import { FootballTimeline } from "@/components/FootballTimeline";
 
 interface Props {
@@ -73,28 +75,32 @@ export default async function ScorecardPage({ params }: Props) {
         )}
       </div>
 
-      {/* Final score summary card */}
-      <Card className="mb-8">
+      {/* Live matches use the exact same score component as the streaming page. */}
+      {match.status === "live" ? <ScoreOverlay match={match} footballEvents={footballEvents || []} /> : <Card className="mb-8">
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle>{match.status === "live" ? "Live Score" : "Final Score"}</CardTitle>
-            <Badge tone={match.status === "live" ? "accent" : "muted"}>{match.status === "live" ? "Live" : "Full time"}</Badge>
+            <CardTitle>Final Score</CardTitle>
+            <Badge tone="muted">Full time</Badge>
           </div>
         </CardHeader>
         <CardBody>
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-around">
+          <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 sm:gap-6">
             <TeamSummary
               name={match.teamA.name}
               short={match.teamA.shortName}
+              logoUrl={match.teamA.logoUrl}
               score={match.state.teamAScore}
               winner={match.winnerTeamId === match.teamA.id}
+              side="left"
             />
-            <span className="hidden text-2xl font-bold text-muted sm:block">–</span>
+            <span className="text-sm font-bold uppercase tracking-widest text-muted">vs</span>
             <TeamSummary
               name={match.teamB.name}
               short={match.teamB.shortName}
+              logoUrl={match.teamB.logoUrl}
               score={match.state.teamBScore}
               winner={match.winnerTeamId === match.teamB.id}
+              side="right"
             />
           </div>
           {winnerName && (
@@ -103,7 +109,7 @@ export default async function ScorecardPage({ params }: Props) {
             </p>
           )}
         </CardBody>
-      </Card>
+      </Card>}
 
       {/* Sport-specific detail */}
       {match.sport === "cricket" && cricketEvents && cricketEvents.length > 0 && (
@@ -147,26 +153,35 @@ export default async function ScorecardPage({ params }: Props) {
 function TeamSummary({
   name,
   short,
+  logoUrl,
   score,
   winner,
+  side,
 }: {
   name: string;
   short: string;
+  logoUrl?: string | null;
   score: number;
   winner: boolean;
+  side: "left" | "right";
 }) {
   return (
-    <div className="flex flex-col items-center gap-2">
-      <span className="grid h-12 w-12 place-items-center rounded-xl bg-surface-2 text-base font-bold text-foreground">
-        {short}
-      </span>
-      <p className="text-sm text-muted">{name}</p>
-      <p className={`text-4xl font-bold tabular-nums ${winner ? "text-accent" : "text-foreground"}`}>
-        {score}
-        {winner && <span className="ml-1 text-base">🏆</span>}
-      </p>
+    <div className={`flex min-w-0 items-center gap-2 sm:gap-3 ${side === "left" ? "justify-end text-right" : "justify-start text-left"}`}>
+      {side === "left" && <TeamLogo logoUrl={logoUrl} short={short} />}
+      <div className="min-w-0">
+        <p className="truncate text-sm font-semibold text-foreground sm:text-base">{name}</p>
+        <p className={`mt-1 text-3xl font-bold tabular-nums sm:text-4xl ${winner ? "text-accent" : "text-foreground"}`}>
+          {score}
+          {winner && <span className="ml-1 text-base">🏆</span>}
+        </p>
+      </div>
+      {side === "right" && <TeamLogo logoUrl={logoUrl} short={short} />}
     </div>
   );
+}
+
+function TeamLogo({ logoUrl, short }: { logoUrl?: string | null; short: string }) {
+  return logoUrl ? <img src={logoUrl} alt="" className="h-12 w-12 shrink-0 rounded-xl border border-border object-cover sm:h-14 sm:w-14" /> : <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-surface-2 text-xs font-bold text-foreground sm:h-14 sm:w-14">{short}</span>;
 }
 
 function CricketScorecard({

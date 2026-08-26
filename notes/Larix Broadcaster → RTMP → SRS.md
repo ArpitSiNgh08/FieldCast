@@ -28,6 +28,8 @@ Phone starts publishing
   → Multi-camera viewers use /live/active_<matchId>.m3u8
 ```
 
+SRS currently emits media sequence and segment timing, but the generated HLS playlists do not include `EXT-X-PROGRAM-DATE-TIME`. The public score overlay therefore uses a temporary 15-second holdback while timestamp-based synchronization is evaluated.
+
 ## Verify stream is live
 ```
 GET http://<SERVER_IP>:1985/api/v1/streams

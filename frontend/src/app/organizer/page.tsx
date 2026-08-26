@@ -13,6 +13,8 @@ import { Card, CardBody } from "@/ui/Card";
 import { Field } from "@/ui/Field";
 import { Input, Select } from "@/ui/Input";
 
+const STANDARD_VENUES = ["NITH college ground", "SAC"] as const;
+
 export default function OrganizerPage() {
   const { user, loading } = useAuth();
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
@@ -23,6 +25,7 @@ export default function OrganizerPage() {
   const [teamB, setTeamB] = useState("");
   const [scheduledAt, setScheduledAt] = useState("");
   const [venue, setVenue] = useState("");
+  const [venueChoice, setVenueChoice] = useState("");
   const [startMatchId, setStartMatchId] = useState("");
   const [matchStageType, setMatchStageType] = useState<"pool" | "knockout" | "">("");
   const [poolId, setPoolId] = useState("");
@@ -126,7 +129,7 @@ export default function OrganizerPage() {
       ) : (
         <>
           <Field label="Choose approved tournament" className="mb-6 max-w-md px-4 sm:px-0">
-            <Select value={selectedId} onChange={(event) => { setSelectedId(Number(event.target.value)); setTeamA(""); setTeamB(""); setMatchStageType(""); setPoolId(""); }}>
+            <Select value={selectedId} onChange={(event) => { setSelectedId(Number(event.target.value)); setTeamA(""); setTeamB(""); setMatchStageType(""); setPoolId(""); setVenue(""); setVenueChoice(""); }}>
               {tournaments.map((tournament) => <option key={tournament.id} value={tournament.id}>{tournament.name} · {tournament.sport}</option>)}
             </Select>
           </Field>
@@ -171,7 +174,7 @@ export default function OrganizerPage() {
                 )}
 
                 {selected.sport === "football" ? (
-                  <details className="group overflow-hidden rounded-xl border border-border bg-surface shadow-sm"><summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-4 font-semibold marker:hidden"><span>Create new match</span><span className="text-sm text-muted transition-transform group-open:rotate-180">⌄</span></summary><div className="border-t border-border p-4"><p className="mb-4 text-sm text-muted">Kickoff and venue are part of the required broadcast preflight.</p>
+                  <details className="group overflow-hidden rounded-xl border border-border bg-surface shadow-sm"><summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-4 font-semibold marker:hidden"><span>Create new match</span><span className="text-sm text-muted transition-transform group-open:rotate-180">⌄</span></summary><div className="border-t border-border p-4"><p className="mb-4 text-sm text-muted">Set the kickoff time and venue before preparing the broadcast.</p>
                       <form onSubmit={createMatch} className="grid gap-4 sm:grid-cols-2">
                         <Field label="Match stage"><Select value={effectiveStageType} onChange={(event) => { setMatchStageType(event.target.value as "pool" | "knockout"); setTeamA(""); setTeamB(""); }}>{selected.pools.length > 0 && <option value="pool">Pool stage</option>}<option value="knockout">Knockout stage</option></Select></Field>
                         {effectiveStageType === "pool" ? <Field label="Pool"><Select value={effectivePoolId} onChange={(event) => { setPoolId(event.target.value); setTeamA(""); setTeamB(""); }} required>{selected.pools.map((pool) => <option key={pool.id} value={pool.id}>{pool.name}</option>)}</Select></Field> : <Field label="Knockout round"><Select value={knockoutChoice} onChange={(event) => setKnockoutChoice(event.target.value)}><option value="Semi-final">Semi-final</option><option value="Final">Final</option><option value="custom">Add another stage…</option></Select></Field>}
@@ -179,7 +182,14 @@ export default function OrganizerPage() {
                         <Field label="Home team"><Select value={teamA} onChange={(event) => setTeamA(event.target.value)} required><option value="">Choose team</option>{eligibleTeams.map((membership) => <option key={membership.teamId} value={membership.teamId}>{membership.team.name}</option>)}</Select></Field>
                         <Field label="Away team"><Select value={teamB} onChange={(event) => setTeamB(event.target.value)} required><option value="">Choose team</option>{eligibleTeams.filter((membership) => String(membership.teamId) !== teamA).map((membership) => <option key={membership.teamId} value={membership.teamId}>{membership.team.name}</option>)}</Select></Field>
                         <Field label="Kickoff"><Input type="datetime-local" value={scheduledAt} onChange={(event) => setScheduledAt(event.target.value)} required /></Field>
-                        <Field label="Venue"><Input value={venue} onChange={(event) => setVenue(event.target.value)} required placeholder="College football ground" /></Field>
+                        <Field label="Venue">
+                          <Select value={venueChoice} onChange={(event) => { const value = event.target.value; setVenueChoice(value); setVenue(value === "custom" ? "" : value); }} required>
+                            <option value="">Choose venue</option>
+                            {STANDARD_VENUES.map((option) => <option key={option} value={option}>{option}</option>)}
+                            <option value="custom">Add custom place…</option>
+                          </Select>
+                        </Field>
+                        {venueChoice === "custom" && <Field label="Custom venue"><Input value={venue} onChange={(event) => setVenue(event.target.value)} required placeholder="Enter venue name" /></Field>}
                         <label className="flex items-start gap-3 rounded-lg border border-border p-3 sm:col-span-2"><input type="checkbox" checked={createAsWashout} onChange={(event) => setCreateAsWashout(event.target.checked)} className="mt-1 h-4 w-4 accent-accent" /><span><span className="block text-sm font-medium">Declare this fixture a washout</span><span className="block text-xs text-muted">Creates the fixture as completed without affecting played, wins, draws, losses, or points.</span></span></label>
                         <Button type="submit" disabled={busy} className="sm:col-span-2">{createAsWashout ? "Create and declare washout" : "Create match & prepare stream"}</Button>
                       </form>

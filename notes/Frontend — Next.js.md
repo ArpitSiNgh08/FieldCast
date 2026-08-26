@@ -13,7 +13,7 @@ Part of [[FieldCast]]
 | `/admin` | Completed-match, Football-event, and standings corrections |
 | `/admin/tournaments` | Admin approval/rejection queue |
 | `/organizer` | Select approved tournaments, manage organisers, fixtures, and Playing 11/bench squads |
-| `/organizer/matches/[id]` | Football preflight, cameras, active feed, and scorecard |
+| `/organizer/matches/[id]` | Football broadcast setup, cameras, active feed, score events, halftime, and completion |
 
 `TournamentEditor.tsx` owns the draft/team/roster UI. See [[Tournament Submission]] and [[Tournament Organiser]].
 
@@ -35,7 +35,7 @@ Part of [[FieldCast]]
 `3000` — start with `npm run dev` from `frontend/`
 
 ## Deployment
-**Vercel free tier** — deployment is live, but production `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_SOCKET_URL` must point to the HTTPS API origin before it can use the Oracle backend.
+**Vercel free tier** — deployment is live. Production `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_SOCKET_URL` must both point to the HTTPS DuckDNS/Nginx origin; these public variables are embedded during the Vercel build, so changing them requires a production redeploy.
 
 ## Key pages
 | Route | What it shows |
@@ -61,6 +61,8 @@ Part of [[FieldCast]]
 | `Navbar.tsx` | Navigation |
 | `Badge.tsx` / `Card.tsx` | UI primitives |
 
+The organiser camera card offers on-demand QR codes and labeled copy actions for both generated SRT and RTMP destinations. The homepage ranks recent matches by `MatchState.updatedAt`, which finalization updates, instead of by the original kickoff time.
+
 ## UI rules (from [[DESIGN]])
 - **Fonts:** Geist (headings) + Inter (body) only
 - **Theme:** Light only — no dark mode
@@ -73,6 +75,8 @@ NEXT_PUBLIC_SOCKET_URL=http://localhost:4000
 ```
 
 For production, use HTTPS domain origins (for example `https://api.example.com`), not a raw HTTP VM IP. An HTTPS Vercel site cannot use HTTP API or HLS resources without mixed-content restrictions.
+
+`NEXT_PUBLIC_SOCKET_URL` is the production connection setting required for live score delivery. The temporary score/video alignment setting is separate: `SCORE_SYNC_DELAY_MS = 15_000` is a code constant in `useMatchState.ts`, not an environment variable.
 
 ## Related
 - [[Streaming — SRS + LL-HLS]] — video stream source

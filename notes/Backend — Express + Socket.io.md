@@ -9,10 +9,10 @@ Part of [[FieldCast]]
 - `POST /api/tournaments/:id/pools` adds a pool while a draft remains editable, and team membership stores its selected pool.
 - Organisers may create matches only inside approved tournaments they manage.
 - New matches are classified as pool or knockout fixtures; pool team choices are scoped to that pool and knockout fixtures carry a built-in or custom round label.
-- `PATCH /api/matches/:id/broadcast-setup` stores venue, kickoff, and preflight state.
+- `PATCH /api/matches/:id/broadcast-setup` stores venue and kickoff setup.
 - `POST /api/matches/:id/cameras` creates a match camera with a server-generated key; responses include SRT and RTMP ingest URLs.
 - `PATCH /api/tournaments/:id/teams/:teamId/lineup` persists the sport-sized starting squad and bench split.
-- `PATCH /api/matches/:id/status` starts a match after preflight or normally finalizes it and recomputes standings.
+- `PATCH /api/matches/:id/status` starts a match once required setup is present, or normally finalizes it and recomputes standings.
 - `POST /api/matches/:id/result` records a played result or washout; washouts are excluded from the table.
 - `authorization.service.js` enforces tournament/match permissions for REST and [[Socket.io]].
 - `/api/admin` correction endpoints require the global admin role and reject live/upcoming matches.
@@ -45,7 +45,7 @@ See [[Tournament Submission]] and [[Tournament Organiser]].
 | GET | `/api/matches/:id/scorecard` | Match state and sport-specific event history |
 | PATCH | `/api/matches/:id/status` | Go live or finalize a played match |
 | POST | `/api/matches/:id/result` | Save played/washout result |
-| PATCH | `/api/matches/:id/broadcast-setup` | Save kickoff, venue, and preflight |
+| PATCH | `/api/matches/:id/broadcast-setup` | Save kickoff and venue |
 | POST/DELETE | `/api/matches/:id/cameras` | Add/remove match-specific cameras |
 | GET | `/api/tournaments` | Approved user-created tournaments |
 | GET | `/api/tournaments/:id/standings` | Recomputed tournament table |

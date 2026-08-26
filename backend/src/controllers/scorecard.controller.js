@@ -2,6 +2,7 @@
 
 const Matches = require('../models/matches.model');
 const events = require('../models/events.model');
+const { withStreamUrl } = require('./matches.controller');
 
 /**
  * Full, sport-aware scorecard for a match: the base match (teams + live state)
@@ -20,7 +21,9 @@ async function get(req, res) {
     detail = { basketballQuarters: await events.listBasketballQuarters(match.id) };
   }
 
-  res.json({ match, ...detail });
+  // Keep scorecard responses consistent with regular match responses so
+  // organiser controls always receive the generated RTMP/SRT ingest URLs.
+  res.json({ match: withStreamUrl(match), ...detail });
 }
 
 module.exports = { get };

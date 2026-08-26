@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Hls from "hls.js";
 import type { Match } from "@/lib/types";
 import { getSocket } from "@/lib/socket";
+import { Button } from "@/ui/Button";
 
 interface Props {
   match: Match;
@@ -16,7 +17,19 @@ export function HlsPlayer({ match, liveUrl }: Props) {
   const usedFallbackRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isBehindLive, setIsBehindLive] = useState(false);
   const [viewerCounts, setViewerCounts] = useState({ live: 0, unique: 0 });
+
+  function goLive() {
+    const video = videoRef.current;
+    if (!video) return;
+    const hlsLivePosition = hlsRef.current?.liveSyncPosition;
+    const seekableEnd = video.seekable.length ? video.seekable.end(video.seekable.length - 1) : null;
+    const livePosition = hlsLivePosition ?? seekableEnd;
+    if (livePosition !== null && livePosition !== undefined) video.currentTime = Math.max(0, livePosition - 0.5);
+    video.play().catch(() => {});
+    setIsBehindLive(false);
+  }
 
   useEffect(() => {
     if (match.status !== "live") return;
@@ -100,6 +113,20 @@ export function HlsPlayer({ match, liveUrl }: Props) {
     }
   }, [liveUrl, match.cameraFallbackUrl]);
 
+  useEffect(() => {
+    if (match.status !== "live") return;
+    const timer = window.setInterval(() => {
+      const video = videoRef.current;
+      if (!video || !video.seekable.length || !Number.isFinite(video.currentTime)) return;
+      const liveEdge = video.seekable.end(video.seekable.length - 1);
+      const drift = liveEdge - video.currentTime;
+      // Show at 15s behind, then keep it hidden until playback is close to
+      // the live edge again so the action does not flicker around the cutoff.
+      setIsBehindLive((visible) => visible ? drift > 10 : drift > 15);
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [liveUrl, match.status]);
+
   return (
     <div>
       <div className="relative aspect-video w-full overflow-hidden rounded-xl bg-foreground/5 border border-border">
@@ -114,11 +141,7 @@ export function HlsPlayer({ match, liveUrl }: Props) {
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-6 text-center">
           <span className="text-3xl">📡</span>
           <p className="text-sm font-medium text-foreground">{error}</p>
-          <p className="text-xs text-muted">
-            {match.sport === "cricket" && "Check that phones are streaming via Larix Broadcaster."}
-            {match.sport === "football" && "The camera phones must be pushing RTMP to the server."}
-            {match.sport === "basketball" && "Stream starts when cameras go live."}
-          </p>
+          <p className="text-xs text-muted">Try refreshing the page.</p>
         </div>
       )}
 
@@ -132,9 +155,10 @@ export function HlsPlayer({ match, liveUrl }: Props) {
       />
       </div>
       {match.status === "live" && (
-        <div className="mt-2 flex items-center gap-4 px-1 text-xs text-muted" aria-live="polite">
+        <div className="mt-2 flex flex-wrap items-center gap-3 px-1 text-xs text-muted" aria-live="polite">
           <span><span className="mr-1 inline-block h-2 w-2 rounded-full bg-red-500" />{viewerCounts.live} watching now</span>
           <span>{viewerCounts.unique} unique viewers</span>
+          {isBehindLive && <Button type="button" size="sm" variant="outline" className="ml-auto h-8" onClick={goLive}>Go live</Button>}
         </div>
       )}
     </div>
