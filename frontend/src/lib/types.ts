@@ -119,6 +119,7 @@ export interface FootballEvent {
   player_name: string | null;
   player_id: number | null;
   jersey_number: string | null;
+  is_penalty: boolean;
   player_out_id: number | null;
   player_out_name: string | null;
   player_out_jersey: string | null;

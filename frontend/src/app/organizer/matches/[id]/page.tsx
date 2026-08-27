@@ -34,6 +34,7 @@ export default function FootballMatchControl() {
   const [minute, setMinute] = useState(0);
   const [extraTimeMinute, setExtraTimeMinute] = useState(0);
   const [eventType, setEventType] = useState("goal");
+  const [isPenalty, setIsPenalty] = useState(false);
   const [playerQuery, setPlayerQuery] = useState("");
   const [selectedPlayerId, setSelectedPlayerId] = useState<number | null>(null);
   const [playerOutQuery, setPlayerOutQuery] = useState("");
@@ -277,6 +278,7 @@ export default function FootballMatchControl() {
                 eventType,
                 teamId: eventTeam.id,
                 playerId: selected!.playerId,
+                isPenalty: eventType === "goal" && isPenalty,
               },
       },
       (ack: { ok: boolean; error?: string; state?: Match["state"] }) => {
@@ -648,6 +650,7 @@ export default function FootballMatchControl() {
                         value={eventType}
                         onChange={(event) => {
                           setEventType(event.target.value);
+                          setIsPenalty(false);
                           setSelectedPlayerId(null);
                           setSelectedPlayerOutId(null);
                           setSelectedPlayerInId(null);
@@ -728,21 +731,34 @@ export default function FootballMatchControl() {
                       />
                     </div>
                   ) : (
-                    <PlayerSearch
-                      label="Player"
-                      hint="Choose a player currently on the field."
-                      entries={activePlayers}
-                      query={playerQuery}
-                      selectedPlayerId={selectedPlayerId}
-                      onQueryChange={(value) => {
-                        setPlayerQuery(value);
-                        setSelectedPlayerId(null);
-                      }}
-                      onSelect={(playerId, label) => {
-                        setSelectedPlayerId(playerId);
-                        setPlayerQuery(label);
-                      }}
-                    />
+                    <div className="space-y-3">
+                      <PlayerSearch
+                        label="Player"
+                        hint="Choose a player currently on the field."
+                        entries={activePlayers}
+                        query={playerQuery}
+                        selectedPlayerId={selectedPlayerId}
+                        onQueryChange={(value) => {
+                          setPlayerQuery(value);
+                          setSelectedPlayerId(null);
+                        }}
+                        onSelect={(playerId, label) => {
+                          setSelectedPlayerId(playerId);
+                          setPlayerQuery(label);
+                        }}
+                      />
+                      {eventType === "goal" && (
+                        <label className="flex items-center gap-2 text-sm text-muted">
+                          <input
+                            type="checkbox"
+                            checked={isPenalty}
+                            onChange={(event) => setIsPenalty(event.target.checked)}
+                            className="h-4 w-4 rounded border-border accent-accent"
+                          />
+                          Goal scored as penalty
+                        </label>
+                      )}
+                    </div>
                   )}
                   {success && (
                     <p className="mt-4 rounded-lg bg-green-50 px-3 py-2 text-sm text-green-700">

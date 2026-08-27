@@ -57,7 +57,7 @@ function TeamIdentity({ name, short, logoUrl, side }: { name: string; short: str
 
 function GoalList({ goals, align }: { goals: FootballEvent[]; align: "left" | "right" }) {
   if (!goals.length) return <span />;
-  return <div className={`space-y-0.5 ${align === "right" ? "text-right" : "text-left"}`}>{goals.map((goal) => <p key={goal.id}><span className="font-medium text-foreground">{goal.player_name || "Unknown scorer"}</span>{" "}<span>{goal.minute}{goal.extra_time_minute ? `+${goal.extra_time_minute}` : ""}&apos;</span></p>)}</div>;
+  return <div className={`space-y-0.5 ${align === "right" ? "text-right" : "text-left"}`}>{goals.map((goal) => <p key={goal.id}><span className="font-medium text-foreground">{goal.player_name || "Unknown scorer"}</span>{goal.is_penalty && <span className="ml-1 text-accent">(P)</span>}{" "}<span>{goal.minute}{goal.extra_time_minute ? `+${goal.extra_time_minute}` : ""}&apos;</span></p>)}</div>;
 }
 
 function SportDetail({

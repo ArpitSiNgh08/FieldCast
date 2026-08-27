@@ -8,6 +8,7 @@ const authorization = require('../services/authorization.service');
 const prisma = require('../config/prisma');
 
 const room = (matchId) => `match:${matchId}`;
+const GOAL_SYNC_DELAY_MS = 15_000;
 const scoreQueues = new Map();
 // matchId -> browser viewer ID -> socket IDs. Several tabs from one browser
 // count as one live viewer, while a browser reconnect remains live.
@@ -124,6 +125,7 @@ async function recordDetail(matchId, sport, payload) {
       playerId: membership.playerId,
       playerName: membership.player.name,
       jerseyNumber: membership.jerseyNumber,
+      isPenalty: d.eventType === 'goal' && d.isPenalty === true,
       minute,
       extraTimeMinute,
     });
@@ -227,7 +229,9 @@ function register(io, socket) {
         }
         return matchState.update(matchId, statePatch);
       });
-      io.to(room(matchId)).emit('score:updated', { matchId, state: newState });
+      const broadcast = () => io.to(room(matchId)).emit('score:updated', { matchId, state: newState });
+      if (sport === 'football' && detail?.eventType === 'goal') setTimeout(broadcast, GOAL_SYNC_DELAY_MS);
+      else broadcast();
       if (typeof ack === 'function') ack({ ok: true, state: newState });
     } catch (err) {
       if (typeof ack === 'function') ack({ ok: false, error: err.message });

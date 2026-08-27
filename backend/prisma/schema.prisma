@@ -344,6 +344,7 @@ model FootballEvent {
   playerId        Int?     @map("player_id")
   playerName      String?  @map("player_name")
   jerseyNumber    String?  @map("jersey_number")
+  isPenalty       Boolean  @default(false) @map("is_penalty")
   playerOutId     Int?     @map("player_out_id")
   playerOutName   String?  @map("player_out_name")
   playerOutJersey String?  @map("player_out_jersey")

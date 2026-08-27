@@ -32,6 +32,7 @@ export function FootballTimeline({ events, embedded = false }: { events: Footbal
                   <p className="text-sm font-medium text-foreground">
                     <span className="mr-2 tabular-nums">{eventMinute(event)}</span>
                     <span className="capitalize">{event.event_type.replace("_", " ")}</span>
+                    {event.event_type === "goal" && event.is_penalty && <span className="ml-2 text-accent">(Penalty)</span>}
                     {event.event_type !== "substitution" && event.player_name && (
                       <span className="text-muted">
                         {" — "}{event.jersey_number ? `#${event.jersey_number} ` : ""}{event.player_name}
