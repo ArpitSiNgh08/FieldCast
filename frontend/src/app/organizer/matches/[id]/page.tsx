@@ -247,6 +247,13 @@ export default function FootballMatchControl() {
     setBusy(true);
     setError("");
     setSuccess("");
+    let acknowledged = false;
+    const timeoutId = window.setTimeout(() => {
+      if (!acknowledged) {
+        setBusy(false);
+        setError("The backend did not respond. Check the live connection and try again.");
+      }
+    }, 10_000);
     socket.emit(
       "score:update",
       {
@@ -282,6 +289,8 @@ export default function FootballMatchControl() {
               },
       },
       (ack: { ok: boolean; error?: string; state?: Match["state"] }) => {
+        acknowledged = true;
+        window.clearTimeout(timeoutId);
         setBusy(false);
         if (!ack.ok) setError(ack.error || "Scorecard update failed");
         else {
@@ -768,7 +777,7 @@ export default function FootballMatchControl() {
                   <div className="mt-4 grid gap-3 sm:grid-cols-2">
                     <Button
                       onClick={updateScorecard}
-                      disabled={match.status !== "live" || !eventReady || busy}
+                      disabled={match.status !== "live" || !eventReady || busy || !connected}
                     >
                       {busy
                         ? "Updating…"

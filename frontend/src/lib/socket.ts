@@ -14,7 +14,12 @@ export function getSocket(): Socket {
     socket = io(SOCKET_URL, {
       autoConnect: true,
       auth: { token: getToken() || undefined },
-      transports: ["websocket", "polling"],
+      // Establish a reliable polling connection first, then upgrade to
+      // WebSocket when the reverse proxy supports the upgrade correctly.
+      // This keeps live score controls working if only the WebSocket path is
+      // misconfigured while polling remains available.
+      transports: ["polling", "websocket"],
+      tryAllTransports: true,
     });
   }
   return socket;
