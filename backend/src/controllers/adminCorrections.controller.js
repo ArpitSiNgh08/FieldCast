@@ -54,11 +54,12 @@ async function validateFootballEvent(match, body) {
   });
   if (!membership) { const error = new Error('Choose a registered player from that team'); error.status = 400; throw error; }
   return {
-    half: nonNegativeInteger(body.half, 'Half'),
+    half: nonNegativeInteger(body.minute, 'Minute') > 45 ? 2 : 1,
     minute: nonNegativeInteger(body.minute, 'Minute'),
     extraTimeMinute: nonNegativeInteger(body.extraTimeMinute ?? 0, 'Extra-time minute'),
     eventType: body.eventType, teamId, playerId,
     playerName: membership.player.name, jerseyNumber: membership.jerseyNumber,
+    isPenalty: body.eventType === 'goal' && body.isPenalty === true,
   };
 }
 
