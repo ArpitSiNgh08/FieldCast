@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@vercel/analytics": "^2.0.1",
     "hls.js": "^1.6.16",
     "next": "16.2.10",
     "qrcode.react": "^4.2.0",

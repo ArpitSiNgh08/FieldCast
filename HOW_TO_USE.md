@@ -63,7 +63,7 @@ npm run db:generate
 npm run db:seed
 ```
 
-The repository currently contains migrations `0001` through `0012`. Migration `0012_match_viewers` is required for the live/unique viewer counters.
+The repository currently contains migrations `0001` through `0014`. Migration `0012_match_viewers` is required for the live/unique viewer counters; `0013` enables duplicate jersey numbers within a team and `0014` stores penalty-goal metadata.
 
 ### Start the application
 
@@ -105,7 +105,7 @@ Use that account to review tournament submissions at `/admin/tournaments`.
 2. Enter the tournament name, sport, dates, and optional image. Turn on **Use pools** to start with Pool A and Pool B, rename them, or add more pools.
 3. Save the draft. If no image is supplied, FieldCast uses its tournament placeholder.
 4. Add at least two teams. For a pooled tournament, choose each team’s pool; teams can be moved between pools while the draft is editable.
-5. Add players to every team. A player identity can be reused in other teams/tournaments; jersey number and position belong to the team membership.
+5. Add players to every team. A player identity can be reused in other teams/tournaments; jersey number and position belong to the team membership. Duplicate jersey numbers are allowed within a team, but the same player cannot be added twice to one team.
 6. Continue editing from `/tournaments` as needed.
 7. Submit the tournament for review.
 
@@ -258,13 +258,13 @@ During a live match:
 3. Optionally enter the extra-time minute. For `45+2'`, enter `45` and `2`.
 4. For a goal or card, search and choose a player currently on the field.
 5. For a substitution, choose **Player off** from the players currently on the field, then choose **Player on** from that team’s substitutes.
-6. Press **Update scorecard** or **Record substitution**. Use **Mark halftime** for the halftime event; full time is created by **End stream & finalize**.
+6. For a goal, optionally check **Goal scored as penalty**. Press **Update scorecard** or **Record substitution**. Use **Mark halftime** for the halftime event; full time is created by **End stream & finalize**.
 
 Recorded substitutions appear in the organiser’s match timeline and all public event timelines with both players clearly labelled. Match-specific active-player tracking means the incoming player can receive later goals or cards without changing the tournament’s saved squad for future fixtures.
 
-The backend validates the player’s team and current match participation. It saves the event, automatically increments the correct team for goals, and broadcasts the state through Socket.io.
+The backend validates the player’s team and current match participation. It saves the event, records the penalty flag when applicable, automatically increments the correct team for goals, and broadcasts the state through Socket.io immediately.
 
-Public score updates are temporarily held for 15 seconds to better align with delayed HLS video. The setting is the code constant `SCORE_SYNC_DELAY_MS = 15_000` in `frontend/src/hooks/useMatchState.ts`; it is not an environment variable. Realtime score delivery in production additionally depends on Vercel's `NEXT_PUBLIC_SOCKET_URL` pointing to the HTTPS backend/Nginx origin.
+Public score updates are temporarily held for 15 seconds to better align with delayed HLS video, while Football event/timeline updates are immediate. The setting is the code constant `SCORE_SYNC_DELAY_MS = 15_000` in `frontend/src/hooks/useMatchState.ts`; it is not an environment variable. Realtime delivery in production additionally depends on Vercel’s `NEXT_PUBLIC_SOCKET_URL` pointing to the HTTPS backend/Nginx origin.
 
 Public viewers see:
 
@@ -440,8 +440,8 @@ After the push:
    ffmpeg -version
    ```
 
-5. Verify migration `0012_match_viewers` was applied by checking the successful migration job. It is required before live/unique viewer metrics are used.
-6. Open the Vercel site in a fresh/private browser, sign in as an organiser, update a test score, and confirm another device receives it after the temporary 15-second public holdback.
+5. Verify migrations through `0014_add_penalty_to_football_events` were applied by checking the successful migration job. They are required before relying on duplicate jersey numbers or penalty-goal metadata.
+6. Open the Vercel site in a fresh/private browser, sign in as an organiser, update a test score, and confirm the Football event appears immediately while the public score follows the temporary 15-second holdback.
 7. Run a real external-phone SRT test, confirm HTTPS HLS playback, finalize the match, refresh `/`, and confirm it appears under **Recent matches**.
 
 Before tournament use, also rotate the Neon credential exposed during bootstrap, update both the VM `.env` and GitHub `DATABASE_URL` secret, verify TLS renewal, and remove public `4000`, `8080`, and `1985` rules. Run `npm audit --omit=dev` in both projects: the 2026-08-26 audit found five high-severity frontend findings (including `next@16.2.10`) and five high/four moderate/one low backend findings (mainly Prisma CLI tooling and Socket.IO parser). Upgrade deliberately and rerun build/smoke tests rather than using a blind forced audit fix. Automatic replay recording/upload is not implemented, and Cricket/Basketball still lack the complete Football live-control workflow.

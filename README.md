@@ -16,9 +16,9 @@ Implemented locally as of August 2026:
 - Public tournament hubs with teams, live matches, upcoming matches, past matches, pool-aware standings, and a connected knockout bracket.
 - Football match creation, mobile-camera ingest destinations, going live, active-camera switching, score events, and broadcast completion.
 - On-demand SRT and RTMP QR codes for transferring ingest destinations directly to a streaming phone.
-- Searchable Football event entry using the match's current active players, with jersey number and team abbreviation.
-- Goal, card, and substitution events with regulation and extra-time minutes.
-- Automatic goal scoring and live Socket.io updates.
+- Searchable Football event entry using the match's current active players, with jersey number and team abbreviation; goals can be marked as penalties.
+- Goal (including penalty), card, and substitution events with regulation and extra-time minutes.
+- Automatic goal scoring and immediate live Socket.io updates.
 - A public HLS match page with stream, compact live score graphic, goal scorers, match timeline, live watcher count, and anonymous unique-viewer total.
 - Detailed scorecards that refresh after live score updates.
 - Result-aware standings that recompute after completed matches.
@@ -26,7 +26,7 @@ Implemented locally as of August 2026:
 - Explicit washouts that stop a stream without affecting standings.
 - Drag-and-drop Playing 11 and bench management. The first sport-sized group of registered players becomes the default starting squad; additional players begin on the bench and organisers can adjust the lineup.
 
-Database migrations `0001` through `0012` are included. Migration `0012_match_viewers` adds anonymous per-match unique viewer counts.
+Database migrations `0001` through `0014` are included. Migration `0012_match_viewers` adds anonymous per-match unique viewer counts; `0013` allows duplicate jersey numbers within a team, and `0014` adds penalty-goal metadata.
 
 ## Roles and workflow
 
@@ -127,7 +127,7 @@ Viewer browser    <------- live updates ---------+
 FieldCast/
 ├── backend/                 Express, Socket.io, Prisma, streaming control
 │   ├── prisma/
-│   │   ├── migrations/      Versioned migrations 0001–0012
+│   │   ├── migrations/      Versioned migrations 0001–0014
 │   │   ├── schema.prisma
 │   │   └── seed.js
 │   └── src/
@@ -251,9 +251,9 @@ Single-camera local broadcasts play that camera’s SRS HLS manifest directly. M
 - Minute and extra-time minute are stored, such as `45+2'`.
 - The half is derived automatically from the minute. **Mark halftime** publishes the halftime state, while **End stream & finalize** publishes full time.
 - Goals increment the selected player’s team score on the backend to avoid client-side races.
-- **Update scorecard** persists the event and broadcasts the new state over Socket.io.
+- **Update scorecard** persists the event and broadcasts the new state over Socket.io immediately. Public score rendering may still hold the score for 15 seconds to align with delayed HLS video.
 - The public match page shows goal scorers below the correct team score and its event timeline below the stream.
-- Public score display currently uses `SCORE_SYNC_DELAY_MS = 15_000` in `frontend/src/hooks/useMatchState.ts`. This temporary 15-second holdback approximates HLS latency; it is a code constant, not a production environment variable.
+- Public score display currently uses `SCORE_SYNC_DELAY_MS = 15_000` in `frontend/src/hooks/useMatchState.ts`. This temporary 15-second score holdback approximates HLS latency; Football event/timeline updates are delivered immediately, and the holdback is a code constant, not a production environment variable.
 - Production realtime score delivery requires `NEXT_PUBLIC_SOCKET_URL` on Vercel to be the same HTTPS origin that proxies `/socket.io` to the backend. `NEXT_PUBLIC_API_URL` must point to that origin for REST requests.
 
 ## Standings and outcomes
@@ -293,7 +293,7 @@ The schema uses a sport-agnostic core with sport-specific history:
 - `TournamentOrganizer`: tournament-scoped organiser permissions.
 - `Team` and `TournamentTeam`: reusable teams and tournament membership, including optional pool assignment.
 - `TournamentPool`: ordered, tournament-scoped pools such as Pool A, Pool B, and further creator-defined pools.
-- `Player` and `TeamPlayer`: reusable players plus jersey, position, and Playing/bench role.
+- `Player` and `TeamPlayer`: reusable players plus jersey, position, and Playing/bench role. Jersey numbers may be duplicated within a team; the same player may still be added only once to a team.
 - `Match`: fixture, pool/knockout stage, stream configuration, status, winner, and `pending`/`played`/`washout` result type.
 - `MatchCamera`: per-phone ingest configuration.
 - `MatchView`: one anonymous browser identifier per match for unique-viewer totals.
@@ -315,6 +315,8 @@ The schema uses a sport-agnostic core with sport-specific history:
 | `0010_substitution_players` | Explicit players-off/players-on snapshots for football substitutions |
 | `0011_default_starting_squads` | Promote the first sport-sized roster when a team has no saved starting lineup |
 | `0012_match_viewers` | Persist anonymous per-match unique-browser viewer counts |
+| `0013_allow_duplicate_team_jersey_numbers` | Remove the team/jersey uniqueness constraint |
+| `0014_add_penalty_to_football_events` | Store whether a Football goal was scored as a penalty |
 
 Prisma 7 requires the PostgreSQL driver adapter. Reuse `backend/src/config/prisma.js`; do not instantiate a bare `PrismaClient` or pass removed `datasourceUrl`/`datasources` options.
 
@@ -384,7 +386,7 @@ The same application and container layout can move to EC2/ECS, with S3 added as 
 
 - Complete live event/control surfaces for Cricket and Basketball are not yet implemented.
 - ImageKit replay upload is planned but not wired end to end.
-- The Oracle backend, Nginx TLS route, SRS, Neon, and Vercel frontend are provisioned. Still verify that migration `0012_match_viewers` has run in production, all GitHub Actions secrets are configured, and the Vercel Production API/Socket variables target the HTTPS backend origin.
+- The Oracle backend, Nginx TLS route, SRS, Neon, and Vercel frontend are provisioned. Still verify that migrations through `0014_add_penalty_to_football_events` have run in production, all GitHub Actions secrets are configured, and the Vercel Production API/Socket variables target the HTTPS backend origin.
 - Rotate the Neon credential exposed during the initial bootstrap, then update the VM and GitHub secret with the replacement.
 - Remove direct public access to backend `4000/TCP` and HLS `8080/TCP` after the Nginx routes are verified; keep SRS API `1985/TCP` private.
 - Score/video alignment uses a temporary fixed 15-second holdback and can drift when actual HLS latency changes.

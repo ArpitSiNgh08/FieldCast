@@ -40,6 +40,7 @@ For a one-camera local test, the viewer uses the registered camera's raw SRS HLS
 - Enter the regulation minute and optional added-time minute (for example, 45 and 2 renders as `45+2'`). The half is assigned automatically from the minute.
 - **Update scorecard** saves the event and broadcasts the updated match state in one action.
 - Goal events automatically increment the selected player's team score on the backend.
+- Goal events can be marked **Goal scored as penalty**. The penalty flag appears in the public scorer summary and Football timeline.
 - Substitution events require both a player off and a player on. The backend validates that they belong to the same team, that the outgoing player is currently active, and that the incoming player is currently a substitute.
 - The organiser control room shows the complete match timeline. Substitutions update that match’s active-player set, allowing the incoming player to receive later goals or cards without modifying future-fixture squads.
 
@@ -52,6 +53,7 @@ For a one-camera local test, the viewer uses the registered camera's raw SRS HLS
 - A normal **End stream & finalize** action derives the result, recomputes standings, and broadcasts completion so viewer pages stop playback without reload even if the phone remains connected.
 - Washouts stop the broadcast but do not increment played, won, drawn, lost, scores, or points.
 - The public live overlay updates through Socket.io; the full scorecard timeline refreshes automatically.
+- Socket.io event delivery is immediate; only the public score value uses the temporary 15-second HLS alignment holdback.
 - Public tournament page `/tournaments/[id]` groups live, upcoming, and past matches with the current standings.
 - Knockout fixtures are grouped by stage into a connected public bracket on the tournament hub and standings page. Completed SF 1/SF 2 winners populate the Final placeholder before its fixture exists; live Final scores and winner state refresh automatically. Custom earlier rounds form additional columns automatically.
 

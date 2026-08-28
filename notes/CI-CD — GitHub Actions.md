@@ -42,10 +42,10 @@ The initial production bootstrap applied existing migrations from the VM. From n
 ## After pushing `main`
 
 1. Confirm **CI** passes.
-2. Confirm **Deploy / Prisma migrate deploy** passes and includes `0012_match_viewers` where it was not already applied.
+2. Confirm **Deploy / Prisma migrate deploy** passes and applies pending migrations through `0014_add_penalty_to_football_events`.
 3. Confirm **Deploy backend to VM** restarts `fieldcast-backend`; check `systemctl is-active`, recent journal logs, and both local and HTTPS `/api/health`.
 4. Confirm **Deploy frontend to Vercel** uses the Production `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_SOCKET_URL` values.
-5. Verify the HTTPS `/socket.io` polling handshake, SRS container/API, a two-device score update, an external-phone stream, finalization, and the homepage Recent matches rail.
+5. Verify the HTTPS `/socket.io` polling handshake, SRS container/API, a two-device score update, immediate Football event delivery, an external-phone stream, finalization, and the homepage Recent matches rail.
 
 Do not also run `prisma migrate deploy` manually when the workflow succeeds. The current workflow does not perform a post-restart health check, and the Vercel job depends on migration but not backend success. A frontend deployment can therefore finish while the backend job fails; inspect every job and follow the SSH step with the service/API checks above.
 

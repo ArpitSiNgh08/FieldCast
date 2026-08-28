@@ -2,7 +2,7 @@
 
 Living status tracker for FieldCast. Update this file whenever meaningful work happens — it's how the next session (human or agent) picks up context without re-reading every past conversation.
 
-**Last updated:** 2026-08-26
+**Last updated:** 2026-08-27
 
 ---
 
@@ -12,8 +12,8 @@ Living status tracker for FieldCast. Update this file whenever meaningful work h
 |---|---|
 | System architecture & Phase 1/2 split | ✅ Designed (`README.md`) |
 | Governance docs (AGENTS/CLAUDE/RULES/DESIGN) | ✅ Drafted |
-| Database schema design | ✅ Prisma schema + migrations `0001`–`0012` |
-| Prisma migration (backend) | ⚠️ Current through `0012` — verify the production deploy applied `0012_match_viewers` before relying on viewer metrics |
+| Database schema design | ✅ Prisma schema + migrations `0001`–`0014` |
+| Prisma migration (backend) | ⚠️ Current through `0014` — verify production deploy applies duplicate-jersey and penalty-event migrations |
 | Prisma seed script | ✅ Done — `prisma/seed.js` runs cleanly with pg adapter |
 | Local Postgres (dev) | ✅ Native Windows PostgreSQL 18 running on port 5432 |
 | `fieldcast` DB user + database | ✅ Created in native Postgres — migration + seed applied |
@@ -49,7 +49,7 @@ Living status tracker for FieldCast. Update this file whenever meaningful work h
 | Vercel frontend | ✅ Deployed with HTTPS API/Socket/HLS URLs through DuckDNS + Nginx |
 | Production end-to-end stream | 🔄 Backend, TLS, and frontend are deployed; complete a real external phone ingest/playback test |
 | Production dependency audit | ⚠️ 2026-08-26 audit reports high findings in Next.js, Socket.IO parser, and Prisma tooling trees; upgrade and retest before production-hardening |
-| Markdown documentation | ✅ Synchronized 2026-08-26 — QR ingest, score holdback, recent results, and production runbook documented |
+| Markdown documentation | ✅ Synchronized 2026-08-27 — penalty goals, duplicate jersey numbers, admin half derivation, immediate events, and Socket.IO fallback documented |
 
 Legend: ✅ done · 🔄 in progress · ⬜ not started · 🚫 blocked · ⚠️ attention needed
 
@@ -57,7 +57,14 @@ Legend: ✅ done · 🔄 in progress · ⬜ not started · 🚫 blocked · ⚠�
 
 ## Notes
 
-### Note 1 — Prisma 7 final working setup
+### Note 1 — Football penalties and jersey numbers
+
+- `TeamPlayer` no longer enforces unique jersey numbers within a team; the composite primary key still prevents duplicate player memberships.
+- `FootballEvent.isPenalty` is persisted by migration `0014_add_penalty_to_football_events` and displayed in Football scorer/timeline views.
+- The organiser and admin event forms expose the penalty checkbox for goals. Admin corrections derive the half from the minute and no longer expose a Half field.
+- Football event broadcasts are immediate. Public score values retain the temporary 15-second HLS holdback.
+
+### Note 2 — Prisma 7 final working setup
 
 After extensive debugging, here is what actually works in Prisma 7.8.0:
 
@@ -148,7 +155,7 @@ The UI primitives (`Badge`, `Button`, `Card`, `Navbar`, etc.) were custom-built 
 ## Next up
 
 1. **Validate automated production deploys** — confirm every GitHub production secret and one green migrate/backend/Vercel run after pushing `main`.
-2. **Verify production migration `0012_match_viewers`** — viewer metrics require it; do not hand-run migrations when the Actions job succeeds.
+2. **Verify production migrations through `0014_add_penalty_to_football_events`** — viewer metrics, duplicate jersey numbers, and penalty metadata require the corresponding migrations; do not hand-run migrations when the Actions job succeeds.
 3. **Rotate the exposed Neon bootstrap credential** — replace it in the VM `.env` and GitHub `DATABASE_URL` secret.
 4. **Tighten production networking** — retain `22`, `80`, `443`, `1935/TCP`, and `10080/UDP`; remove direct `4000`, `8080`, and `1985` public access.
 5. **Upgrade audited dependencies deliberately** — address the Next.js, Socket.IO parser, and Prisma tooling advisories, then rerun type, build, API, and streaming checks.

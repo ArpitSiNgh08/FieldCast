@@ -5,7 +5,7 @@ Pointer to the living status tracker: `PROGRESS.md`
 ## Current status (as of 2026-08-26)
 
 ### Done ✅
-- [[Database — Prisma + Neon]] — migrations `0001`–`0012`, including viewer metrics, pools, match stages, substitutions, default squads, and standings overrides
+- [[Database — Prisma + Neon]] — migrations `0001`–`0014`, including viewer metrics, duplicate jersey support, penalty goals, pools, match stages, substitutions, default squads, and standings overrides
 - [[Backend — Express + Socket.io]] — running on :4000 with no errors
 - [[Frontend — Next.js]] — public tournament hub/bracket, stream/timeline, pooled standings, auth, admin correction/review, creator, and organiser pages running on :3000
 - [[CI/CD — GitHub Actions]] — CI + deploy workflows written; production secrets and one complete green deploy still need verification
@@ -19,7 +19,7 @@ Pointer to the living status tracker: `PROGRESS.md`
 
 ### Needs production verification ⚠️
 - GitHub Actions production secrets and one successful migrate/backend/Vercel deployment
-- Production migration `0012_match_viewers`
+- Production migrations through `0014_add_penalty_to_football_events`
 - Neon bootstrap credential rotation and secret replacement
 - Removal of direct public `4000`, `8080`, and `1985` access after HTTPS verification
 - Production end-to-end external-phone stream, two-device score sync, finalization, and Recent matches test
@@ -30,7 +30,7 @@ Pointer to the living status tracker: `PROGRESS.md`
 - [[ImageKit]] VOD integration (post-match upload + `replayUrl`)
 
 ## Next up
-1. Verify GitHub production secrets, deployment jobs, and migration `0012`.
+1. Verify GitHub production secrets, deployment jobs, and migrations through `0014`.
 2. Rotate the exposed Neon credential and tighten public firewall rules.
 3. Run the production phone → SRS → HTTPS viewer, two-device score, completion, and Recent matches test.
 4. Upgrade audited dependencies and rerun build/API/streaming checks.

@@ -27,8 +27,11 @@ Migrations:
 - `0009_match_stages` — pool/knockout fixture classification and knockout round labels
 - `0010_substitution_players` — outgoing/incoming Football player links and historical snapshots
 - `0011_default_starting_squads` — repairs empty lineups and establishes sport-sized default starters
+- `0012_match_viewers` — persists anonymous per-match unique-browser viewer counts
+- `0013_allow_duplicate_team_jersey_numbers` — removes the unique `(team_id, jersey_number)` index; `(team_id, player_id)` remains the primary key
+- `0014_add_penalty_to_football_events` — adds the persisted `FootballEvent.isPenalty` flag
 
-`FootballEvent` references reusable players, retains name/jersey snapshots for historical accuracy, stores `extraTimeMinute` separately, and captures both outgoing and incoming players for substitutions.
+`FootballEvent` references reusable players, retains name/jersey snapshots for historical accuracy, stores `extraTimeMinute` separately, captures both outgoing and incoming players for substitutions, and stores whether a goal was scored as a penalty. Duplicate jersey numbers are allowed within a team.
 
 Calculated standings are replaced inside a transaction protected by a tournament-scoped PostgreSQL advisory lock. This serializes concurrent result/correction recomputations and prevents duplicate `(tournament_id, team_id)` inserts.
 
