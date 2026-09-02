@@ -12,6 +12,7 @@ import { SvgLogo } from "@/components/SvgLogo";
 const NAV = [
   { href: "/", label: "Fixtures" },
   { href: "/standings", label: "Standings" },
+  { href: "/help", label: "Help" },
   { href: "/tournaments", label: "Create tournament", authOnly: true },
   { href: "/organizer", label: "Organiser", authOnly: true },
   { href: "/admin", label: "Admin", adminOnly: true },

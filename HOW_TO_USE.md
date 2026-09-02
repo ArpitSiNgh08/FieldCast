@@ -16,6 +16,8 @@ The tournament workflow supports Cricket, Football, and Basketball. The full bro
 
 ### Configure the backend
 
+New-NetFirewallRule -DisplayName "FieldCast SRT UDP 10080" -Direction Inbound -Protocol UDP -LocalPort 10080 -Action Allow -Profile Private,Public
+
 ```powershell
 cd backend
 Copy-Item .env.example .env

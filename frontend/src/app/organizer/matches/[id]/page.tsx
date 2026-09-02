@@ -35,6 +35,7 @@ export default function FootballMatchControl() {
   const [extraTimeMinute, setExtraTimeMinute] = useState(0);
   const [eventType, setEventType] = useState("goal");
   const [isPenalty, setIsPenalty] = useState(false);
+  const [selectedTeamId, setSelectedTeamId] = useState<number | null>(null);
   const [playerQuery, setPlayerQuery] = useState("");
   const [selectedPlayerId, setSelectedPlayerId] = useState<number | null>(null);
   const [playerOutQuery, setPlayerOutQuery] = useState("");
@@ -240,10 +241,15 @@ export default function FootballMatchControl() {
       (!outgoing || !incoming || outgoing.team.id !== incoming.team.id)
     )
       return;
-    if (eventType !== "substitution" && !selected) return;
-    const eventTeam =
-      eventType === "substitution" ? outgoing!.team : selected!.team;
-    const half = minute > 45 ? 2 : 1;
+    const teamEvent = ["foul", "corner", "free_kick", "offside"].includes(eventType);
+    if (eventType !== "substitution" && !teamEvent && !selected) return;
+    const eventTeam = eventType === "substitution"
+      ? outgoing!.team
+      : teamEvent
+        ? [match.teamA, match.teamB].find((team) => team.id === (selectedTeamId || match.teamA.id))
+        : selected!.team;
+    if (!eventTeam) return;
+    const half = minute > 30 ? 2 : 1;
     setBusy(true);
     setError("");
     setSuccess("");
@@ -284,7 +290,7 @@ export default function FootballMatchControl() {
                 extraTimeMinute,
                 eventType,
                 teamId: eventTeam.id,
-                playerId: selected!.playerId,
+                ...(teamEvent ? {} : { playerId: selected!.playerId }),
                 isPenalty: eventType === "goal" && isPenalty,
               },
       },
@@ -299,6 +305,7 @@ export default function FootballMatchControl() {
             setScoreB(ack.state.teamBScore);
           }
           setSelectedPlayerId(null);
+          setSelectedTeamId(null);
           setPlayerQuery("");
           setSelectedPlayerOutId(null);
           setSelectedPlayerInId(null);
@@ -371,7 +378,7 @@ export default function FootballMatchControl() {
   const eventReady =
     eventType === "substitution"
       ? Boolean(selectedPlayerOutId && selectedPlayerInId)
-      : Boolean(selectedPlayerId);
+      : ["foul", "corner", "free_kick", "offside"].includes(eventType) || Boolean(selectedPlayerId);
 
   return (
     <div className="mx-auto w-full max-w-none px-3 py-8 sm:px-4">
@@ -586,6 +593,40 @@ export default function FootballMatchControl() {
                               />
                             </div>
                           )}
+                          {camera.iphoneSrtIngestUrl && (
+                            <div>
+                              <p className="text-[10px] font-semibold uppercase tracking-wide text-accent">
+                                Mobile · Android / iPhone / Moblin · SRT
+                              </p>
+                              <p className="mb-1 text-xs text-muted">
+                                Use these two values in Moblin. Each camera has a different Stream ID so switching works.
+                              </p>
+                              <div className="mt-2 grid gap-3">
+                                <div>
+                                  <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted">
+                                    Moblin URL
+                                  </p>
+                                  <CopyableUrl
+                                    label={camera.iphoneSrtUrl || camera.iphoneSrtIngestUrl.replace(/\?.*$/, "")}
+                                    copyKey={`iphone-url-${camera.id}`}
+                                    copiedKey={copiedCameraKey}
+                                    onCopy={copyIngestUrl}
+                                  />
+                                </div>
+                                <div>
+                                  <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted">
+                                    Moblin stream ID
+                                  </p>
+                                  <CopyableUrl
+                                    label={camera.iphoneStreamId || `#!::r=live/${camera.streamKey},m=publish`}
+                                    copyKey={`iphone-stream-id-${camera.id}`}
+                                    copiedKey={copiedCameraKey}
+                                    onCopy={copyIngestUrl}
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          )}
                           <div className="border-t border-border pt-3">
                             <p className="text-[10px] font-semibold uppercase tracking-wide text-muted">
                               RTMP fallback
@@ -672,6 +713,10 @@ export default function FootballMatchControl() {
                         <option value="yellow_card">Yellow card</option>
                         <option value="red_card">Red card</option>
                         <option value="substitution">Substitution</option>
+                        <option value="foul">Foul</option>
+                        <option value="corner">Corner</option>
+                        <option value="free_kick">Free kick</option>
+                        <option value="offside">Offside given</option>
                       </Select>
                     </Field>
                     <Field label="Minute">
@@ -739,6 +784,16 @@ export default function FootballMatchControl() {
                         }}
                       />
                     </div>
+                  ) : ["foul", "corner", "free_kick", "offside"].includes(eventType) ? (
+                    <Field label="Team">
+                      <Select
+                        value={String(selectedTeamId || match.teamA.id)}
+                        onChange={(event) => setSelectedTeamId(Number(event.target.value))}
+                      >
+                        <option value={match.teamA.id}>{match.teamA.shortName}</option>
+                        <option value={match.teamB.id}>{match.teamB.shortName}</option>
+                      </Select>
+                    </Field>
                   ) : (
                     <div className="space-y-3">
                       <PlayerSearch

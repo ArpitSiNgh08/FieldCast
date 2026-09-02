@@ -8,6 +8,44 @@ const { asyncHandler } = require('../middleware/errorHandler');
 const router = express.Router();
 
 const CAMERAS = ['camera1', 'camera2', 'camera3'];
+const DEFAULT_STREAM_KEY = 'livestream';
+
+/**
+ * Public status/playback information for Moblin profiles that publish to the
+ * SRS default stream. This is intentionally read-only; publishing still
+ * happens directly to SRS over SRT.
+ */
+async function livestream(_req, res) {
+  const result = {
+    streamKey: DEFAULT_STREAM_KEY,
+    publishing: false,
+    hlsUrl: `${env.stream.hlsBase}/live/${DEFAULT_STREAM_KEY}.m3u8`,
+  };
+
+  if (env.stream.simulate) return res.json({ ...result, source: 'simulated' });
+
+  try {
+    const response = await fetch(`${env.stream.apiBase}/api/v1/streams/`, {
+      signal: AbortSignal.timeout(2500),
+    });
+    const data = await response.json();
+    const stream = (data.streams || []).find((entry) => entry.name === DEFAULT_STREAM_KEY);
+    res.json({
+      ...result,
+      publishing: Boolean(stream?.publish?.active),
+      clients: stream?.clients ?? 0,
+      video: stream?.video
+        ? { codec: stream.video.codec, profile: stream.video.profile, width: stream.video.width, height: stream.video.height }
+        : null,
+      audio: stream?.audio
+        ? { codec: stream.audio.codec, sampleRate: stream.audio.sample_rate, channels: stream.audio.channel }
+        : null,
+      source: 'srs',
+    });
+  } catch (err) {
+    res.json({ ...result, source: 'unreachable', error: err.message });
+  }
+}
 
 /**
  * Stream health for the admin panel: which camera RTMP streams are currently
@@ -40,5 +78,6 @@ async function health(_req, res) {
 }
 
 router.get('/health', requireAdmin, asyncHandler(health));
+router.get('/livestream', asyncHandler(livestream));
 
 module.exports = router;

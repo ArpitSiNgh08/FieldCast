@@ -23,7 +23,7 @@ The admin workflow has two surfaces:
 
 Admin correction APIs reject upcoming and live matches. A global admin has no automatic live match-management authorization; the account must also be explicitly added to the tournament's organiser list to operate a live fixture. Standings overrides persist across match-derived recomputation and can be reset to calculated values.
 
-For completed Football matches, the event editor supports adding and editing goals, cards, and substitutions. Goal events include a **Goal scored as penalty** checkbox; existing goals load their saved penalty state and can be changed. The Half field is not shown in the admin editor; the backend derives half 1 for minutes 0–45 and half 2 for minutes above 45.
+For completed Football matches, the event editor supports adding and editing goals, cards, and substitutions. Goal events include a **Goal scored as penalty** checkbox; existing goals load their saved penalty state and can be changed. The Half field is not shown in the admin editor; the backend derives half 1 for minutes 0–30 and half 2 for minutes above 30.
 
 Approved Football tournaments are operated through `/organizer` and `/organizer/matches/[id]`, where tournament-scoped permissions protect fixtures, lineups, cameras, score events, results, and washouts. Automatic ImageKit replay upload and complete Cricket/Basketball live-control surfaces remain future work.
 

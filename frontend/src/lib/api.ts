@@ -121,6 +121,7 @@ export const api = {
   createTournament: (body: unknown) =>
     apiFetch<Tournament>("/tournaments", { method: "POST", body }),
   updateTournament: (id: number, body: unknown) => apiFetch<Tournament>(`/tournaments/${id}`, { method: "PATCH", body }),
+  updateTournamentLogo: (id: number, imageUrl: string) => apiFetch<Tournament>(`/tournaments/${id}/logo`, { method: "PATCH", body: { imageUrl } }),
   addTournamentPool: (id: number, name: string) => apiFetch(`/tournaments/${id}/pools`, { method: "POST", body: { name } }),
   addTournamentTeam: (id: number, body: unknown) => apiFetch<Team>(`/tournaments/${id}/teams`, { method: "POST", body }),
   updateTournamentTeam: (id: number, teamId: number, body: unknown) => apiFetch<Team>(`/tournaments/${id}/teams/${teamId}`, { method: "PATCH", body }),
@@ -139,6 +140,13 @@ export const api = {
     apiFetch<StandingRow[]>(`/admin/tournaments/${id}/standings/${teamId}`, { method: "DELETE" }),
 
   // Streams
+  getLivestream: () =>
+    apiFetch<{
+      streamKey: string;
+      publishing: boolean;
+      hlsUrl: string;
+      source: string;
+    }>("/streams/livestream"),
   streamHealth: () =>
     apiFetch<{
       simulate: boolean;

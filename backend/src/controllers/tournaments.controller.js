@@ -74,6 +74,14 @@ async function update(req, res) {
   res.json(await Tournaments.update(req.params.id, req.body));
 }
 
+async function updateLogo(req, res) {
+  if (!(await requireTeamEditor(req, res))) return;
+  const imageUrl = typeof req.body.imageUrl === 'string' ? req.body.imageUrl.trim() : '';
+  if (imageUrl && !/^(https?:\/\/|data:image\/)/i.test(imageUrl)) return res.status(400).json({ error: 'Logo must be an image URL or uploaded image' });
+  if (imageUrl.length > 2_500_000) return res.status(413).json({ error: 'Logo image is too large (maximum 2 MB)' });
+  res.json(await Tournaments.updateLogo(req.params.id, imageUrl));
+}
+
 async function addTeam(req, res) {
   const t = await requireEditable(req, res); if (!t) return;
   const { name, shortName, poolId } = req.body;
@@ -179,4 +187,4 @@ async function standings(req, res) {
 }
 async function players(req, res) { res.json(await Tournaments.listPlayers(req.user.sub)); }
 
-module.exports = { list, mine, pending, organized, get, create, update, addPool, addTeam, updateTeam, updateLineup, deleteTeam, addPlayer, updatePlayer, deletePlayer, submit, review, addOrganizer, standings, players, RULES };
+module.exports = { list, mine, pending, organized, get, create, update, updateLogo, addPool, addTeam, updateTeam, updateLineup, deleteTeam, addPlayer, updatePlayer, deletePlayer, submit, review, addOrganizer, standings, players, RULES };

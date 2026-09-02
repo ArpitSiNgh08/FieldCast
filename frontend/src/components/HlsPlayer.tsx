@@ -9,9 +9,10 @@ import { Button } from "@/ui/Button";
 interface Props {
   match: Match;
   liveUrl: string;
+  fallbackLiveUrl?: string;
 }
 
-export function HlsPlayer({ match, liveUrl }: Props) {
+export function HlsPlayer({ match, liveUrl, fallbackLiveUrl }: Props) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
   const usedFallbackRef = useRef(false);
@@ -84,11 +85,16 @@ export function HlsPlayer({ match, liveUrl }: Props) {
 
       hls.on(Hls.Events.ERROR, (_evt, data) => {
         if (data.fatal) {
-          if (!usedFallbackRef.current && match.cameraFallbackUrl && match.cameraFallbackUrl !== liveUrl) {
+          const fallbackUrl = match.cameraFallbackUrl && match.cameraFallbackUrl !== liveUrl
+            ? match.cameraFallbackUrl
+            : fallbackLiveUrl && fallbackLiveUrl !== liveUrl
+              ? fallbackLiveUrl
+              : null;
+          if (!usedFallbackRef.current && fallbackUrl) {
             usedFallbackRef.current = true;
             setError(null);
             setLoading(true);
-            hls.loadSource(match.cameraFallbackUrl);
+            hls.loadSource(fallbackUrl);
             return;
           }
           setError("Stream unavailable. The broadcast may not have started yet.");
@@ -111,7 +117,7 @@ export function HlsPlayer({ match, liveUrl }: Props) {
       setError("Your browser does not support HLS playback.");
       setLoading(false);
     }
-  }, [liveUrl, match.cameraFallbackUrl]);
+  }, [fallbackLiveUrl, liveUrl, match.cameraFallbackUrl]);
 
   useEffect(() => {
     if (match.status !== "live") return;

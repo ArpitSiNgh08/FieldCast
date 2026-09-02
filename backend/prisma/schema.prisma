@@ -338,7 +338,7 @@ model FootballEvent {
   half            Int      @default(1)
   minute          Int      @default(0)
   extraTimeMinute Int      @default(0) @map("extra_time_minute")
-  // 'goal' | 'yellow_card' | 'red_card' | 'substitution'
+  // 'goal' | 'yellow_card' | 'red_card' | 'substitution' | 'foul' | 'corner' | 'free_kick' | 'offside'
   eventType       String   @map("event_type")
   teamId          Int?     @map("team_id")
   playerId        Int?     @map("player_id")

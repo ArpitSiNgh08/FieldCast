@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { TournamentSquadEditor } from "@/components/SquadEditor";
 import { OrganizerTeamEditor } from "@/components/OrganizerTeamEditor";
+import { ImageCropper } from "@/components/ImageCropper";
 import { useAuth } from "@/hooks/useAuth";
 import { api } from "@/lib/api";
 import type { Match, Tournament } from "@/lib/types";
@@ -34,6 +35,9 @@ export default function OrganizerPage() {
   const [createAsWashout, setCreateAsWashout] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [cropFile, setCropFile] = useState<File | null>(null);
+  const [logoDraft, setLogoDraft] = useState("");
+  const [logoPreview, setLogoPreview] = useState("");
   const selected = tournaments.find((tournament) => tournament.id === selectedId);
   const activeMatches = matches.filter((match) => match.status === "upcoming" || match.status === "live");
   const effectiveStageType = matchStageType || (selected?.pools.length ? "pool" : "knockout");
@@ -65,6 +69,28 @@ export default function OrganizerPage() {
     const timer = window.setTimeout(() => loadMatches().catch((reason) => setError(reason.message)), 0);
     return () => clearTimeout(timer);
   }, [loadMatches]);
+
+  useEffect(() => {
+    setCropFile(null);
+    setLogoDraft("");
+    setLogoPreview(selected?.imageUrl || "");
+  }, [selectedId, selected?.imageUrl]);
+
+  async function saveLogo(event: React.FormEvent) {
+    event.preventDefault();
+    if (!selected || !logoDraft) return;
+    setBusy(true);
+    setError("");
+    try {
+      const updated = await api.updateTournamentLogo(selected.id, logoDraft);
+      setTournaments((items) => items.map((tournament) => tournament.id === updated.id ? updated : tournament));
+      setLogoDraft("");
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Could not update tournament logo");
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function invite(event: React.FormEvent) {
     event.preventDefault();
@@ -135,6 +161,20 @@ export default function OrganizerPage() {
           </Field>
           {selected && (
             <div className="space-y-4">
+              <details open className="group overflow-hidden rounded-xl border border-border bg-surface shadow-sm">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-4 font-semibold marker:hidden"><span>Tournament logo</span><span className="text-sm text-muted transition-transform group-open:rotate-180">⌄</span></summary>
+                <div className="border-t border-border p-4">
+                  <form onSubmit={saveLogo} className="flex flex-wrap items-center gap-4">
+                    {logoPreview ? <img src={logoPreview} alt={`${selected.name} logo`} className="h-16 w-16 rounded-lg border border-border object-cover" /> : <div className="grid h-16 w-16 place-items-center rounded-lg border border-dashed border-border text-xs text-muted">No logo</div>}
+                    <div className="min-w-[220px] flex-1">
+                      <Input type="file" accept="image/*" onChange={(event) => { const file = event.target.files?.[0] || null; if (file && file.size > 2 * 1024 * 1024) { setError("Logo image must be 2 MB or smaller"); setCropFile(null); return; } setError(""); setCropFile(file); setLogoDraft(""); }} />
+                      <p className="mt-1 text-xs text-muted">PNG, JPG, or WebP. Maximum 2 MB.</p>
+                    </div>
+                    <Button type="submit" variant="outline" disabled={busy || !logoDraft}>Save logo</Button>
+                  </form>
+                  {cropFile && <ImageCropper file={cropFile} onCancel={() => setCropFile(null)} onSave={(imageUrl) => { setLogoDraft(imageUrl); setLogoPreview(imageUrl); setCropFile(null); }} />}
+                </div>
+              </details>
               <details open className="group overflow-hidden rounded-xl border border-border bg-surface shadow-sm">
                 <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-4 font-semibold marker:hidden"><span>Upcoming and live matches</span><span className="text-sm text-muted transition-transform group-open:rotate-180">⌄</span></summary>
                 <div className="border-t border-border p-4">

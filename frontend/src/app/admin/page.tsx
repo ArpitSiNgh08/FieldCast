@@ -180,6 +180,7 @@ function FootballEventEditor({ match, event, onChanged, isNew = false }: { match
   const [teamId, setTeamId] = useState(firstTeam.id);
   const [playerId, setPlayerId] = useState(event?.player_id || firstTeam.players?.[0]?.playerId || 0);
   const [eventType, setEventType] = useState(event?.event_type || "goal");
+  const teamEvent = ["foul", "corner", "free_kick", "offside"].includes(eventType);
   const [isPenalty, setIsPenalty] = useState(event?.is_penalty || false);
   const [minute, setMinute] = useState(event?.minute || 0);
   const [extraTimeMinute, setExtra] = useState(event?.extra_time_minute || 0);
@@ -193,10 +194,10 @@ function FootballEventEditor({ match, event, onChanged, isNew = false }: { match
   }
 
   async function save() {
-    if (!playerId) return;
+    if (!playerId && !teamEvent) return;
     setBusy(true);
     try {
-      const body = { teamId, playerId, eventType, minute, extraTimeMinute, isPenalty: eventType === "goal" && isPenalty };
+      const body = { teamId, ...(teamEvent ? {} : { playerId }), eventType, minute, extraTimeMinute, isPenalty: eventType === "goal" && isPenalty };
       if (event) await api.updateCompletedFootballEvent(match.id, event.id, body);
       else await api.addCompletedFootballEvent(match.id, body);
       await onChanged();
@@ -216,11 +217,11 @@ function FootballEventEditor({ match, event, onChanged, isNew = false }: { match
     }
   }
 
-  const fields = <><Field label="Event"><Select value={eventType} onChange={(e) => { setEventType(e.target.value as FootballEvent["event_type"]); setIsPenalty(false); }}><option value="goal">Goal</option><option value="yellow_card">Yellow card</option><option value="red_card">Red card</option><option value="substitution">Substitution</option></Select></Field><Field label="Team"><Select value={teamId} onChange={(e) => chooseTeam(Number(e.target.value))}><option value={match.teamA.id}>{match.teamA.shortName}</option><option value={match.teamB.id}>{match.teamB.shortName}</option></Select></Field><Field label="Player" className="sm:col-span-2"><Select value={playerId} onChange={(e) => setPlayerId(Number(e.target.value))}><option value={0}>Choose player</option>{(team.players || []).map((entry) => <option key={entry.playerId} value={entry.playerId}>#{entry.jerseyNumber} {entry.player.name}</option>)}</Select></Field><Field label="Minute"><Input type="number" min={0} max={120} value={minute} onChange={(e) => setMinute(Number(e.target.value))} /></Field><Field label="Added minute" className="sm:col-span-2"><Input type="number" min={0} max={30} value={extraTimeMinute} onChange={(e) => setExtra(Number(e.target.value))} /></Field>{eventType === "goal" && <label className="flex items-center gap-2 self-end pb-2 text-sm text-muted"><input type="checkbox" checked={isPenalty} onChange={(e) => setIsPenalty(e.target.checked)} className="h-4 w-4 rounded border-border accent-accent" />Goal scored as penalty</label>}</>;
+  const fields = <><Field label="Event"><Select value={eventType} onChange={(e) => { setEventType(e.target.value as FootballEvent["event_type"]); setIsPenalty(false); }}><option value="goal">Goal</option><option value="yellow_card">Yellow card</option><option value="red_card">Red card</option><option value="substitution">Substitution</option><option value="foul">Foul</option><option value="corner">Corner</option><option value="free_kick">Free kick</option><option value="offside">Offside given</option></Select></Field><Field label="Team"><Select value={teamId} onChange={(e) => chooseTeam(Number(e.target.value))}><option value={match.teamA.id}>{match.teamA.shortName}</option><option value={match.teamB.id}>{match.teamB.shortName}</option></Select></Field><Field label="Player" className="sm:col-span-2"><Select value={playerId} onChange={(e) => setPlayerId(Number(e.target.value))}><option value={0}>Choose player</option>{(team.players || []).map((entry) => <option key={entry.playerId} value={entry.playerId}>#{entry.jerseyNumber} {entry.player.name}</option>)}</Select></Field><Field label="Minute"><Input type="number" min={0} max={120} value={minute} onChange={(e) => setMinute(Number(e.target.value))} /></Field><Field label="Added minute" className="sm:col-span-2"><Input type="number" min={0} max={30} value={extraTimeMinute} onChange={(e) => setExtra(Number(e.target.value))} /></Field>{eventType === "goal" && <label className="flex items-center gap-2 self-end pb-2 text-sm text-muted"><input type="checkbox" checked={isPenalty} onChange={(e) => setIsPenalty(e.target.checked)} className="h-4 w-4 rounded border-border accent-accent" />Goal scored as penalty</label>}</>;
 
-  if (isNew) return <div className="mt-4"><div className="grid grid-cols-2 gap-3">{fields}</div><Button className="mt-4 w-full sm:w-auto" size="sm" onClick={save} disabled={busy || !playerId}>{busy ? "Adding…" : "Add event"}</Button></div>;
+  if (isNew) return <div className="mt-4"><div className="grid grid-cols-2 gap-3">{fields}</div><Button className="mt-4 w-full sm:w-auto" size="sm" onClick={save} disabled={busy || (!teamEvent && !playerId)}>{busy ? "Adding…" : "Add event"}</Button></div>;
 
-  return <details className="rounded-xl border border-border"><summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium"><span className="flex items-center justify-between gap-3"><span className="capitalize">{eventType.replace("_", " ")} · {team.shortName} · {minute}{extraTimeMinute ? `+${extraTimeMinute}` : ""}&apos;</span><span className="text-xs text-accent">Edit</span></span></summary><div className="border-t border-border p-4"><div className="grid grid-cols-2 gap-3">{fields}</div><div className="mt-4 grid grid-cols-2 gap-2"><Button size="sm" onClick={save} disabled={busy || !playerId}>Save event</Button><Button size="sm" variant="danger" onClick={remove} disabled={busy}>Delete</Button></div></div></details>;
+  return <details className="rounded-xl border border-border"><summary className="cursor-pointer list-none px-4 py-3 text-sm font-medium"><span className="flex items-center justify-between gap-3"><span className="capitalize">{eventType.replace("_", " ")} · {team.shortName} · {minute}{extraTimeMinute ? `+${extraTimeMinute}` : ""}&apos;</span><span className="text-xs text-accent">Edit</span></span></summary><div className="border-t border-border p-4"><div className="grid grid-cols-2 gap-3">{fields}</div><div className="mt-4 grid grid-cols-2 gap-2"><Button size="sm" onClick={save} disabled={busy || (!teamEvent && !playerId)}>Save event</Button><Button size="sm" variant="danger" onClick={remove} disabled={busy}>Delete</Button></div></div></details>;
 }
 
 function StandingsEditor({ tournamentId, rows, onRows }: { tournamentId: number; rows: StandingRow[]; onRows: (rows: StandingRow[]) => void }) {

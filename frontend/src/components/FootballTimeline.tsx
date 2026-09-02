@@ -6,7 +6,13 @@ const EVENT_ICON: Record<string, string> = {
   yellow_card: "🟨",
   red_card: "🟥",
   substitution: "🔄",
+  foul: "⚠️",
+  corner: "🚩",
+  free_kick: "🦶",
+  offside: "🚫",
 };
+
+const TEAM_EVENT_TYPES = new Set(["foul", "corner", "free_kick", "offside"]);
 
 function eventMinute(event: FootballEvent) {
   return `${event.minute}${event.extra_time_minute ? `+${event.extra_time_minute}` : ""}'`;
@@ -33,7 +39,7 @@ export function FootballTimeline({ events, embedded = false }: { events: Footbal
                     <span className="mr-2 tabular-nums">{eventMinute(event)}</span>
                     <span className="capitalize">{event.event_type.replace("_", " ")}</span>
                     {event.event_type === "goal" && event.is_penalty && <span className="ml-2 text-accent">(Penalty)</span>}
-                    {event.event_type !== "substitution" && event.player_name && (
+                    {event.event_type !== "substitution" && !TEAM_EVENT_TYPES.has(event.event_type) && event.player_name && (
                       <span className="text-muted">
                         {" — "}{event.jersey_number ? `#${event.jersey_number} ` : ""}{event.player_name}
                       </span>

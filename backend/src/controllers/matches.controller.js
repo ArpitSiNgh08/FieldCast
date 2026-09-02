@@ -45,8 +45,13 @@ function withStreamUrl(match) {
     cameraFallbackUrl,
     cameras: (match.cameras || []).map((camera) => ({
       ...camera,
-      ingestUrl: `rtmp://${env.stream.rtmpHost}:${env.stream.rtmpPort}/live/${camera.streamKey}`,
+        ingestUrl: `rtmp://${env.stream.rtmpHost}:${env.stream.rtmpPort}/live/${camera.streamKey}`,
       srtIngestUrl: `srt://${env.stream.rtmpHost}:${env.stream.srtPort}?streamid=#!::r=live/${camera.streamKey},m=publish`,
+      // Moblin parses the destination as a URL, so encode the SRT stream ID's
+      // leading '#' instead of letting it become a URL fragment.
+      iphoneSrtUrl: `srt://${env.stream.rtmpHost}:${env.stream.srtPort}`,
+      iphoneStreamId: `#!::r=live/${camera.streamKey},m=publish`,
+      iphoneSrtIngestUrl: `srt://${env.stream.rtmpHost}:${env.stream.srtPort}?streamid=${encodeURIComponent(`#!::r=live/${camera.streamKey},m=publish`)}`,
     })),
   };
 }

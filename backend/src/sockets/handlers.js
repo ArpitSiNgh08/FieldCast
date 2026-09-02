@@ -1,5 +1,6 @@
 'use strict';
 
+
 const matchState = require('../models/matchState.model');
 const events = require('../models/events.model');
 const Matches = require('../models/matches.model');
@@ -82,7 +83,8 @@ async function recordDetail(matchId, sport, payload) {
     const extraTimeMinute = Number(d.extraTimeMinute || 0);
     if (!Number.isInteger(minute) || minute < 0 || minute > 120) throw new Error('Minute must be between 0 and 120');
     if (!Number.isInteger(extraTimeMinute) || extraTimeMinute < 0 || extraTimeMinute > 30) throw new Error('Extra-time minute must be between 0 and 30');
-    if (!['goal', 'yellow_card', 'red_card', 'substitution'].includes(d.eventType)) throw new Error('Invalid football event');
+    const teamEvent = ['foul', 'corner', 'free_kick', 'offside'].includes(d.eventType);
+    if (!['goal', 'yellow_card', 'red_card', 'substitution', 'foul', 'corner', 'free_kick', 'offside'].includes(d.eventType)) throw new Error('Invalid football event');
     if (!team) throw new Error('Choose a team from this match');
 
     const history = await events.listFootballEvents(matchId);
@@ -110,6 +112,20 @@ async function recordDetail(matchId, sport, payload) {
         playerInId: incoming.playerId,
         playerInName: incoming.player.name,
         playerInJersey: incoming.jerseyNumber,
+        minute,
+        extraTimeMinute,
+      });
+      return { eventType: d.eventType, teamId: team.id };
+    }
+
+    if (teamEvent) {
+      await events.addFootballEvent(matchId, {
+        ...d,
+        teamId: team.id,
+        playerId: null,
+        playerName: null,
+        jerseyNumber: null,
+        isPenalty: false,
         minute,
         extraTimeMinute,
       });

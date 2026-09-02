@@ -20,6 +20,11 @@ export const metadata: Metadata = {
   title: "FieldCast — Live College Sports",
   description:
     "Live-stream college cricket, football and basketball from the ground with real-time scores, multi-camera switching and replays.",
+  icons: {
+    icon: "/favicon.ico",
+    shortcut: "/favicon.ico",
+    apple: "/favicon.ico",
+  },
 };
 
 export default function RootLayout({

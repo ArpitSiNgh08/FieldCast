@@ -67,6 +67,14 @@ function update(id, data) {
   return prisma.tournament.update({ where: { id: Number(id) }, data: allowed, include: DETAIL_INCLUDE });
 }
 
+function updateLogo(id, imageUrl) {
+  return prisma.tournament.update({
+    where: { id: Number(id) },
+    data: { imageUrl: imageUrl || null },
+    include: DETAIL_INCLUDE,
+  });
+}
+
 async function addTeam(tournamentId, { name, shortName, sport, ownerId, poolId }) {
   return prisma.$transaction(async (tx) => {
     const team = await tx.team.create({ data: { name, shortName, sport, ownerId: Number(ownerId) } });
@@ -210,4 +218,4 @@ async function addOrganizer(tournamentId, email, addedById) {
   return findById(tournamentId);
 }
 
-module.exports = { list, findById, create, update, addPool, addTeam, updateTeam, updateTeamPool, updateLineup, addPlayer, updatePlayer, removePlayer, removeTeam, setSubmission, review, listPlayers, listOrganized, addOrganizer };
+module.exports = { list, findById, create, update, updateLogo, addPool, addTeam, updateTeam, updateTeamPool, updateLineup, addPlayer, updatePlayer, removePlayer, removeTeam, setSubmission, review, listPlayers, listOrganized, addOrganizer };

@@ -56,7 +56,7 @@ export interface Match {
   state: MatchState;
 }
 
-export interface MatchCamera { id: number; matchId: number; name: string; angle: string; streamKey: string; ingestUrl?: string; srtIngestUrl?: string; createdAt: string; }
+export interface MatchCamera { id: number; matchId: number; name: string; angle: string; streamKey: string; ingestUrl?: string; srtIngestUrl?: string; iphoneSrtUrl?: string; iphoneStreamId?: string; iphoneSrtIngestUrl?: string; createdAt: string; }
 
 export interface Tournament {
   id: number;
@@ -112,7 +112,7 @@ export interface FootballEvent {
   half: number;
   minute: number;
   extra_time_minute: number;
-  event_type: "goal" | "yellow_card" | "red_card" | "substitution";
+  event_type: "goal" | "yellow_card" | "red_card" | "substitution" | "foul" | "corner" | "free_kick" | "offside";
   team_id: number | null;
   team_short: string | null;
   team_name: string | null;

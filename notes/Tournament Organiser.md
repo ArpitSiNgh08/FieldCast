@@ -37,7 +37,7 @@ For a one-camera local test, the viewer uses the registered camera's raw SRS HLS
 - Select goal, yellow card, red card, or substitution.
 - Search only players currently active in the match. The active set starts from the saved/default Playing 11 and changes after substitutions.
 - Results are shown as `#jersey · Player name · TEAM`.
-- Enter the regulation minute and optional added-time minute (for example, 45 and 2 renders as `45+2'`). The half is assigned automatically from the minute.
+- Enter the regulation minute and optional added-time minute (for example, 30 and 2 renders as `30+2'`). The half is assigned automatically from the minute.
 - **Update scorecard** saves the event and broadcasts the updated match state in one action.
 - Goal events automatically increment the selected player's team score on the backend.
 - Goal events can be marked **Goal scored as penalty**. The penalty flag appears in the public scorer summary and Football timeline.
