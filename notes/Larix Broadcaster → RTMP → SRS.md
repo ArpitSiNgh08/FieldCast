@@ -3,11 +3,11 @@
 Part of [[FieldCast]] · Part of [[Streaming — SRS + LL-HLS]]
 
 ## What it is
-FieldCast accepts custom RTMP from Larix or IRL Pro and SRT contribution from IRL Pro. Larix remains a valid RTMP broadcaster, but its current watermark policy may make IRL Pro preferable on Android. The historical note filename is retained so existing Obsidian links continue working.
+FieldCast accepts custom RTMP and SRT contribution from compatible Android/iPhone broadcaster apps. Larix remains a valid RTMP broadcaster, while Moblin can publish SRT without a Larix watermark. The historical note filename is retained so existing Obsidian links continue working.
 
 ## Setup on the phone
 1. In `/organizer/matches/[id]`, add the camera and copy its generated URL.
-2. IRL Pro (Android): choose SRT/Caller. Enter `srt://<HOST>:10080` as the server and `#!::r=live/<match-camera-key>,m=publish` in IRL Pro's separate **Stream ID** field.
+2. Android/Moblin: choose SRT/Caller. Enter `srt://<HOST>:10080` as the server/URL and `#!::r=live/<match-camera-key>,m=publish` in the separate **Stream ID** field.
 3. IRL Pro or Larix RTMP fallback: `rtmp://<SERVER_IP>:1935/live/<match-camera-key>`.
 4. If RTMP is stable, it is not necessary to change to SRT. Use SRT when IRL Pro reports connection/H.264 packetization failures.
 5. Never include Markdown backslashes, a trailing `&#x20;`, or surrounding whitespace in the broadcaster URL.

@@ -8,14 +8,14 @@ import { useAuth } from "@/hooks/useAuth";
 import { useSocket } from "@/hooks/useSocket";
 import { api } from "@/lib/api";
 import type { FootballEvent, Match } from "@/lib/types";
+import { elapsedSeconds, eventTime, formatClock, type FootballClockState } from "@/lib/footballClock";
 import { FootballTimeline } from "@/components/FootballTimeline";
 import { Badge, LiveBadge } from "@/ui/Badge";
 import { Button } from "@/ui/Button";
 import { Card, CardBody, CardHeader, CardTitle } from "@/ui/Card";
 import { Field } from "@/ui/Field";
 import { Input, Select } from "@/ui/Input";
-
-const STANDARD_VENUES = ["NITH college ground", "SAC"] as const;
+import { LoadingScreen } from "@/ui/Spinner";
 
 export default function FootballMatchControl() {
   const route = useParams<{ id: string }>();
@@ -25,14 +25,11 @@ export default function FootballMatchControl() {
   const { socket, connected } = useSocket();
   const [match, setMatch] = useState<Match | null>(null);
   const [venue, setVenue] = useState("");
-  const [venueChoice, setVenueChoice] = useState("");
   const [scheduledAt, setScheduledAt] = useState("");
   const [cameraName, setCameraName] = useState("");
   const angle = "Main sideline";
   const [scoreA, setScoreA] = useState(0);
   const [scoreB, setScoreB] = useState(0);
-  const [minute, setMinute] = useState(0);
-  const [extraTimeMinute, setExtraTimeMinute] = useState(0);
   const [eventType, setEventType] = useState("goal");
   const [isPenalty, setIsPenalty] = useState(false);
   const [selectedTeamId, setSelectedTeamId] = useState<number | null>(null);
@@ -51,6 +48,10 @@ export default function FootballMatchControl() {
   const [success, setSuccess] = useState("");
   const [copiedCameraKey, setCopiedCameraKey] = useState("");
   const [busy, setBusy] = useState(false);
+  const [clockNow, setClockNow] = useState(0);
+  const [clipBusy, setClipBusy] = useState(false);
+  const [clipMessage, setClipMessage] = useState("");
+  const [clips, setClips] = useState<Array<{ id: number; status: string; driveUrl?: string | null; error?: string | null; createdAt: string }>>([]);
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -59,13 +60,6 @@ export default function FootballMatchControl() {
     setMatch(data);
     setFootballEvents(scorecard.footballEvents || []);
     setVenue(data.venue || "");
-    setVenueChoice(
-      data.venue === STANDARD_VENUES[0] || data.venue === STANDARD_VENUES[1]
-        ? data.venue
-        : data.venue
-          ? "custom"
-          : "",
-    );
     setScheduledAt(
       data.scheduledAt
         ? new Date(data.scheduledAt).toISOString().slice(0, 16)
@@ -73,7 +67,18 @@ export default function FootballMatchControl() {
     );
     setScoreA(data.state.teamAScore);
     setScoreB(data.state.teamBScore);
+    if (data.status === "live") {
+      setClips(await api.listMatchClips(id).catch(() => []));
+    }
   }, [id]);
+
+  useEffect(() => {
+    if (!match || match.status !== "live") return;
+    const timer = window.setInterval(() => {
+      api.listMatchClips(match.id).then(setClips).catch(() => {});
+    }, 3000);
+    return () => window.clearInterval(timer);
+  }, [match?.id, match?.status]);
 
   useEffect(() => {
     if (!user || !id) return;
@@ -124,6 +129,22 @@ export default function FootballMatchControl() {
     };
   }, [socket, connected, match?.id]);
 
+  useEffect(() => {
+    if (!match?.state.extra?.clockRunning) return;
+    const timer = window.setInterval(() => setClockNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [match?.state.extra]);
+
+  function startClock() {
+    if (!match) return;
+    setBusy(true);
+    socket.emit("clock:start", { matchId: match.id }, (ack: { ok: boolean; error?: string; state?: Match["state"] }) => {
+      setBusy(false);
+      if (!ack.ok) setError(ack.error || "Could not start clock");
+      else if (ack.state) setMatch((current) => current ? { ...current, state: ack.state! } : current);
+    });
+  }
+
   async function run(action: () => Promise<Match>, fallback: string) {
     setBusy(true);
     setError("");
@@ -137,14 +158,6 @@ export default function FootballMatchControl() {
     } finally {
       setBusy(false);
     }
-  }
-
-  async function saveSetup() {
-    if (!match) return;
-    await run(
-      () => api.updateBroadcastSetup(match.id, { venue, scheduledAt }),
-      "Could not save setup",
-    );
   }
 
   async function addCamera(event: React.FormEvent) {
@@ -208,6 +221,21 @@ export default function FootballMatchControl() {
     if (succeeded) router.refresh();
   }
 
+  async function saveLastTwoMinutes() {
+    if (!match) return;
+    setClipBusy(true);
+    setClipMessage("");
+    try {
+      await api.createMatchClip(match.id);
+      setClipMessage("Clip is being prepared and uploaded to Google Drive…");
+      setClips(await api.listMatchClips(match.id));
+    } catch (reason) {
+      setClipMessage(reason instanceof Error ? reason.message : "Could not create clip");
+    } finally {
+      setClipBusy(false);
+    }
+  }
+
   function switchCamera(streamKey: string) {
     if (!match) return;
     socket.emit(
@@ -249,7 +277,7 @@ export default function FootballMatchControl() {
         ? [match.teamA, match.teamB].find((team) => team.id === (selectedTeamId || match.teamA.id))
         : selected!.team;
     if (!eventTeam) return;
-    const half = minute > 30 ? 2 : 1;
+    const clock = eventTime(elapsedSeconds((match.state.extra || {}) as FootballClockState, clockNow));
     setBusy(true);
     setError("");
     setSuccess("");
@@ -268,26 +296,22 @@ export default function FootballMatchControl() {
         state: {
           teamAScore: scoreA,
           teamBScore: scoreB,
-          period: half,
-          periodLabel: `${minute}${extraTimeMinute ? `+${extraTimeMinute}` : ""}'`,
+          period: clock.half,
+          periodLabel: `${clock.minute}${clock.extraTimeMinute ? `+${clock.extraTimeMinute}` : ""}'`,
           status: "live",
-          extra: { minute, extraTimeMinute },
+          extra: { clockElapsedSeconds: elapsedSeconds((match.state.extra || {}) as FootballClockState, clockNow) },
         },
         detail:
           eventType === "substitution"
             ? {
-                half,
-                minute,
-                extraTimeMinute,
+                ...clock,
                 eventType,
                 teamId: eventTeam.id,
                 playerOutId: outgoing!.playerId,
                 playerInId: incoming!.playerId,
               }
             : {
-                half,
-                minute,
-                extraTimeMinute,
+                ...clock,
                 eventType,
                 teamId: eventTeam.id,
                 ...(teamEvent ? {} : { playerId: selected!.playerId }),
@@ -340,7 +364,7 @@ export default function FootballMatchControl() {
   }
 
   if (loading || !id)
-    return <div className="py-24 text-center text-muted">Loading…</div>;
+    return <LoadingScreen label="Loading match control room…" />;
   if (!user)
     return (
       <div className="py-24 text-center">
@@ -352,7 +376,7 @@ export default function FootballMatchControl() {
   if (!match)
     return (
       <div className="py-24 text-center text-muted">
-        {error || "Loading match…"}
+      {error || "Loading match…"}
       </div>
     );
 
@@ -479,77 +503,19 @@ export default function FootballMatchControl() {
       {match.status !== "completed" && (
         <div className="mt-8 grid gap-4 lg:grid-cols-2">
           <details
-            open={match.status === "upcoming"}
+            open
             className="group overflow-hidden rounded-xl border border-border bg-surface shadow-sm lg:col-span-1"
           >
             <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-4 font-semibold marker:hidden">
-              <span>Match setup and cameras</span>
+              <span>Camera control</span>
               <span className="text-sm text-muted transition-transform group-open:rotate-180">
                 ⌄
               </span>
             </summary>
             <div className="border-t border-border">
-              <details
-                open={match.status === "upcoming"}
-                className="group overflow-hidden border-b border-border bg-surface"
-              >
-                <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-4 font-semibold marker:hidden">
-                  <span>1. Match details</span>
-                  <span className="text-sm text-muted transition-transform group-open:rotate-180">
-                    ⌄
-                  </span>
-                </summary>
-                <Card className="rounded-none border-0 shadow-none">
-                  <CardBody className="grid gap-4 border-t border-border p-4 sm:grid-cols-2">
-                    <Field label="Kickoff">
-                      <Input
-                        type="datetime-local"
-                        value={scheduledAt}
-                        onChange={(event) => setScheduledAt(event.target.value)}
-                      />
-                    </Field>
-                    <Field label="Venue">
-                      <Select
-                        value={venueChoice}
-                        onChange={(event) => {
-                          const value = event.target.value;
-                          setVenueChoice(value);
-                          setVenue(value === "custom" ? "" : value);
-                        }}
-                      >
-                        <option value="">Choose venue</option>
-                        {STANDARD_VENUES.map((option) => (
-                          <option key={option} value={option}>
-                            {option}
-                          </option>
-                        ))}
-                        <option value="custom">Add custom place…</option>
-                      </Select>
-                    </Field>
-                    {venueChoice === "custom" && (
-                      <Field label="Custom venue">
-                        <Input
-                          value={venue}
-                          onChange={(event) => setVenue(event.target.value)}
-                          required
-                          placeholder="Enter venue name"
-                        />
-                      </Field>
-                    )}
-                    <Button
-                      variant="outline"
-                      onClick={saveSetup}
-                      disabled={busy}
-                      className="sm:col-span-2"
-                    >
-                      Save setup
-                    </Button>
-                  </CardBody>
-                </Card>
-              </details>
               <Card className="rounded-none border-0 shadow-none">
                 <CardHeader className="p-4">
-                  <CardTitle>2. Cameras and ingest</CardTitle>
+                  <CardTitle>Cameras and ingest</CardTitle>
                 </CardHeader>
                 <CardBody className="px-4 pb-4">
                   <div className="space-y-3">
@@ -591,40 +557,6 @@ export default function FootballMatchControl() {
                                 copiedKey={copiedCameraKey}
                                 onCopy={copyIngestUrl}
                               />
-                            </div>
-                          )}
-                          {camera.iphoneSrtIngestUrl && (
-                            <div>
-                              <p className="text-[10px] font-semibold uppercase tracking-wide text-accent">
-                                Mobile · Android / iPhone / Moblin · SRT
-                              </p>
-                              <p className="mb-1 text-xs text-muted">
-                                Use these two values in Moblin. Each camera has a different Stream ID so switching works.
-                              </p>
-                              <div className="mt-2 grid gap-3">
-                                <div>
-                                  <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted">
-                                    Moblin URL
-                                  </p>
-                                  <CopyableUrl
-                                    label={camera.iphoneSrtUrl || camera.iphoneSrtIngestUrl.replace(/\?.*$/, "")}
-                                    copyKey={`iphone-url-${camera.id}`}
-                                    copiedKey={copiedCameraKey}
-                                    onCopy={copyIngestUrl}
-                                  />
-                                </div>
-                                <div>
-                                  <p className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted">
-                                    Moblin stream ID
-                                  </p>
-                                  <CopyableUrl
-                                    label={camera.iphoneStreamId || `#!::r=live/${camera.streamKey},m=publish`}
-                                    copyKey={`iphone-stream-id-${camera.id}`}
-                                    copiedKey={copiedCameraKey}
-                                    onCopy={copyIngestUrl}
-                                  />
-                                </div>
-                              </div>
                             </div>
                           )}
                           <div className="border-t border-border pt-3">
@@ -685,12 +617,13 @@ export default function FootballMatchControl() {
               </span>
             </summary>
             <div className="border-t border-border">
+              {match.status === "live" && <Card className="rounded-none border-0 border-b border-border bg-accent/5 shadow-none"><CardBody className="flex flex-wrap items-center justify-between gap-4 p-4"><div><p className="text-xs font-semibold uppercase tracking-widest text-accent">Match clock</p><p className="mt-1 font-mono text-4xl font-bold tabular-nums">{formatClock(elapsedSeconds((match.state.extra || {}) as FootballClockState, clockNow))}</p><p className="text-xs text-muted">{match.state.extra?.clockStartedAt ? "Running · organiser only" : "Start the clock when the referee kicks off"}</p></div><div className="flex flex-wrap gap-2">{!match.state.extra?.clockStartedAt && <Button loading={busy} onClick={startClock} disabled={busy || !connected}>Kick off</Button>}<Button variant="outline" loading={clipBusy} onClick={saveLastTwoMinutes} disabled={clipBusy || !connected}>Save last 2 minutes</Button></div></CardBody>{clipMessage && <p className="border-t border-border px-4 py-2 text-sm text-muted">{clipMessage}</p>}{clips.slice(0, 3).map((clip) => <div key={clip.id} className="flex items-center justify-between border-t border-border px-4 py-2 text-sm"><span>Clip · {clip.status}</span>{clip.driveUrl && <a className="text-accent underline" href={clip.driveUrl} target="_blank" rel="noreferrer">Open in Drive</a>}{clip.error && <span className="text-red-700">{clip.error}</span>}</div>)}</Card>}
               <Card className="rounded-none border-0 border-b border-border bg-transparent shadow-none">
                 <CardHeader className="p-4">
                   <CardTitle>Update football scorecard</CardTitle>
                   <p className="mt-1 text-sm text-muted">
-                    Record goals, cards, and substitutions. The half is assigned
-                    automatically from the minute.
+                     Record goals, cards, and substitutions. The server clock assigns
+                     the half and added-time minute automatically.
                   </p>
                 </CardHeader>
                 <CardBody className="px-4 pb-4">
@@ -718,28 +651,6 @@ export default function FootballMatchControl() {
                         <option value="free_kick">Free kick</option>
                         <option value="offside">Offside given</option>
                       </Select>
-                    </Field>
-                    <Field label="Minute">
-                      <Input
-                        type="number"
-                        min={0}
-                        max={120}
-                        value={minute}
-                        onChange={(event) =>
-                          setMinute(Number(event.target.value))
-                        }
-                      />
-                    </Field>
-                    <Field label="Extra-time minute">
-                      <Input
-                        type="number"
-                        min={0}
-                        max={30}
-                        value={extraTimeMinute}
-                        onChange={(event) =>
-                          setExtraTimeMinute(Number(event.target.value))
-                        }
-                      />
                     </Field>
                   </div>
                   {eventType === "substitution" ? (
@@ -832,12 +743,12 @@ export default function FootballMatchControl() {
                   <div className="mt-4 grid gap-3 sm:grid-cols-2">
                     <Button
                       onClick={updateScorecard}
-                      disabled={match.status !== "live" || !eventReady || busy || !connected}
+                      disabled={match.status !== "live" || !match.state.extra?.clockStartedAt || !eventReady || busy || !connected}
                     >
                       {busy
                         ? "Updating…"
                         : eventType === "substitution"
-                          ? "Record substitution"
+                        ? "Record substitution"
                           : "Update scorecard"}
                     </Button>
                     <Button
@@ -852,6 +763,7 @@ export default function FootballMatchControl() {
               </Card>
               <div className="border-b border-border p-4">
                 <FootballTimeline events={footballEvents} embedded />
+                {match.status === "live" && <div className="mt-5 border-t border-border pt-4"><p className="text-sm font-semibold">Edit live events</p><p className="mt-1 text-xs text-muted">Corrections update the public timeline and goal score immediately.</p><div className="mt-3 space-y-2">{footballEvents.map((event) => <LiveFootballEventEditor key={event.id} match={match} event={event} onChanged={load} />)}</div></div>}
               </div>
               {match.status === "live" && (
                 <Card className="rounded-none border-0 bg-transparent shadow-none">
@@ -872,7 +784,7 @@ export default function FootballMatchControl() {
                         End & declare washout
                       </Button>
                       <Button onClick={() => finish("played")} disabled={busy}>
-                        End stream & finalize
+                        Mark full time & finalize
                       </Button>
                     </div>
                   </CardBody>
@@ -889,6 +801,29 @@ export default function FootballMatchControl() {
       )}
     </div>
   );
+}
+
+function LiveFootballEventEditor({ match, event, onChanged }: { match: Match; event: FootballEvent; onChanged: () => Promise<void> }) {
+  const [eventType, setEventType] = useState(event.event_type);
+  const [teamId, setTeamId] = useState(event.team_id || match.teamA.id);
+  const [minute, setMinute] = useState(event.minute);
+  const [extraTimeMinute, setExtraTimeMinute] = useState(event.extra_time_minute);
+  const [isPenalty, setIsPenalty] = useState(event.is_penalty);
+  const [busy, setBusy] = useState(false);
+  async function save() {
+    setBusy(true);
+    try {
+      await api.updateLiveFootballEvent(match.id, event.id, { eventType, teamId, playerId: event.player_id, minute, extraTimeMinute, isPenalty: eventType === "goal" && isPenalty });
+      await onChanged();
+    } finally { setBusy(false); }
+  }
+  async function remove() {
+    if (!window.confirm("Delete this live event?")) return;
+    setBusy(true);
+    try { await api.deleteLiveFootballEvent(match.id, event.id); await onChanged(); }
+    finally { setBusy(false); }
+  }
+  return <details className="rounded-lg border border-border"><summary className="cursor-pointer list-none px-3 py-2 text-xs"><span className="flex items-center justify-between gap-2"><span>{event.event_type.replace("_", " ")} · {event.minute}{event.extra_time_minute ? `+${event.extra_time_minute}` : ""}&apos; · {event.team_short}</span><span className="text-accent">Edit</span></span></summary><div className="grid grid-cols-2 gap-2 border-t border-border p-3"><Field label="Event"><Select value={eventType} disabled={event.event_type === "substitution"} onChange={(e) => setEventType(e.target.value as FootballEvent["event_type"])}><option value="goal">Goal</option><option value="yellow_card">Yellow card</option><option value="red_card">Red card</option><option value="substitution">Substitution</option><option value="foul">Foul</option><option value="corner">Corner</option><option value="free_kick">Free kick</option><option value="offside">Offside</option></Select></Field><Field label="Team"><Select value={teamId} onChange={(e) => setTeamId(Number(e.target.value))}><option value={match.teamA.id}>{match.teamA.shortName}</option><option value={match.teamB.id}>{match.teamB.shortName}</option></Select></Field><Field label="Minute"><Input type="number" min={0} max={120} value={minute} onChange={(e) => setMinute(Number(e.target.value))} /></Field><Field label="Added minute"><Input type="number" min={0} max={30} value={extraTimeMinute} onChange={(e) => setExtraTimeMinute(Number(e.target.value))} /></Field>{eventType === "goal" && <label className="col-span-2 flex items-center gap-2 text-xs text-muted"><input type="checkbox" checked={isPenalty} onChange={(e) => setIsPenalty(e.target.checked)} className="h-4 w-4 accent-accent" />Goal scored as penalty</label>}<div className="col-span-2 flex gap-2"><Button loading={busy} size="sm" onClick={save}>Save event</Button><Button size="sm" variant="danger" onClick={remove} disabled={busy}>Delete</Button><span className="self-center truncate text-xs text-muted">{event.team_short}{event.player_name ? ` · ${event.player_name}` : ""}</span></div></div></details>;
 }
 
 function CopyableUrl({

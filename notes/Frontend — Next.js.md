@@ -14,6 +14,7 @@ Part of [[FieldCast]]
 | `/admin/tournaments` | Admin approval/rejection queue |
 | `/organizer` | Select approved tournaments, manage organisers, fixtures, and Playing 11/bench squads |
 | `/organizer/matches/[id]` | Football broadcast setup, cameras, active feed, score events, halftime, and completion |
+| `/help` | Public setup guide for tournaments, Android cameras, streaming, switching, and support |
 
 `TournamentEditor.tsx` owns the draft/team/roster UI. See [[Tournament Submission]] and [[Tournament Organiser]].
 
@@ -24,6 +25,8 @@ Part of [[FieldCast]]
 - Standings / points table
 - Admin review queue plus organiser-scoped match/broadcast controls
 - Auth callback — Google OAuth
+- Public Help page with Android/Moblin SRT setup, H.264/AAC recommendations, and support contact
+- Tournament logo crop editor with zoom and optional background color; homepage tiles use a square logo area
 
 ## Stack
 - Next.js (App Router)
@@ -61,7 +64,7 @@ Part of [[FieldCast]]
 | `Navbar.tsx` | Navigation |
 | `Badge.tsx` / `Card.tsx` | UI primitives |
 
-The organiser camera card offers on-demand QR codes and labeled copy actions for both generated SRT and RTMP destinations. The homepage ranks recent matches by `MatchState.updatedAt`, which finalization updates, instead of by the original kickoff time.
+The organiser camera card offers on-demand QR codes and labeled copy actions for the generated IRL Pro SRT URL and RTMP destination. Mobile/Moblin SRT controls are temporarily hidden. The homepage ranks recent matches by `MatchState.updatedAt`, which finalization updates, instead of by the original kickoff time.
 
 ## UI rules (from [[DESIGN]])
 - **Fonts:** Geist (headings) + Inter (body) only

@@ -211,6 +211,7 @@ model Match {
   basketballQuarters BasketballQuarter[]
   cameras            MatchCamera[]
   views              MatchView[]
+  clips              ClipJob[]
 
   @@index([tournamentId])
   @@index([poolId])
@@ -230,6 +231,23 @@ model MatchView {
   @@id([matchId, viewerId])
   @@index([matchId])
   @@map("match_views")
+}
+
+model ClipJob {
+  id           Int      @id @default(autoincrement())
+  matchId      Int      @map("match_id")
+  status       String   @default("queued")
+  requestedAt  DateTime @default(now()) @map("requested_at")
+  completedAt  DateTime? @map("completed_at")
+  driveFileId  String?  @map("drive_file_id")
+  driveUrl     String?  @map("drive_url")
+  error        String?
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  match Match @relation(fields: [matchId], references: [id], onDelete: Cascade)
+
+  @@index([matchId, createdAt])
+  @@map("clip_jobs")
 }
 
 model MatchCamera {

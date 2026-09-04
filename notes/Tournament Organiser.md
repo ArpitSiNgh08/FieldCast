@@ -22,10 +22,10 @@ An organiser has management access to specific approved tournaments. This is not
 3. Choose home and away teams from the approved tournament.
 4. Set kickoff time and venue.
 5. Add one or more phone cameras with descriptive names. Camera angle selection is not required.
-6. Configure IRL Pro with the recommended SRT URL, or use the RTMP fallback with IRL Pro/Larix when it is stable. Each destination has an on-demand QR code so it can be scanned directly by the streaming phone.
+6. Configure the streaming phone with the camera card's generated IRL Pro SRT destination or RTMP fallback. Use H.264/AAC.
 7. Start publishing and press **Go live**. Kickoff, venue, and at least one camera are required; there is no separate checklist gate.
 8. Start the match; ffmpeg publishes the selected feed to `active_<matchId>`.
-9. Switch cameras and update score, minute, goals, cards, and substitutions. The half is derived from the minute; use **Mark halftime** for the halftime state.
+9. Switch cameras and use **Kick off** to start the organiser-only match clock. Record goals, cards, and substitutions from that clock; the server assigns half and added-time minutes. Use **Mark halftime** for the halftime state and **Mark full time & finalize** to finish.
 10. End normally to finalize the score and publish full time, or end as a washout. Only pool and legacy fixtures affect pool standings; knockout results do not.
 
 ## Go live control
@@ -66,6 +66,8 @@ At least one camera, kickoff time, and venue are required before going live. Sta
 - 4–6 Mbps video bitrate
 - AAC audio
 - Two-second keyframe interval
+
+Mobile/Moblin SRT setup is temporarily hidden from the organiser camera card. Match-specific camera IDs remain available for future mobile support.
 
 IRL Pro may keep using RTMP when stable. If it repeatedly fails after the handshake, use the displayed SRT/Caller URL on UDP `10080`; SRS converts it into the same HLS and switching source.
 

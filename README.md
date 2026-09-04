@@ -6,7 +6,7 @@ The current implementation supports tournament management for Cricket, Football,
 
 ## Current status
 
-Implemented locally as of August 2026:
+Implemented locally as of September 2026:
 
 - Credential signup/login using bcrypt password hashes and JWT bearer tokens.
 - Optional Google OAuth login and an environment-backed administrator account.
@@ -15,7 +15,9 @@ Implemented locally as of August 2026:
 - A public homepage containing approved tournaments and real approved-tournament fixtures; legacy creatorless fixtures are excluded.
 - Public tournament hubs with teams, live matches, upcoming matches, past matches, pool-aware standings, and a connected knockout bracket.
 - Football match creation, mobile-camera ingest destinations, going live, active-camera switching, score events, and broadcast completion.
-- On-demand SRT and RTMP QR codes for transferring ingest destinations directly to a streaming phone.
+- On-demand mobile SRT and RTMP QR codes for transferring ingest destinations directly to Android/iPhone streaming apps.
+- Camera ingest destinations remain available through the backend, while the organizer UI currently keeps the Moblin-specific fields hidden.
+- Tournament-logo editor with square crop, zoom, and an optional solid background for transparent images.
 - Searchable Football event entry using the match's current active players, with jersey number and team abbreviation; goals can be marked as penalties.
 - Goal (including penalty), card, and substitution events with regulation and extra-time minutes.
 - Automatic goal scoring and immediate live Socket.io updates.
@@ -26,7 +28,7 @@ Implemented locally as of August 2026:
 - Explicit washouts that stop a stream without affecting standings.
 - Drag-and-drop Playing 11 and bench management. The first sport-sized group of registered players becomes the default starting squad; additional players begin on the bench and organisers can adjust the lineup.
 
-Database migrations `0001` through `0014` are included. Migration `0012_match_viewers` adds anonymous per-match unique viewer counts; `0013` allows duplicate jersey numbers within a team, and `0014` adds penalty-goal metadata.
+Database migrations `0001` through `0015` are included. Migration `0012_match_viewers` adds anonymous per-match unique viewer counts; `0013` allows duplicate jersey numbers within a team, `0014` adds penalty-goal metadata, and `0015` adds persisted clip jobs.
 
 ## Roles and workflow
 
@@ -79,6 +81,7 @@ For an approved tournament, an organiser can:
 | `/` | Approved tournaments plus live, upcoming, and recent matches |
 | `/tournaments/[id]` | Public tournament hub with teams, fixtures, results, and standings |
 | `/matches/[id]` | Public stream, live score graphic, goal scorers, and Football timeline |
+| `/help` | Public setup guide for tournaments, Android cameras, streaming, switching, and support |
 | `/scorecard/[id]` | Detailed sport-specific scorecard |
 | `/standings` | Standings for active approved tournaments |
 | `/standings?tournament=[id]` | Standings filtered to one tournament |
@@ -95,7 +98,7 @@ For an approved tournament, an organiser can:
 ## Architecture
 
 ```text
-Phone cameras (IRL Pro, Larix, or another compatible broadcaster)
+Phone cameras (Android/iPhone broadcaster with SRT or RTMP support)
             |
             | RTMP :1935 or SRT :10080/UDP
             v
@@ -115,7 +118,7 @@ Viewer browser    <------- live updates ---------+
 - Backend: Node.js, Express, Socket.io.
 - Authentication: JWT, bcrypt, Passport Google OAuth.
 - Database: PostgreSQL with Prisma 7 and `@prisma/adapter-pg`.
-- Mobile ingest: custom RTMP from Larix/IRL Pro, or SRT from IRL Pro.
+- Mobile ingest: SRT from Android/iPhone apps such as Moblin or IRL Pro, with RTMP fallback where supported.
 - Media server: SRS 6.0.184, converting SRT contribution into the same live source used by HLS and switching.
 - Camera switching: ffmpeg child processes controlled by the backend.
 - Playback: HLS/LL-HLS through hls.js.
@@ -175,6 +178,11 @@ ADMIN_EMAIL=admin@fieldcast.local
 ADMIN_PASSWORD=replace-with-a-secure-password
 ADMIN_NAME=FieldCast Admin
 SIMULATE_STREAM=true
+# Optional organizer clip capture / Google Drive upload
+CLIPS_ENABLED=false
+# GOOGLE_DRIVE_FOLDER_ID=your-drive-folder-id
+# GOOGLE_DRIVE_CLIENT_EMAIL=clip-uploader@your-project.iam.gserviceaccount.com
+# GOOGLE_DRIVE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
 ```
 
 Google OAuth is optional. Leave `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` empty to use credential login only.
@@ -229,16 +237,17 @@ For a real phone-to-browser test:
 3. Set `RTMP_HOST` to an address reachable from the phone—not `localhost` unless the broadcaster runs on that machine. This host is used in both generated RTMP and SRT URLs.
 4. Set `SRS_HLS_BASE` to an address reachable from viewer browsers.
 5. Open the organiser match page and add a camera.
-6. Use **Show QR** beside the generated SRT or RTMP destination and scan it with the streaming phone, or use the adjacent copy action. In IRL Pro, prefer SRT; use RTMP when it is stable.
-7. Use H.264, 1080p at 30 fps, 4–6 Mbps, AAC audio, and a two-second keyframe interval.
-8. Start publishing from the phone and press **Go live**. Kickoff, venue, and at least one camera are the required setup fields; there is no separate checklist gate.
+6. Use the displayed IRL Pro SRT destination or RTMP fallback. Mobile/Moblin SRT controls are temporarily hidden from the organizer camera card.
+7. Use **Show QR** beside the generated SRT or RTMP destination when the app supports importing a full URL. Each camera has its own generated key; use the matching camera card.
+8. Use H.264, 1080p at 30 fps, 4–6 Mbps, AAC audio, and a two-second keyframe interval.
+9. Start publishing from the phone and press **Go live**. Kickoff, venue, and at least one camera are the required setup fields; there is no separate checklist gate.
 
 Single-camera local broadcasts play that camera’s SRS HLS manifest directly. Multi-camera broadcasts use a stable `active_[matchId]` output produced by the ffmpeg switcher.
 
 | Service | Default endpoint |
 |---|---|
 | RTMP ingest | `rtmp://HOST:1935/live/STREAM_KEY` |
-| SRT ingest (IRL Pro recommended) | `srt://HOST:10080?streamid=#!::r=live/STREAM_KEY,m=publish` |
+| SRT ingest | URL: `srt://HOST:10080`; Stream ID: `#!::r=live/STREAM_KEY,m=publish` |
 | HLS playback | `http://HOST:8080/live/STREAM_KEY.m3u8` |
 | SRS API | `http://HOST:1985/api/v1/streams` |
 
@@ -248,12 +257,12 @@ Single-camera local broadcasts play that camera’s SRS HLS manifest directly. M
 - Player search supports name, jersey number, and team abbreviation.
 - Picker labels use `#jersey · Player Name · TEAM`.
 - Events include goal, yellow card, red card, and substitution. Substitutions capture both the player leaving and the player entering.
-- Minute and extra-time minute are stored, such as `45+2'`.
-- The half is derived automatically from the minute. **Mark halftime** publishes the halftime state, while **End stream & finalize** publishes full time.
+- Minute and extra-time minute are stored, such as `30+2'`.
+- The half is derived automatically: minutes up to 30 are first half, and minutes above 30 are second half. **Mark halftime** publishes the halftime state, while **End stream & finalize** publishes full time.
 - Goals increment the selected player’s team score on the backend to avoid client-side races.
-- **Update scorecard** persists the event and broadcasts the new state over Socket.io immediately. Public score rendering may still hold the score for 15 seconds to align with delayed HLS video.
+- **Update scorecard** persists the event and broadcasts the new state over Socket.io immediately. Public score rendering waits for the matching HLS program timestamp when available, with a 15-second fallback for manifests without timing metadata.
 - The public match page shows goal scorers below the correct team score and its event timeline below the stream.
-- Public score display currently uses `SCORE_SYNC_DELAY_MS = 15_000` in `frontend/src/hooks/useMatchState.ts`. This temporary 15-second score holdback approximates HLS latency; Football event/timeline updates are delivered immediately, and the holdback is a code constant, not a production environment variable.
+- Public score display uses HLS program-date-time alignment in `frontend/src/hooks/useMatchState.ts`, falling back to `SCORE_SYNC_DELAY_MS = 15_000` when timing metadata is unavailable. Football event/timeline updates are delivered only when their timestamp reaches the viewer’s stream.
 - Production realtime score delivery requires `NEXT_PUBLIC_SOCKET_URL` on Vercel to be the same HTTPS origin that proxies `/socket.io` to the backend. `NEXT_PUBLIC_API_URL` must point to that origin for REST requests.
 
 ## Standings and outcomes
@@ -328,6 +337,8 @@ Prisma 7 requires the PostgreSQL driver adapter. Reuse `backend/src/config/prism
 - `/api/teams`: public team reads and administrator creation.
 - `/api/streams`: administrator stream/SRS health.
 
+`GET /api/streams/livestream` reports the optional shared SRS `livestream` feed for diagnostics. It is intended for one active feed only; match cameras use unique generated keys so camera switching remains reliable.
+
 Durable data uses REST. Time-sensitive score and camera changes use Socket.io match rooms.
 
 ## Troubleshooting
@@ -353,7 +364,7 @@ Stop only the confirmed FieldCast backend process tree, then start one instance.
 
 ### SRS reports a publisher but video does not move
 
-An active stream can still have zero recent frames or bitrate. Confirm the phone can reach RTMP `:1935` or SRT `:10080/UDP`, and confirm the camera-specific HLS manifest is updating. If IRL Pro reports an RTMP/H.264 connection failure, switch that camera to the generated SRT URL; both protocols route to the same FieldCast stream key.
+An active stream can still have zero recent frames or bitrate. Confirm the phone can reach RTMP `:1935` or SRT `:10080/UDP`, and confirm the matching camera-specific HLS manifest is updating. For Moblin, enter the server URL and Stream ID in their separate fields; do not paste the encoded full URL into the Stream ID field. Use H.264 video and AAC audio. The shared `livestream` ID is only for a single diagnostic feed and cannot distinguish two phones.
 
 ### `spawn ffmpeg ENOENT`
 
@@ -395,6 +406,10 @@ The same application and container layout can move to EC2/ECS, with S3 added as 
 - The deploy workflow has no post-restart backend health check, and its Vercel job can succeed independently while the backend job fails. Always inspect all deploy jobs; a future hardening change should gate frontend production deployment on backend health.
 - The live Nginx reverse-proxy configuration is not versioned in this repository. Back it up and verify `/api`, `/socket.io`, `/live`, WebSocket upgrade headers, TLS renewal, and upload/body-size settings after VM changes.
 - Multi-camera switching requires ffmpeg and an environment reachable by SRS.
+
+### Automatic two-minute clips (foundation implemented)
+
+The clipping design is documented in [[notes/Clipping Feature Plan]] (and the Obsidian note `Clipping Feature Plan`). The backend now records a rolling window, exposes organiser-only `GET/POST /api/matches/:id/clips`, assembles the previous two minutes with ffmpeg, and uploads to Google Drive when configured. Set `CLIPS_ENABLED=true`, `GOOGLE_DRIVE_FOLDER_ID`, `GOOGLE_DRIVE_CLIENT_EMAIL`, and `GOOGLE_DRIVE_PRIVATE_KEY`; share the target Drive folder with the service-account email. Until those values and migration `0015` are deployed, the UI reports a safe configuration error.
 - Automated test coverage is limited; validation currently relies on linting, TypeScript, builds, API smoke tests, and local browser checks.
 
 See [PROGRESS.md](./PROGRESS.md) for the detailed session log and [HOW_TO_USE.md](./HOW_TO_USE.md) for operational instructions.

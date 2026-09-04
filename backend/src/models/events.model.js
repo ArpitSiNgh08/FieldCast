@@ -65,6 +65,7 @@ async function listFootballEvents(matchId) {
   // Flatten to match the shape the scorecard page expects
   return rows.map((r) => ({
     id: r.id,
+    created_at: r.createdAt,
     match_id: r.matchId,
     half: r.half,
     minute: r.minute,

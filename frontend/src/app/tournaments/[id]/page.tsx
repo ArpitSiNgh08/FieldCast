@@ -65,7 +65,7 @@ export default async function TournamentPage({ params }: Props) {
               <span> · {tournament.teams.length} teams</span>
             </p>
             <div className="mt-5 flex flex-wrap gap-2">
-              {tournament.teams.map(({ team }) => <span key={team.id} className="rounded-full border border-border bg-surface-2 px-3 py-1.5 text-xs font-medium"><strong className="mr-1 text-accent">{team.shortName}</strong>{team.name}</span>)}
+              {tournament.teams.map(({ team }) => <span key={team.id} className="inline-flex items-center gap-2 rounded-full border border-border bg-surface-2 px-3 py-1.5 text-xs font-medium">{team.logoUrl ? <img src={team.logoUrl} alt="" className="h-6 w-6 rounded-full border border-border object-cover" /> : <span className="grid h-6 w-6 place-items-center rounded-full bg-surface text-[10px] font-bold text-muted">{team.shortName}</span>}<strong className="text-accent">{team.shortName}</strong><span>{team.name}</span></span>)}
             </div>
           </div>
         </div>

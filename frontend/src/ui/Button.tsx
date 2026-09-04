@@ -1,5 +1,6 @@
 import type { ButtonHTMLAttributes } from "react";
 import { cn } from "@/lib/cn";
+import { Spinner } from "./Spinner";
 
 type Variant = "primary" | "secondary" | "ghost" | "danger" | "outline";
 type Size = "sm" | "md" | "lg";
@@ -23,12 +24,15 @@ const SIZES: Record<Size, string> = {
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: Variant;
   size?: Size;
+  loading?: boolean;
 }
 
 export function Button({
   variant = "primary",
   size = "md",
+  loading = false,
   className,
+  children,
   ...props
 }: ButtonProps) {
   return (
@@ -42,6 +46,10 @@ export function Button({
         className
       )}
       {...props}
-    />
+      aria-busy={loading || undefined}
+    >
+      {loading && <Spinner className="h-4 w-4 border-current/30 border-t-current" />}
+      {children}
+    </button>
   );
 }

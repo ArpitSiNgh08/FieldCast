@@ -7,6 +7,7 @@ const Matches = require('../models/matches.model');
 const cameraSwitcher = require('../services/cameraSwitcher');
 const authorization = require('../services/authorization.service');
 const prisma = require('../config/prisma');
+const footballClock = require('../utils/footballClock');
 
 const room = (matchId) => `match:${matchId}`;
 const scoreQueues = new Map();
@@ -230,14 +231,22 @@ function register(io, socket) {
         if (sport === 'football' && detail?.eventType === 'halftime') {
           return matchState.update(matchId, { periodLabel: 'Halftime', status: 'break' });
         }
-        const recorded = await recordDetail(matchId, sport, { detail });
+        const current = sport === 'football' ? await matchState.findByMatch(matchId) : null;
+        if (sport === 'football' && !current?.extra?.clockStartedAt) throw new Error('Kick off the match clock before recording events');
+        const clock = sport === 'football' ? footballClock.snapshot(current) : null;
+        const effectiveDetail = sport === 'football' && clock
+          ? { ...detail, minute: clock.minute, extraTimeMinute: clock.extraTimeMinute, half: clock.half }
+          : detail;
+        const recorded = await recordDetail(matchId, sport, { detail: effectiveDetail });
         let statePatch = state || {};
         if (sport === 'football') {
           // Football scores are server-authoritative. A stale organiser screen
           // may update the clock or a card, but cannot roll the score backward.
-          const current = await matchState.findByMatch(matchId);
           statePatch = {
             ...statePatch,
+            period: clock.half,
+            periodLabel: `${clock.minute}${clock.extraTimeMinute ? `+${clock.extraTimeMinute}` : ""}'`,
+            extra: { ...(current.extra || {}), clockElapsedSeconds: clock.elapsedSeconds },
             teamAScore: current.teamAScore + (recorded?.eventType === 'goal' && recorded.teamId === match.teamA.id ? 1 : 0),
             teamBScore: current.teamBScore + (recorded?.eventType === 'goal' && recorded.teamId === match.teamB.id ? 1 : 0),
           };
@@ -249,6 +258,21 @@ function register(io, socket) {
     } catch (err) {
       if (typeof ack === 'function') ack({ ok: false, error: err.message });
     }
+  });
+
+  socket.on('clock:start', async ({ matchId }, ack) => {
+    try {
+      await assertManager(socket, matchId);
+      const current = await matchState.findByMatch(matchId);
+      if (current?.extra?.clockStartedAt) throw new Error('The match clock has already started');
+      const now = new Date().toISOString();
+      const state = await matchState.update(matchId, {
+        status: 'live', period: 1, periodLabel: "0'",
+        extra: { ...(current?.extra || {}), clockStartedAt: now, clockElapsedSeconds: 0, clockRunning: true, clockFullTime: false },
+      });
+      io.to(room(matchId)).emit('score:updated', { matchId, state });
+      if (typeof ack === 'function') ack({ ok: true, state });
+    } catch (err) { if (typeof ack === 'function') ack({ ok: false, error: err.message }); }
   });
 
   // Organiser switches the active camera → ffmpeg re-pipe → broadcast.

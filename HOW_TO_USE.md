@@ -42,9 +42,14 @@ SRT_PORT=10080
 SRS_HLS_BASE=http://localhost:8080
 SRS_API_BASE=http://localhost:1985
 FFMPEG_PATH=ffmpeg
+# Optional organizer clip capture / Google Drive upload
+CLIPS_ENABLED=false
+# GOOGLE_DRIVE_FOLDER_ID=your-drive-folder-id
+# GOOGLE_DRIVE_CLIENT_EMAIL=clip-uploader@your-project.iam.gserviceaccount.com
+# GOOGLE_DRIVE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
 ```
 
-Google OAuth is optional. Credential signup/login works without Google credentials.
+Google OAuth is optional. Credential signup/login works without Google credentials. To enable organizer clips, set `CLIPS_ENABLED=true`, provide the three Google Drive values, share the destination folder with the service-account email, and deploy migration `0015_clip_jobs`. Credentials stay on the backend and are never sent to the browser.
 
 ### Create the local database once
 

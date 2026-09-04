@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
 import { Navbar } from "@/components/Navbar";
+import { NavigationLoading } from "@/components/NavigationLoading";
 import { Analytics } from "@vercel/analytics/next"
 // import { Agentation } from "agentation";
 
@@ -40,6 +41,7 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col bg-background text-foreground">
         <Providers>
           <Navbar />
+          <NavigationLoading />
           <main className="flex-1">{children}</main>
           <footer className="border-t border-border py-6 text-center text-xs text-muted">
             FieldCast — built for the ground, designed for scale.

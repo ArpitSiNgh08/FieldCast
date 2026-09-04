@@ -109,6 +109,7 @@ export interface CricketEvent {
 
 export interface FootballEvent {
   id: number;
+  created_at?: string;
   half: number;
   minute: number;
   extra_time_minute: number;

@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { SPORT_EMOJI, SPORT_LABEL } from "@/lib/format";
 import { LiveBadge, Badge } from "@/ui/Badge";
 import { HlsPlayer } from "@/components/HlsPlayer";
-import { ScoreOverlay } from "@/components/ScoreOverlay";
+import { LiveMatchDetails } from "@/components/LiveMatchDetails";
 import { ScorecardLiveRefresh } from "@/components/ScorecardLiveRefresh";
 import { FootballTimeline } from "@/components/FootballTimeline";
 import type { FootballEvent } from "@/lib/types";
@@ -102,12 +102,12 @@ export default async function MatchPage({ params }: Props) {
                 </p>
               </div>
             )}
-            {isLive && (
+            {isLive && match.sport === "football" && (
               <div className="mt-6">
-                <ScoreOverlay match={match} footballEvents={footballEvents} />
+                <LiveMatchDetails match={match} footballEvents={footballEvents} />
               </div>
             )}
-            {match.sport === "football" && (
+            {!isLive && match.sport === "football" && (
               <div className="mt-6">
                 <FootballTimeline events={footballEvents} />
               </div>

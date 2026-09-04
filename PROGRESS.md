@@ -2,7 +2,7 @@
 
 Living status tracker for FieldCast. Update this file whenever meaningful work happens — it's how the next session (human or agent) picks up context without re-reading every past conversation.
 
-**Last updated:** 2026-08-27
+**Last updated:** 2026-09-04
 
 ---
 
@@ -12,8 +12,8 @@ Living status tracker for FieldCast. Update this file whenever meaningful work h
 |---|---|
 | System architecture & Phase 1/2 split | ✅ Designed (`README.md`) |
 | Governance docs (AGENTS/CLAUDE/RULES/DESIGN) | ✅ Drafted |
-| Database schema design | ✅ Prisma schema + migrations `0001`–`0014` |
-| Prisma migration (backend) | ⚠️ Current through `0014` — verify production deploy applies duplicate-jersey and penalty-event migrations |
+| Database schema design | ✅ Prisma schema + migrations `0001`–`0015` |
+| Prisma migration (backend) | ⚠️ Current through `0015` locally — verify production deploy applies clip-job migration |
 | Prisma seed script | ✅ Done — `prisma/seed.js` runs cleanly with pg adapter |
 | Local Postgres (dev) | ✅ Native Windows PostgreSQL 18 running on port 5432 |
 | `fieldcast` DB user + database | ✅ Created in native Postgres — migration + seed applied |
@@ -50,6 +50,9 @@ Living status tracker for FieldCast. Update this file whenever meaningful work h
 | Production end-to-end stream | 🔄 Backend, TLS, and frontend are deployed; complete a real external phone ingest/playback test |
 | Production dependency audit | ⚠️ 2026-08-26 audit reports high findings in Next.js, Socket.IO parser, and Prisma tooling trees; upgrade and retest before production-hardening |
 | Markdown documentation | ✅ Synchronized 2026-08-27 — penalty goals, duplicate jersey numbers, admin half derivation, immediate events, and Socket.IO fallback documented |
+| Camera follow, stream-clock event sync, organiser match clock | ✅ Implemented 2026-09-04 |
+| Automatic two-minute Google Drive clipping | 📝 Planned — see `notes/Clipping Feature Plan.md` |
+| Organizer live event editing and app-wide loading indicators | ✅ Implemented 2026-09-04 |
 
 Legend: ✅ done · 🔄 in progress · ⬜ not started · 🚫 blocked · ⚠️ attention needed
 
@@ -63,6 +66,7 @@ Legend: ✅ done · 🔄 in progress · ⬜ not started · 🚫 blocked · ⚠�
 - `FootballEvent.isPenalty` is persisted by migration `0014_add_penalty_to_football_events` and displayed in Football scorer/timeline views.
 - The organiser and admin event forms expose the penalty checkbox for goals. Admin corrections derive the half from the minute and no longer expose a Half field.
 - Football event broadcasts are immediate. Public score values retain the temporary 15-second HLS holdback.
+- **2026-09-04** — Public players now restart HLS automatically after an organiser camera cut. HLS program-date-time is used to reveal score states at the matching stream timestamp, with the existing delay fallback. Football organisers now start a server-authoritative clock with **Kick off**; event half/minute/added-time values are derived from it. Added loading spinners for squad/team mutations and organiser loading screens. Added the Obsidian clipping plan for future rolling two-minute Google Drive clips.
 
 ### Note 2 — Prisma 7 final working setup
 

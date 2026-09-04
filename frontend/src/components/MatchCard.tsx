@@ -10,18 +10,18 @@ function TeamRow({
   short,
   score,
   bold,
+  logoUrl,
 }: {
   name: string;
   short: string;
   score?: number;
   bold?: boolean;
+  logoUrl?: string | null;
 }) {
   return (
     <div className="flex items-center justify-between gap-3">
       <div className="flex items-center gap-2 min-w-0">
-        <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-surface-2 text-xs font-bold text-muted">
-          {short}
-        </span>
+        {logoUrl ? <img src={logoUrl} alt="" className="h-7 w-7 shrink-0 rounded-md border border-border object-cover" /> : <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-surface-2 text-xs font-bold text-muted">{short}</span>}
         <span className={cn("truncate text-sm", bold && "font-semibold")}>
           {name}
         </span>
@@ -80,12 +80,14 @@ export function MatchCard({ match }: { match: Match }) {
             short={match.teamA.shortName}
             score={showScores ? match.state.teamAScore : undefined}
             bold={winA}
+            logoUrl={match.teamA.logoUrl}
           />
           <TeamRow
             name={match.teamB.name}
             short={match.teamB.shortName}
             score={showScores ? match.state.teamBScore : undefined}
             bold={winB}
+            logoUrl={match.teamB.logoUrl}
           />
         </div>
 

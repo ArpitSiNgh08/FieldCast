@@ -8,6 +8,8 @@ const authorization = require('../services/authorization.service');
 const cameraSwitcher = require('../services/cameraSwitcher');
 const matchState = require('../models/matchState.model');
 const crypto = require('crypto');
+const footballClock = require('../utils/footballClock');
+const clipService = require('../services/clipService');
 
 function broadcastMatchStatus(req, match) {
   const io = req.app.get('io');
@@ -109,16 +111,22 @@ async function updateStatus(req, res) {
     const selected = candidate.cameras.find((camera) => camera.streamKey === candidate.activeCamera) || candidate.cameras[0];
     await Matches.setActiveCamera(candidate.id, selected.streamKey);
     cameraSwitcher.switchCamera(candidate.id, selected.streamKey);
+    await clipService.start(candidate.id, withStreamUrl(candidate).liveUrl);
   }
   if (status === 'completed') {
     cameraSwitcher.stop(Number(req.params.id));
+    clipService.stop(Number(req.params.id));
     const candidate = await Matches.findById(req.params.id);
     if (!candidate) return res.status(404).json({ error: 'Match not found' });
     const winnerTeamId = candidate.state.teamAScore === candidate.state.teamBScore
       ? null
       : candidate.state.teamAScore > candidate.state.teamBScore ? candidate.teamA.id : candidate.teamB.id;
     const completed = await Matches.setResult(req.params.id, { winnerTeamId, resultType: 'played' });
-    const finalState = await matchState.update(req.params.id, { periodLabel: 'Full time', status: 'completed' });
+    const clockSeconds = footballClock.elapsedSeconds(candidate.state);
+    const finalState = await matchState.update(req.params.id, {
+      periodLabel: 'Full time', status: 'completed',
+      extra: { ...(candidate.state.extra || {}), clockElapsedSeconds: clockSeconds, clockRunning: false, clockFullTime: true, fullTimeAt: new Date().toISOString() },
+    });
     req.app.get('io')?.to(`match:${Number(req.params.id)}`).emit('score:updated', { matchId: Number(req.params.id), state: finalState });
     if (completed.tournamentId) await standingsService.recomputeForTournament(completed.tournamentId);
     broadcastMatchStatus(req, completed);
@@ -140,6 +148,7 @@ async function setResult(req, res) {
     return res.status(400).json({ error: 'Winner must be one of the match teams' });
   }
   cameraSwitcher.stop(Number(req.params.id));
+  clipService.stop(Number(req.params.id));
   const match = await Matches.setResult(req.params.id, {
     winnerTeamId: resultType === 'washout' ? null : winnerTeamId,
     replayUrl,

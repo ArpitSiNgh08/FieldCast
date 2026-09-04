@@ -6,6 +6,8 @@ const prisma = require('../config/prisma');
 const Matches = require('../models/matches.model');
 const Standings = require('../models/standings.model');
 const standingsService = require('../services/standings.service');
+const authorization = require('../services/authorization.service');
+const matchState = require('../models/matchState.model');
 
 const METRICS = ['played', 'won', 'lost', 'drawn', 'points', 'scoredFor', 'scoredAgainst'];
 const EVENT_TYPES = ['goal', 'yellow_card', 'red_card', 'substitution', 'foul', 'corner', 'free_kick', 'offside'];
@@ -79,7 +81,10 @@ async function updateFootballEvent(req, res) {
   const eventId = Number(req.params.eventId);
   const existing = await prisma.footballEvent.findFirst({ where: { id: eventId, matchId: match.id } });
   if (!existing) return res.status(404).json({ error: 'Football event not found' });
-  const data = await validateFootballEvent(match, req.body);
+  let data = await validateFootballEvent(match, req.body);
+  if (existing.eventType === 'substitution' && data.eventType === 'substitution') {
+    data = { ...data, playerId: existing.playerId, playerName: existing.playerName, jerseyNumber: existing.jerseyNumber, playerOutId: existing.playerOutId, playerOutName: existing.playerOutName, playerOutJersey: existing.playerOutJersey, playerInId: existing.playerInId, playerInName: existing.playerInName, playerInJersey: existing.playerInJersey };
+  }
   res.json(await prisma.footballEvent.update({ where: { id: eventId }, data }));
 }
 
@@ -88,6 +93,53 @@ async function deleteFootballEvent(req, res) {
   const event = await prisma.footballEvent.findFirst({ where: { id: Number(req.params.eventId), matchId: match.id } });
   if (!event) return res.status(404).json({ error: 'Football event not found' });
   await prisma.footballEvent.delete({ where: { id: event.id } });
+  res.status(204).end();
+}
+
+async function organizerLiveMatch(req) {
+  const match = await prisma.match.findUnique({ where: { id: Number(req.params.id) } });
+  if (!match) { const error = new Error('Match not found'); error.status = 404; throw error; }
+  if (!(await authorization.canManageMatch(req.user, match.id))) { const error = new Error('Tournament organiser access required'); error.status = 403; throw error; }
+  if (match.status !== 'live') { const error = new Error('Only live matches can be edited here'); error.status = 409; throw error; }
+  return match;
+}
+
+async function updateLiveFootballEvent(req, res) {
+  const match = await organizerLiveMatch(req);
+  const eventId = Number(req.params.eventId);
+  const existing = await prisma.footballEvent.findFirst({ where: { id: eventId, matchId: match.id } });
+  if (!existing) return res.status(404).json({ error: 'Football event not found' });
+  let data = await validateFootballEvent(match, req.body);
+  if (existing.eventType === 'substitution' && data.eventType === 'substitution') {
+    data = { ...data, playerId: existing.playerId, playerName: existing.playerName, jerseyNumber: existing.jerseyNumber, playerOutId: existing.playerOutId, playerOutName: existing.playerOutName, playerOutJersey: existing.playerOutJersey, playerInId: existing.playerInId, playerInName: existing.playerInName, playerInJersey: existing.playerInJersey };
+  }
+  await prisma.$transaction(async (tx) => {
+    await tx.footballEvent.update({ where: { id: eventId }, data });
+    if (existing.eventType === 'goal' || data.eventType === 'goal') {
+      const state = await tx.matchState.findUnique({ where: { matchId: match.id } });
+      const a = state.teamAScore - (existing.eventType === 'goal' && existing.teamId === match.teamAId ? 1 : 0) + (data.eventType === 'goal' && data.teamId === match.teamAId ? 1 : 0);
+      const b = state.teamBScore - (existing.eventType === 'goal' && existing.teamId === match.teamBId ? 1 : 0) + (data.eventType === 'goal' && data.teamId === match.teamBId ? 1 : 0);
+      await tx.matchState.update({ where: { matchId: match.id }, data: { teamAScore: Math.max(0, a), teamBScore: Math.max(0, b) } });
+    }
+  });
+  const state = await matchState.findByMatch(match.id);
+  req.app.get('io')?.to(`match:${match.id}`).emit('score:updated', { matchId: match.id, state });
+  res.json(await prisma.footballEvent.findUnique({ where: { id: eventId } }));
+}
+
+async function deleteLiveFootballEvent(req, res) {
+  const match = await organizerLiveMatch(req);
+  const event = await prisma.footballEvent.findFirst({ where: { id: Number(req.params.eventId), matchId: match.id } });
+  if (!event) return res.status(404).json({ error: 'Football event not found' });
+  await prisma.$transaction(async (tx) => {
+    await tx.footballEvent.delete({ where: { id: event.id } });
+    if (event.eventType === 'goal') {
+      const state = await tx.matchState.findUnique({ where: { matchId: match.id } });
+      await tx.matchState.update({ where: { matchId: match.id }, data: { teamAScore: Math.max(0, state.teamAScore - (event.teamId === match.teamAId ? 1 : 0)), teamBScore: Math.max(0, state.teamBScore - (event.teamId === match.teamBId ? 1 : 0)) } });
+    }
+  });
+  const state = await matchState.findByMatch(match.id);
+  req.app.get('io')?.to(`match:${match.id}`).emit('score:updated', { matchId: match.id, state });
   res.status(204).end();
 }
 
@@ -114,4 +166,4 @@ async function clearStandingOverride(req, res) {
   res.json(await Standings.listByTournament(tournamentId));
 }
 
-module.exports = { correctScore, addFootballEvent, updateFootballEvent, deleteFootballEvent, overrideStanding, clearStandingOverride };
+module.exports = { correctScore, addFootballEvent, updateFootballEvent, deleteFootballEvent, updateLiveFootballEvent, deleteLiveFootballEvent, overrideStanding, clearStandingOverride };

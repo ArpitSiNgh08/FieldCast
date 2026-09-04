@@ -2,7 +2,7 @@
 
 Pointer to the living status tracker: `PROGRESS.md`
 
-## Current status (as of 2026-08-26)
+## Current status (as of 2026-09-04)
 
 ### Done ✅
 - [[Database — Prisma + Neon]] — migrations `0001`–`0014`, including viewer metrics, duplicate jersey support, penalty goals, pools, match stages, substitutions, default squads, and standings overrides
@@ -16,6 +16,9 @@ Pointer to the living status tracker: `PROGRESS.md`
 - Existing Vercel frontend deployment is live.
 - Nginx HTTPS routes API, Socket.IO, and HLS through the DuckDNS hostname; Vercel targets that origin.
 - Organiser camera destinations have SRT/RTMP QR transfer, and newly finalized matches sort into Recent matches by finalization activity.
+- Mobile SRT destinations now expose separate server URL and Stream ID values for Moblin, with unique per-camera keys retained for switching.
+- SRS mobile-ingest tuning uses 2-second latency and 8 MB send/receive buffers; the public `/help` page documents Android-only camera setup and streaming.
+- Organisers can crop tournament logos to a square with zoom and optional background color; homepage tiles use a square display area. The app favicon is served from `frontend/public/favicon.ico`.
 
 ### Needs production verification ⚠️
 - GitHub Actions production secrets and one successful migrate/backend/Vercel deployment
@@ -62,3 +65,13 @@ Pointer to the living status tracker: `PROGRESS.md`
 
 ## Related
 - [[FieldCast]] — project hub
+# 2026-09-04 update
+
+- Added app-wide request/navigation loading indicators and organizer live-match event editing with goal-score synchronization.
+
+- Camera switches now reinitialize public HLS playback automatically.
+- Score states use HLS program-date-time when available, falling back to the configured delay.
+- Football event timing is derived from the organiser-only server clock started with **Kick off**.
+- Loading spinners were added to squad/team mutations and organiser loading screens.
+- Started automatic two-minute Google Drive clipping in [[Clipping Feature Plan]]: rolling ffmpeg capture, persisted `ClipJob` records, organizer-only clip APIs, and an organizer button/status panel are implemented. Drive upload is configuration-gated until the service-account credentials, folder sharing, and migration `0015_clip_jobs` are deployed.
+- The Obsidian graph context convention is documented in [[FieldCast]] and should be followed before future implementation tasks.

@@ -54,6 +54,13 @@ const env = {
     apiBase: process.env.SRS_API_BASE || 'http://localhost:1985',
     ffmpegPath: process.env.FFMPEG_PATH || 'ffmpeg',
   },
+  clips: {
+    enabled: bool(process.env.CLIPS_ENABLED, false),
+    folderId: process.env.GOOGLE_DRIVE_FOLDER_ID || '',
+    clientEmail: process.env.GOOGLE_DRIVE_CLIENT_EMAIL || '',
+    privateKey: (process.env.GOOGLE_DRIVE_PRIVATE_KEY || '').replace(/\\n/g, '\n'),
+    tempDir: process.env.CLIPS_TEMP_DIR || '.fieldcast-clips',
+  },
 };
 
 /** True when Google OAuth is fully configured. */

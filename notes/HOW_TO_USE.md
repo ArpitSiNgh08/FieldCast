@@ -8,7 +8,9 @@ Pointer to `HOW_TO_USE.md` in the project root.
 - Creator draft → admin review → approved organiser workflow
 - Optional creator-defined pools, per-pool team assignment, and pool/knockout fixtures
 - Drag-and-drop Playing 11/bench selection
-- Match-specific generated IRL Pro SRT and RTMP fallback destinations with on-demand QR transfer
+- Match-specific generated mobile SRT and RTMP destinations with on-demand QR transfer
+- Android/Moblin SRT setup using separate server URL and Stream ID fields; unique keys are required for switching cameras
+- Tournament-logo cropping with zoom/background color and the public `/help` guide
 - Football setup, go live, score events, halftime/full-time states, public stream/timeline, completion, and washout
 - Two-player substitutions with match-specific active-player tracking
 - Pool standings, knockout brackets, admin historical corrections, and public tournament hubs

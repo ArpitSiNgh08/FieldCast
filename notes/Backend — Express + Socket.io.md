@@ -10,7 +10,7 @@ Part of [[FieldCast]]
 - Organisers may create matches only inside approved tournaments they manage.
 - New matches are classified as pool or knockout fixtures; pool team choices are scoped to that pool and knockout fixtures carry a built-in or custom round label.
 - `PATCH /api/matches/:id/broadcast-setup` stores venue and kickoff setup.
-- `POST /api/matches/:id/cameras` creates a match camera with a server-generated key; responses include SRT and RTMP ingest URLs.
+- `POST /api/matches/:id/cameras` creates a match camera with a server-generated key; the organizer UI currently shows RTMP/SRT ingest controls while Moblin-specific fields remain hidden.
 - `PATCH /api/tournaments/:id/teams/:teamId/lineup` persists the sport-sized starting squad and bench split.
 - `PATCH /api/matches/:id/status` starts a match once required setup is present, or normally finalizes it and recomputes standings.
 - `POST /api/matches/:id/result` records a played result or washout; washouts are excluded from the table.
@@ -18,6 +18,7 @@ Part of [[FieldCast]]
 - `/api/admin` correction endpoints require the global admin role and reject live/upcoming matches.
 - Standings replacement uses a tournament-scoped PostgreSQL advisory lock plus sequential bulk insert, preventing concurrent recomputation `P2002` errors.
 - Match finalization emits `match:status` to the Socket.io room after persistence.
+- `ClipJob` persists organizer-requested clip status, timestamps, Drive file ID/URL, and failure messages. `GET/POST /api/matches/:id/clips` are organizer-authorized; the service records a rolling ffmpeg window and uploads assembled MP4 clips to Drive using backend-only service-account credentials.
 
 See [[Tournament Submission]] and [[Tournament Organiser]].
 
@@ -43,12 +44,14 @@ See [[Tournament Submission]] and [[Tournament Organiser]].
 | GET | `/api/matches` | All fixtures |
 | GET | `/api/matches/:id` | Single match with state |
 | GET | `/api/matches/:id/scorecard` | Match state and sport-specific event history |
+| GET/POST | `/api/matches/:id/clips` | List or queue an organizer-only rolling two-minute clip |
 | PATCH | `/api/matches/:id/status` | Go live or finalize a played match |
 | POST | `/api/matches/:id/result` | Save played/washout result |
 | PATCH | `/api/matches/:id/broadcast-setup` | Save kickoff and venue |
 | POST/DELETE | `/api/matches/:id/cameras` | Add/remove match-specific cameras |
 | GET | `/api/tournaments` | Approved user-created tournaments |
 | GET | `/api/tournaments/:id/standings` | Recomputed tournament table |
+| GET | `/api/streams/livestream` | Inspect the optional shared SRS `livestream` feed |
 | POST | `/api/tournaments/:id/pools` | Add an editable-draft pool |
 | PATCH | `/api/tournaments/:id/teams/:teamId/lineup` | Save starting squad |
 | PATCH | `/api/admin/matches/:id/score` | Correct a completed final score |

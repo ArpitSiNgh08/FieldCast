@@ -46,25 +46,21 @@ export async function apiFetch<T>(
   const token = getToken();
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
-  const res = await fetch(`${API_URL}/api${path}`, {
-    method: opts.method || "GET",
-    headers,
-    body: opts.body ? JSON.stringify(opts.body) : undefined,
-    cache: opts.cache ?? "no-store",
-  });
-
-  if (!res.ok) {
-    let message = `Request failed (${res.status})`;
-    try {
-      const data = await res.json();
-      message = data.error || message;
-    } catch {
-      /* non-json error */
+  if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent("fieldcast:request", { detail: { active: true } }));
+  try {
+    const res = await fetch(`${API_URL}/api${path}`, {
+      method: opts.method || "GET", headers, body: opts.body ? JSON.stringify(opts.body) : undefined, cache: opts.cache ?? "no-store",
+    });
+    if (!res.ok) {
+      let message = `Request failed (${res.status})`;
+      try { const data = await res.json(); message = data.error || message; } catch { /* non-json error */ }
+      throw new Error(message);
     }
-    throw new Error(message);
+    if (res.status === 204) return undefined as T;
+    return res.json() as Promise<T>;
+  } finally {
+    if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent("fieldcast:request", { detail: { active: false } }));
   }
-  if (res.status === 204) return undefined as T;
-  return res.json() as Promise<T>;
 }
 
 // ─── Typed endpoint helpers ─────────────────────────────────────────────────
@@ -83,6 +79,8 @@ export const api = {
   getMatch: (id: number | string) => apiFetch<Match>(`/matches/${id}`),
   getScorecard: (id: number | string) =>
     apiFetch<Scorecard>(`/matches/${id}/scorecard`),
+  listMatchClips: (id: number | string) => apiFetch<Array<{ id: number; status: string; driveUrl?: string | null; error?: string | null; createdAt: string }>>(`/matches/${id}/clips`),
+  createMatchClip: (id: number | string) => apiFetch<{ id: number; status: string }>(`/matches/${id}/clips`, { method: "POST" }),
   createMatch: (body: unknown) =>
     apiFetch<Match>("/matches", { method: "POST", body }),
   updateBroadcastSetup: (id: number, body: unknown) => apiFetch<Match>(`/matches/${id}/broadcast-setup`, { method: "PATCH", body }),
@@ -95,6 +93,10 @@ export const api = {
     }),
   setMatchResult: (id: number, body: unknown) =>
     apiFetch<Match>(`/matches/${id}/result`, { method: "POST", body }),
+  updateLiveFootballEvent: (id: number, eventId: number, body: unknown) =>
+    apiFetch(`/matches/${id}/football-events/${eventId}`, { method: "PATCH", body }),
+  deleteLiveFootballEvent: (id: number, eventId: number) =>
+    apiFetch<void>(`/matches/${id}/football-events/${eventId}`, { method: "DELETE" }),
   correctCompletedScore: (id: number, body: { teamAScore: number; teamBScore: number }) =>
     apiFetch<Match>(`/admin/matches/${id}/score`, { method: "PATCH", body }),
   addCompletedFootballEvent: (id: number, body: unknown) =>

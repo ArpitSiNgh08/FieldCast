@@ -114,7 +114,7 @@ export function SquadEditor({
             onMove={(playerId) => move(playerId, "playing")}
           />
         </div>
-        <Button className="mt-5 w-full" onClick={save} disabled={busy || playing.length !== playingSize}>
+        <Button loading={busy} className="mt-5 w-full" onClick={save} disabled={busy || playing.length !== playingSize}>
           {busy ? "Saving…" : "Save playing squad"}
         </Button>
       </CardBody>

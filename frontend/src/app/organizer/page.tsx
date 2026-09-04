@@ -10,6 +10,7 @@ import { api } from "@/lib/api";
 import type { Match, Tournament } from "@/lib/types";
 import { Badge } from "@/ui/Badge";
 import { Button } from "@/ui/Button";
+import { LoadingScreen } from "@/ui/Spinner";
 import { Card, CardBody } from "@/ui/Card";
 import { Field } from "@/ui/Field";
 import { Input, Select } from "@/ui/Input";
@@ -139,7 +140,7 @@ export default function OrganizerPage() {
     }
   }
 
-  if (loading) return <div className="py-24 text-center text-muted">Loading…</div>;
+  if (loading) return <LoadingScreen label="Loading organiser workspace…" />;
   if (!user) return <div className="py-24 text-center"><p className="text-muted">Log in to access organiser controls.</p><Link href="/auth" className="mt-4 inline-flex rounded-lg bg-accent px-4 py-2 font-semibold text-black">Log in</Link></div>;
 
   return (

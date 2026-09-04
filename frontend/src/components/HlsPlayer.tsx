@@ -20,6 +20,19 @@ export function HlsPlayer({ match, liveUrl, fallbackLiveUrl }: Props) {
   const [loading, setLoading] = useState(true);
   const [isBehindLive, setIsBehindLive] = useState(false);
   const [viewerCounts, setViewerCounts] = useState({ live: 0, unique: 0 });
+  const [cameraRevision, setCameraRevision] = useState(0);
+
+  // SRS keeps the public manifest URL stable during a cut. Recreate the HLS
+  // instance when the organiser changes feeds so viewers follow the new feed
+  // without having to reload the page.
+  useEffect(() => {
+    const socket = getSocket();
+    const onCamera = (payload: { matchId: number }) => {
+      if (payload.matchId === match.id) setCameraRevision((value) => value + 1);
+    };
+    socket.on("camera:switched", onCamera);
+    return () => { socket.off("camera:switched", onCamera); };
+  }, [match.id]);
 
   function goLive() {
     const video = videoRef.current;
@@ -117,7 +130,21 @@ export function HlsPlayer({ match, liveUrl, fallbackLiveUrl }: Props) {
       setError("Your browser does not support HLS playback.");
       setLoading(false);
     }
-  }, [fallbackLiveUrl, liveUrl, match.cameraFallbackUrl]);
+  }, [cameraRevision, fallbackLiveUrl, liveUrl, match.cameraFallbackUrl]);
+
+  // Publish the wall-clock represented by the current HLS fragment. The
+  // score hook uses it to reveal events when their timestamp reaches video.
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      const video = videoRef.current;
+      const hls = hlsRef.current;
+      const details = hls?.levels[hls.currentLevel]?.details;
+      const fragment = details?.fragments.find((candidate) => video && video.currentTime >= candidate.start && video.currentTime <= candidate.start + candidate.duration);
+      if (!fragment?.programDateTime || !video) return;
+      window.dispatchEvent(new CustomEvent("fieldcast:stream-time", { detail: { matchId: match.id, streamTime: fragment.programDateTime + (video.currentTime - fragment.start) * 1000 } }));
+    }, 500);
+    return () => window.clearInterval(timer);
+  }, [match.id]);
 
   useEffect(() => {
     if (match.status !== "live") return;

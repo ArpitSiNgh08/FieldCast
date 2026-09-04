@@ -30,10 +30,12 @@ export function useMatchState(
   const [state, setState] = useState<MatchState>(initialState);
   const [activeCamera, setActiveCamera] = useState<CameraId>(initialCamera);
   const pendingStates = useRef<MatchState[]>([]);
+  const streamTime = useRef<number | null>(null);
 
   const receiveState = useCallback((next: MatchState) => {
     const updatedAt = next.updatedAt ? Date.parse(next.updatedAt) : NaN;
-    if (!Number.isFinite(updatedAt) || updatedAt <= Date.now() - SCORE_SYNC_DELAY_MS) {
+    const cutoff = streamTime.current ?? Date.now() - SCORE_SYNC_DELAY_MS;
+    if (!Number.isFinite(updatedAt) || updatedAt <= cutoff) {
       setState(next);
       return;
     }
@@ -63,8 +65,23 @@ export function useMatchState(
   }, [socket, matchId, connected, receiveState]);
 
   useEffect(() => {
+    const onStreamTime = (event: Event) => {
+      const detail = (event as CustomEvent<{ matchId: number; streamTime: number }>).detail;
+      if (detail.matchId !== matchId) return;
+      streamTime.current = detail.streamTime;
+      const ready = pendingStates.current.filter((candidate) => candidate.updatedAt && Date.parse(candidate.updatedAt) <= detail.streamTime);
+      if (ready.length) {
+        pendingStates.current = pendingStates.current.filter((candidate) => !ready.includes(candidate));
+        setState(ready[ready.length - 1]);
+      }
+    };
+    window.addEventListener("fieldcast:stream-time", onStreamTime);
+    return () => window.removeEventListener("fieldcast:stream-time", onStreamTime);
+  }, [matchId]);
+
+  useEffect(() => {
     const timer = window.setInterval(() => {
-      const cutoff = Date.now() - SCORE_SYNC_DELAY_MS;
+      const cutoff = streamTime.current ?? Date.now() - SCORE_SYNC_DELAY_MS;
       const ready = pendingStates.current.filter((candidate) => {
         const updatedAt = candidate.updatedAt ? Date.parse(candidate.updatedAt) : NaN;
         return Number.isFinite(updatedAt) && updatedAt <= cutoff;

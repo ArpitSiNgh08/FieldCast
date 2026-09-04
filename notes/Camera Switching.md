@@ -5,6 +5,7 @@ Part of [[FieldCast]]
 ## Match-specific cameras (2026-08-12)
 - [[Tournament Organiser]] users register phone cameras before a football match starts.
 - The server creates a unique stream key for each `MatchCamera` and displays SRT and RTMP ingest URLs; users do not invent stream paths manually.
+- Android/Moblin users enter the camera card's SRT server URL and unique Stream ID separately. Every phone must use the matching camera card; a shared `livestream` ID is single-feed only.
 - `Match.activeCamera` stores the selected stream key and ffmpeg republishes it to `active_<matchId>`.
 - During a live match, the organiser uses **Take live** to change the viewer feed.
 - Socket.io verifies that the caller is an explicit organiser of the match's tournament; the global admin role has no automatic camera-control permission.
@@ -15,6 +16,9 @@ Part of [[FieldCast]]
 - The tournament organiser opens `/organizer/matches/[id]` and uses **Take live**.
 - The backend ([[Backend — Express + Socket.io]]) kills the current ffmpeg child process and spawns a new one re-piping the selected camera's SRS RTMP source into the single viewer-facing output stream. SRT phone contribution is converted to that source by SRS first.
 - All viewers automatically see the new angle — no page refresh
+
+## Mobile setup
+Use H.264/AAC and the generated camera-specific key. For Moblin, enter `srt://<server>:10080` in **URL** and `#!::r=live/<camera-key>,m=publish` in **Stream ID**. The encoded full URL shown by the UI is for apps that accept a single URL; it is not meant to be pasted into Moblin's Stream ID field.
 
 ## Why ffmpeg, not mediasoup
 [[Rejected — mediasoup]] was considered and explicitly rejected. This is a **broadcast (one-to-many)** use case, not many-to-many WebRTC conferencing. ffmpeg re-piping is simpler and fits exactly.
