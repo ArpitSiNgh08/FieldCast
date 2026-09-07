@@ -17,9 +17,16 @@ export function formatClock(seconds: number) {
   return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
 }
 
-export function eventTime(seconds: number) {
-  const minute = Math.floor(Math.max(0, seconds) / 60);
-  if (minute <= 30) return { minute, extraTimeMinute: 0, half: 1 };
-  if (minute <= 60) return { minute: 30, extraTimeMinute: minute - 30, half: 1 };
+export function eventTime(seconds: number, halfHint?: number) {
+  const totalMinutes = Math.floor(Math.max(0, seconds) / 60);
+  const half = halfHint ?? (totalMinutes <= 30 ? 1 : 2);
+  if (half === 1) {
+    if (totalMinutes <= 30) return { minute: totalMinutes, extraTimeMinute: 0, half: 1 };
+    return { minute: 30, extraTimeMinute: totalMinutes - 30, half: 1 };
+  }
+  const minute = Math.max(30, totalMinutes);
+  if (minute <= 60) return { minute, extraTimeMinute: 0, half: 2 };
   return { minute: 60, extraTimeMinute: minute - 60, half: 2 };
 }
+
+

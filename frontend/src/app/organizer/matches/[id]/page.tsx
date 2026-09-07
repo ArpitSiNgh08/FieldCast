@@ -307,7 +307,7 @@ export default function FootballMatchControl() {
         ? [match.teamA, match.teamB].find((team) => team.id === (selectedTeamId || match.teamA.id))
         : selected!.team;
     if (!eventTeam) return;
-    const clock = eventTime(elapsedSeconds((match.state.extra || {}) as FootballClockState, clockNow));
+    const clock = eventTime(elapsedSeconds((match.state.extra || {}) as FootballClockState, clockNow), match.state.period);
     setBusy(true);
     setError("");
     setSuccess("");
