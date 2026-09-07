@@ -28,6 +28,8 @@ model User {
   tournamentOrganiserRoles TournamentOrganizer[]
   teamsCreated             Team[]
   playersCreated           Player[]
+  googleDriveConnection    GoogleDriveConnection?
+  requestedClipJobs        ClipJob[]
 
   @@map("users")
 }
@@ -88,6 +90,7 @@ model Tournament {
   teams             TournamentTeam[]
   pools             TournamentPool[]
   organizers        TournamentOrganizer[]
+  clipDestination   TournamentClipDestination?
 
   @@index([approvalStatus])
   @@index([creatorId])
@@ -236,6 +239,7 @@ model MatchView {
 model ClipJob {
   id           Int      @id @default(autoincrement())
   matchId      Int      @map("match_id")
+  requestedById Int?    @map("requested_by_id")
   status       String   @default("queued")
   requestedAt  DateTime @default(now()) @map("requested_at")
   completedAt  DateTime? @map("completed_at")
@@ -245,9 +249,39 @@ model ClipJob {
   createdAt    DateTime @default(now()) @map("created_at")
 
   match Match @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  requestedBy User? @relation(fields: [requestedById], references: [id], onDelete: SetNull)
 
   @@index([matchId, createdAt])
   @@map("clip_jobs")
+}
+
+model GoogleDriveConnection {
+  id           Int      @id @default(autoincrement())
+  userId       Int      @unique @map("user_id")
+  accountEmail String?  @map("account_email")
+  refreshToken String   @map("refresh_token") @db.Text
+  folderId     String?  @map("folder_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  clipDestinations TournamentClipDestination[]
+
+  @@map("google_drive_connections")
+}
+
+model TournamentClipDestination {
+  id                      Int                   @id @default(autoincrement())
+  tournamentId            Int                   @unique @map("tournament_id")
+  googleDriveConnectionId Int                   @map("google_drive_connection_id")
+  folderId                String                @map("folder_id")
+  linkedByUserId          Int                   @map("linked_by_user_id")
+  createdAt               DateTime              @default(now()) @map("created_at")
+  updatedAt               DateTime              @updatedAt @map("updated_at")
+  tournament              Tournament            @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  googleDriveConnection   GoogleDriveConnection @relation(fields: [googleDriveConnectionId], references: [id], onDelete: Restrict)
+
+  @@index([googleDriveConnectionId])
+  @@map("tournament_clip_destinations")
 }
 
 model MatchCamera {

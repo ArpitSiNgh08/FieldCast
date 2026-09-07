@@ -28,7 +28,7 @@ Implemented locally as of September 2026:
 - Explicit washouts that stop a stream without affecting standings.
 - Drag-and-drop Playing 11 and bench management. The first sport-sized group of registered players becomes the default starting squad; additional players begin on the bench and organisers can adjust the lineup.
 
-Database migrations `0001` through `0015` are included. Migration `0012_match_viewers` adds anonymous per-match unique viewer counts; `0013` allows duplicate jersey numbers within a team, `0014` adds penalty-goal metadata, and `0015` adds persisted clip jobs.
+Database migrations `0001` through `0017` are included. Migration `0012_match_viewers` adds anonymous per-match unique viewer counts; `0013` allows duplicate jersey numbers within a team, `0014` adds penalty-goal metadata, `0015` adds clip jobs, `0016` stores encrypted Google OAuth connections, and `0017` makes the Drive destination shared by a tournament’s organizers.
 
 ## Roles and workflow
 
@@ -130,7 +130,7 @@ Viewer browser    <------- live updates ---------+
 FieldCast/
 ├── backend/                 Express, Socket.io, Prisma, streaming control
 │   ├── prisma/
-│   │   ├── migrations/      Versioned migrations 0001–0014
+│   │   ├── migrations/      Versioned migrations 0001–0017
 │   │   ├── schema.prisma
 │   │   └── seed.js
 │   └── src/
@@ -183,9 +183,10 @@ CLIPS_ENABLED=false
 # GOOGLE_DRIVE_FOLDER_ID=your-drive-folder-id
 # GOOGLE_DRIVE_CLIENT_EMAIL=clip-uploader@your-project.iam.gserviceaccount.com
 # GOOGLE_DRIVE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
+# GOOGLE_DRIVE_CALLBACK_URL=http://localhost:4000/api/integrations/google-drive/callback
 ```
 
-Google OAuth is optional. Leave `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` empty to use credential login only.
+Google OAuth is optional for FieldCast sign-in. It is required for the personal-Google-Drive clipping flow; configure both `GOOGLE_CALLBACK_URL` and `GOOGLE_DRIVE_CALLBACK_URL` as separate Google Cloud redirect URIs.
 
 ### 2. Prepare the database
 
@@ -397,7 +398,7 @@ The same application and container layout can move to EC2/ECS, with S3 added as 
 
 - Complete live event/control surfaces for Cricket and Basketball are not yet implemented.
 - ImageKit replay upload is planned but not wired end to end.
-- The Oracle backend, Nginx TLS route, SRS, Neon, and Vercel frontend are provisioned. Still verify that migrations through `0014_add_penalty_to_football_events` have run in production, all GitHub Actions secrets are configured, and the Vercel Production API/Socket variables target the HTTPS backend origin.
+- The Oracle backend, Nginx TLS route, SRS, Neon, and Vercel frontend are provisioned. Still verify that migrations through `0017_tournament_clip_destination` have run in production, all GitHub Actions secrets are configured, and the Vercel Production API/Socket variables target the HTTPS backend origin.
 - Rotate the Neon credential exposed during the initial bootstrap, then update the VM and GitHub secret with the replacement.
 - Remove direct public access to backend `4000/TCP` and HLS `8080/TCP` after the Nginx routes are verified; keep SRS API `1985/TCP` private.
 - Score/video alignment uses a temporary fixed 15-second holdback and can drift when actual HLS latency changes.
@@ -409,7 +410,9 @@ The same application and container layout can move to EC2/ECS, with S3 added as 
 
 ### Automatic two-minute clips (foundation implemented)
 
-The clipping design is documented in [[notes/Clipping Feature Plan]] (and the Obsidian note `Clipping Feature Plan`). The backend now records a rolling window, exposes organiser-only `GET/POST /api/matches/:id/clips`, assembles the previous two minutes with ffmpeg, and uploads to Google Drive when configured. Set `CLIPS_ENABLED=true`, `GOOGLE_DRIVE_FOLDER_ID`, `GOOGLE_DRIVE_CLIENT_EMAIL`, and `GOOGLE_DRIVE_PRIVATE_KEY`; share the target Drive folder with the service-account email. Until those values and migration `0015` are deployed, the UI reports a safe configuration error.
+The clipping design is documented in [[notes/Clipping Feature Plan]] (and the Obsidian note `Clipping Feature Plan`). The backend records a rolling window, exposes organiser-only `GET/POST /api/matches/:id/clips`, assembles the previous two minutes with ffmpeg, and uploads to Google Drive. The current test flow uses Google OAuth with `drive`, `openid`, `email`, and `profile` scopes and stores an encrypted refresh token per organizer. One organizer links an account and folder for the tournament; every tournament organizer can then save clips to that shared destination. Configure `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, and the OAuth callback URL, then use **Link your Google account** on the organizer page and enter the `Fieldcast-Clips` folder ID. Service-account variables remain available for a later Shared Drive deployment. Migrations `0016_google_drive_oauth` and `0017_tournament_clip_destination` are required.
+
+Configure both Google Cloud redirect URIs: `http://localhost:4000/api/auth/google/callback` for FieldCast sign-in and `http://localhost:4000/api/integrations/google-drive/callback` for linking Drive. They must remain separate.
 - Automated test coverage is limited; validation currently relies on linting, TypeScript, builds, API smoke tests, and local browser checks.
 
 See [PROGRESS.md](./PROGRESS.md) for the detailed session log and [HOW_TO_USE.md](./HOW_TO_USE.md) for operational instructions.

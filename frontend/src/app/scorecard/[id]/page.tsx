@@ -73,6 +73,7 @@ export default async function ScorecardPage({ params }: Props) {
         {match.scheduledAt && (
           <p className="mt-1 text-sm text-muted">{formatDateTime(match.scheduledAt)}</p>
         )}
+        <p className="mt-2 text-sm text-muted">{match.viewCount.toLocaleString()} {match.viewCount === 1 ? "view" : "views"}</p>
       </div>
 
       {/* Live matches use the exact same score component as the streaming page. */}

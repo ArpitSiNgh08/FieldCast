@@ -32,6 +32,7 @@ const env = {
     callbackUrl:
       process.env.GOOGLE_CALLBACK_URL ||
       'http://localhost:4000/api/auth/google/callback',
+    driveCallbackUrl: process.env.GOOGLE_DRIVE_CALLBACK_URL || 'http://localhost:4000/api/integrations/google-drive/callback',
   },
 
   // Emails granted the admin role on login.
@@ -60,6 +61,7 @@ const env = {
     clientEmail: process.env.GOOGLE_DRIVE_CLIENT_EMAIL || '',
     privateKey: (process.env.GOOGLE_DRIVE_PRIVATE_KEY || '').replace(/\\n/g, '\n'),
     tempDir: process.env.CLIPS_TEMP_DIR || '.fieldcast-clips',
+    driveOAuthEnabled: Boolean(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET),
   },
 };
 

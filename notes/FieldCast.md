@@ -8,7 +8,7 @@
 - Creators may define pools and assign every team before submission.
 - Organisers manage default/persisted Playing 11 and bench squads, pool/knockout fixtures, Football broadcasts, cameras, score events, substitutions, normal results, and washouts.
 - Admins review submissions and correct completed scores/events or apply persistent standings overrides; they do not control live matches unless separately added as organisers.
-- During a live match, organisers can request the previous two minutes as a background clip job; the backend can upload completed MP4 clips to a configured Google Drive folder.
+- During a live match, organisers can request the previous two minutes as a background clip job. One tournament organiser links a Google account and clips folder, then every organiser for that tournament can upload completed MP4 clips to the same Drive destination.
 
 > A live sports streaming platform for outdoor college tournaments — streamed entirely from mobile phones.
 

@@ -49,6 +49,7 @@ export interface Match {
   venue: string | null;
   broadcastChecklist: Record<string, boolean>;
   cameras: MatchCamera[];
+  viewCount: number;
   liveUrl?: string;
   cameraFallbackUrl?: string | null;
   teamA: Team;

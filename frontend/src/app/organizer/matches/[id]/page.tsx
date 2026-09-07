@@ -52,6 +52,10 @@ export default function FootballMatchControl() {
   const [clipBusy, setClipBusy] = useState(false);
   const [clipMessage, setClipMessage] = useState("");
   const [clips, setClips] = useState<Array<{ id: number; status: string; driveUrl?: string | null; error?: string | null; createdAt: string }>>([]);
+  const [driveConnected, setDriveConnected] = useState(false);
+  const [driveEmail, setDriveEmail] = useState("");
+  const [driveFolderId, setDriveFolderId] = useState("");
+  const [driveMessage, setDriveMessage] = useState("");
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -67,6 +71,12 @@ export default function FootballMatchControl() {
     );
     setScoreA(data.state.teamAScore);
     setScoreB(data.state.teamBScore);
+    const driveStatus = data.tournamentId ? await api.googleDriveStatus(data.tournamentId).catch(() => null) : null;
+    if (driveStatus) {
+      setDriveConnected(driveStatus.connected);
+      setDriveEmail(driveStatus.accountEmail || "");
+      setDriveFolderId(driveStatus.folderId || "");
+    }
     if (data.status === "live") {
       setClips(await api.listMatchClips(id).catch(() => []));
     }
@@ -233,6 +243,26 @@ export default function FootballMatchControl() {
       setClipMessage(reason instanceof Error ? reason.message : "Could not create clip");
     } finally {
       setClipBusy(false);
+    }
+  }
+
+  async function connectGoogleDrive() {
+    if (!match?.tournamentId) return setDriveMessage("Clips require a tournament match");
+    try {
+      const { url } = await api.startGoogleDriveLink(match.tournamentId, match.id);
+      window.location.href = url;
+    } catch (reason) {
+      setDriveMessage(reason instanceof Error ? reason.message : "Could not start Google Drive linking");
+    }
+  }
+
+  async function saveDriveFolder() {
+    try {
+      if (!match?.tournamentId) return;
+      await api.setGoogleDriveFolder(match.tournamentId, driveFolderId);
+      setDriveMessage("Google Drive clips folder saved");
+    } catch (reason) {
+      setDriveMessage(reason instanceof Error ? reason.message : "Could not save Drive folder");
     }
   }
 
@@ -454,6 +484,17 @@ export default function FootballMatchControl() {
           {error}
         </p>
       )}
+      <Card className="mt-5">
+        <CardBody className="flex flex-wrap items-end justify-between gap-4">
+          <div className="min-w-60 flex-1">
+            <p className="text-xs font-semibold uppercase tracking-widest text-accent">Google Drive clips</p>
+            <p className="mt-1 text-sm text-muted">{driveConnected ? `Shared for this tournament${driveEmail ? ` through ${driveEmail}` : ""}. Every organizer can save clips here.` : "Link one organizer’s Google account to create a shared clips destination for this tournament."}</p>
+            {driveConnected && <Input className="mt-3" value={driveFolderId} onChange={(event) => setDriveFolderId(event.target.value)} placeholder="Fieldcast-Clips folder ID" />}
+          </div>
+          <div className="flex gap-2">{driveConnected ? <><Button variant="outline" onClick={saveDriveFolder} disabled={!driveFolderId}>Save folder</Button><Button variant="outline" onClick={connectGoogleDrive}>Replace linked account</Button></> : <Button onClick={connectGoogleDrive}>Link your Google account</Button>}</div>
+          {driveMessage && <p className="w-full text-sm text-muted">{driveMessage}</p>}
+        </CardBody>
+      </Card>
 
       {match.status === "upcoming" && (
         <Card

@@ -97,9 +97,12 @@ export function MatchCard({ match }: { match: Match }) {
               ? match.state.periodLabel || "In progress"
               : formatDateTime(match.scheduledAt)}
           </span>
-          <span className="text-accent">
-            {isLive ? "Watch live →" : isDone ? "Scorecard →" : "Details →"}
-          </span>
+          <div className="flex items-center gap-3">
+            <span>{match.viewCount.toLocaleString()} {match.viewCount === 1 ? "view" : "views"}</span>
+            <span className="text-accent">
+              {isLive ? "Watch live →" : isDone ? "Scorecard →" : "Details →"}
+            </span>
+          </div>
         </div>
       </Card>
     </Link>

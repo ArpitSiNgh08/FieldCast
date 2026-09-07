@@ -30,6 +30,9 @@ Migrations:
 - `0012_match_viewers` — persists anonymous per-match unique-browser viewer counts
 - `0013_allow_duplicate_team_jersey_numbers` — removes the unique `(team_id, jersey_number)` index; `(team_id, player_id)` remains the primary key
 - `0014_add_penalty_to_football_events` — adds the persisted `FootballEvent.isPenalty` flag
+- `0015_clip_jobs` — persists organizer-requested rolling clip jobs and Drive upload results
+- `0016_google_drive_oauth` — stores encrypted Google OAuth refresh-token connections
+- `0017_tournament_clip_destination` — stores one shared Drive account and folder destination per tournament
 
 `FootballEvent` references reusable players, retains name/jersey snapshots for historical accuracy, stores `extraTimeMinute` separately, captures both outgoing and incoming players for substitutions, and stores whether a goal was scored as a penalty. Duplicate jersey numbers are allowed within a team.
 

@@ -5,7 +5,7 @@ Pointer to the living status tracker: `PROGRESS.md`
 ## Current status (as of 2026-09-04)
 
 ### Done ✅
-- [[Database — Prisma + Neon]] — migrations `0001`–`0014`, including viewer metrics, duplicate jersey support, penalty goals, pools, match stages, substitutions, default squads, and standings overrides
+- [[Database — Prisma + Neon]] — migrations `0001`–`0017`, including viewer metrics, duplicate jersey support, penalty goals, pools, match stages, substitutions, default squads, standings overrides, clip jobs, Google OAuth connections, and shared tournament Drive destinations
 - [[Backend — Express + Socket.io]] — running on :4000 with no errors
 - [[Frontend — Next.js]] — public tournament hub/bracket, stream/timeline, pooled standings, auth, admin correction/review, creator, and organiser pages running on :3000
 - [[CI/CD — GitHub Actions]] — CI + deploy workflows written; production secrets and one complete green deploy still need verification
@@ -22,7 +22,7 @@ Pointer to the living status tracker: `PROGRESS.md`
 
 ### Needs production verification ⚠️
 - GitHub Actions production secrets and one successful migrate/backend/Vercel deployment
-- Production migrations through `0014_add_penalty_to_football_events`
+- Production migrations through `0017_tournament_clip_destination`
 - Neon bootstrap credential rotation and secret replacement
 - Removal of direct public `4000`, `8080`, and `1985` access after HTTPS verification
 - Production end-to-end external-phone stream, two-device score sync, finalization, and Recent matches test
@@ -33,11 +33,11 @@ Pointer to the living status tracker: `PROGRESS.md`
 - [[ImageKit]] VOD integration (post-match upload + `replayUrl`)
 
 ## Next up
-1. Verify GitHub production secrets, deployment jobs, and migrations through `0014`.
+1. Verify GitHub production secrets, deployment jobs, Google OAuth redirect URIs, and migrations through `0017`.
 2. Rotate the exposed Neon credential and tighten public firewall rules.
 3. Run the production phone → SRS → HTTPS viewer, two-device score, completion, and Recent matches test.
 4. Upgrade audited dependencies and rerun build/API/streaming checks.
-5. Replace fixed-delay score synchronization when SRS exposes usable timestamps, then implement ImageKit and non-Football live controls.
+5. Complete clip production verification and retention/retry work, then implement ImageKit and non-Football live controls.
 
 ## 2026-08-12 update
 
@@ -73,5 +73,7 @@ Pointer to the living status tracker: `PROGRESS.md`
 - Score states use HLS program-date-time when available, falling back to the configured delay.
 - Football event timing is derived from the organiser-only server clock started with **Kick off**.
 - Loading spinners were added to squad/team mutations and organiser loading screens.
-- Started automatic two-minute Google Drive clipping in [[Clipping Feature Plan]]: rolling ffmpeg capture, persisted `ClipJob` records, organizer-only clip APIs, and an organizer button/status panel are implemented. Drive upload is configuration-gated until the service-account credentials, folder sharing, and migration `0015_clip_jobs` are deployed.
+- Started automatic two-minute Google Drive clipping in [[Clipping Feature Plan]]: rolling ffmpeg capture, persisted `ClipJob` records, organizer-only clip APIs, and an organizer button/status panel are implemented.
+- Updated clipping for JWT-authenticated accounts: the Drive OAuth link is initiated through authenticated backend API calls, and migration `0017_tournament_clip_destination` shares one linked organizer account/folder across all organizers of the same tournament.
+- Public homepage match cards and scorecards show the persistent unique-browser count from `MatchView` as `x views`.
 - The Obsidian graph context convention is documented in [[FieldCast]] and should be followed before future implementation tasks.

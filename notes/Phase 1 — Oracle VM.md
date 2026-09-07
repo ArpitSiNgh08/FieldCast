@@ -36,7 +36,7 @@ Vercel uses `NEXT_PUBLIC_API_URL` and `NEXT_PUBLIC_SOCKET_URL`, both set to the 
 ## Known risk
 Oracle has a documented history of reclaiming idle Always Free instances after extended inactivity. Before match weekends: log in and check the instance is still running.
 
-Also verify migrations through `0014_add_penalty_to_football_events`, rotate the exposed Neon bootstrap credential, confirm Nginx forwards Socket.IO upgrades, and remove direct public `4000`, `8080`, and `1985` access. Automatic VOD upload is not implemented, and the fixed 15-second score holdback may drift relative to actual HLS latency.
+Also verify migrations through `0015_clip_jobs`, configure the test/production Drive folder separately, rotate the exposed Neon bootstrap credential, confirm Nginx forwards Socket.IO upgrades, and remove direct public `4000`, `8080`, and `1985` access. Automatic VOD upload is not implemented, and the fixed 15-second score fallback may drift when HLS timing metadata is unavailable.
 
 The active Nginx site configuration is currently VM-managed rather than versioned in the repository. Keep a secure backup and recheck `/api`, `/socket.io`, `/live`, WebSocket upgrade headers, TLS renewal, and request-size limits after any VM rebuild or proxy edit.
 

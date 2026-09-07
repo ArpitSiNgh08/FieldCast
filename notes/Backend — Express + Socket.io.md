@@ -18,7 +18,7 @@ Part of [[FieldCast]]
 - `/api/admin` correction endpoints require the global admin role and reject live/upcoming matches.
 - Standings replacement uses a tournament-scoped PostgreSQL advisory lock plus sequential bulk insert, preventing concurrent recomputation `P2002` errors.
 - Match finalization emits `match:status` to the Socket.io room after persistence.
-- `ClipJob` persists organizer-requested clip status, timestamps, Drive file ID/URL, and failure messages. `GET/POST /api/matches/:id/clips` are organizer-authorized; the service records a rolling ffmpeg window and uploads assembled MP4 clips to Drive using backend-only service-account credentials.
+- `ClipJob` persists organizer-requested clip status, timestamps, Drive file ID/URL, and failure messages. `GET/POST /api/matches/:id/clips` are organizer-authorized; the service records a rolling ffmpeg window and uploads assembled MP4 clips to the tournament’s shared Drive destination. OAuth refresh tokens remain encrypted on the backend.
 
 See [[Tournament Submission]] and [[Tournament Organiser]].
 
@@ -45,6 +45,8 @@ See [[Tournament Submission]] and [[Tournament Organiser]].
 | GET | `/api/matches/:id` | Single match with state |
 | GET | `/api/matches/:id/scorecard` | Match state and sport-specific event history |
 | GET/POST | `/api/matches/:id/clips` | List or queue an organizer-only rolling two-minute clip |
+| POST | `/api/integrations/google-drive/start` | Start a JWT-authenticated organizer’s Google Drive link flow |
+| GET | `/api/integrations/google-drive/callback` | Complete Google Drive OAuth and attach the account to the tournament |
 | PATCH | `/api/matches/:id/status` | Go live or finalize a played match |
 | POST | `/api/matches/:id/result` | Save played/washout result |
 | PATCH | `/api/matches/:id/broadcast-setup` | Save kickoff and venue |

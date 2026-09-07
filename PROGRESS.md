@@ -12,8 +12,8 @@ Living status tracker for FieldCast. Update this file whenever meaningful work h
 |---|---|
 | System architecture & Phase 1/2 split | ✅ Designed (`README.md`) |
 | Governance docs (AGENTS/CLAUDE/RULES/DESIGN) | ✅ Drafted |
-| Database schema design | ✅ Prisma schema + migrations `0001`–`0015` |
-| Prisma migration (backend) | ⚠️ Current through `0015` locally — verify production deploy applies clip-job migration |
+| Database schema design | ✅ Prisma schema + migrations `0001`–`0017` |
+| Prisma migration (backend) | ⚠️ Current through `0017` locally — verify production deploy applies shared Drive destination migrations |
 | Prisma seed script | ✅ Done — `prisma/seed.js` runs cleanly with pg adapter |
 | Local Postgres (dev) | ✅ Native Windows PostgreSQL 18 running on port 5432 |
 | `fieldcast` DB user + database | ✅ Created in native Postgres — migration + seed applied |
@@ -51,7 +51,7 @@ Living status tracker for FieldCast. Update this file whenever meaningful work h
 | Production dependency audit | ⚠️ 2026-08-26 audit reports high findings in Next.js, Socket.IO parser, and Prisma tooling trees; upgrade and retest before production-hardening |
 | Markdown documentation | ✅ Synchronized 2026-08-27 — penalty goals, duplicate jersey numbers, admin half derivation, immediate events, and Socket.IO fallback documented |
 | Camera follow, stream-clock event sync, organiser match clock | ✅ Implemented 2026-09-04 |
-| Automatic two-minute Google Drive clipping | 📝 Planned — see `notes/Clipping Feature Plan.md` |
+| Automatic two-minute Google Drive clipping | 🟡 Shared organizer destination implemented — OAuth completion and live upload verification remain |
 | Organizer live event editing and app-wide loading indicators | ✅ Implemented 2026-09-04 |
 
 Legend: ✅ done · 🔄 in progress · ⬜ not started · 🚫 blocked · ⚠️ attention needed
@@ -66,7 +66,7 @@ Legend: ✅ done · 🔄 in progress · ⬜ not started · 🚫 blocked · ⚠�
 - `FootballEvent.isPenalty` is persisted by migration `0014_add_penalty_to_football_events` and displayed in Football scorer/timeline views.
 - The organiser and admin event forms expose the penalty checkbox for goals. Admin corrections derive the half from the minute and no longer expose a Half field.
 - Football event broadcasts are immediate. Public score values retain the temporary 15-second HLS holdback.
-- **2026-09-04** — Public players now restart HLS automatically after an organiser camera cut. HLS program-date-time is used to reveal score states at the matching stream timestamp, with the existing delay fallback. Football organisers now start a server-authoritative clock with **Kick off**; event half/minute/added-time values are derived from it. Added loading spinners for squad/team mutations and organiser loading screens. Added the Obsidian clipping plan for future rolling two-minute Google Drive clips.
+- **2026-09-04 to 2026-09-07** — Public players now restart HLS automatically after an organiser camera cut. HLS program-date-time is used to reveal score states at the matching stream timestamp, with the existing delay fallback. Football organisers now start a server-authoritative clock with **Kick off**; event half/minute/added-time values are derived from it. Added rolling two-minute clip jobs, Google Drive OAuth linking for JWT-authenticated organizers, and a shared tournament Drive destination. Homepage cards and public scorecards now show persisted unique browser totals as `x views`.
 
 ### Note 2 — Prisma 7 final working setup
 
@@ -159,7 +159,7 @@ The UI primitives (`Badge`, `Button`, `Card`, `Navbar`, etc.) were custom-built 
 ## Next up
 
 1. **Validate automated production deploys** — confirm every GitHub production secret and one green migrate/backend/Vercel run after pushing `main`.
-2. **Verify production migrations through `0014_add_penalty_to_football_events`** — viewer metrics, duplicate jersey numbers, and penalty metadata require the corresponding migrations; do not hand-run migrations when the Actions job succeeds.
+2. **Verify production migrations through `0017_tournament_clip_destination`** — viewer metrics, duplicate jersey numbers, penalty metadata, clip jobs, OAuth connections, and shared Drive destinations require the corresponding migrations; do not hand-run migrations when the Actions job succeeds.
 3. **Rotate the exposed Neon bootstrap credential** — replace it in the VM `.env` and GitHub `DATABASE_URL` secret.
 4. **Tighten production networking** — retain `22`, `80`, `443`, `1935/TCP`, and `10080/UDP`; remove direct `4000`, `8080`, and `1985` public access.
 5. **Upgrade audited dependencies deliberately** — address the Next.js, Socket.IO parser, and Prisma tooling advisories, then rerun type, build, API, and streaming checks.

@@ -1,3 +1,8 @@
 node_modules/
 .env
 *.log
+
+# Temporary clip recordings and segment files
+.fieldcast-clips/
+*.ts
+*.mp4

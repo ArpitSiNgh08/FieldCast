@@ -47,9 +47,10 @@ CLIPS_ENABLED=false
 # GOOGLE_DRIVE_FOLDER_ID=your-drive-folder-id
 # GOOGLE_DRIVE_CLIENT_EMAIL=clip-uploader@your-project.iam.gserviceaccount.com
 # GOOGLE_DRIVE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
+# GOOGLE_DRIVE_CALLBACK_URL=http://localhost:4000/api/integrations/google-drive/callback
 ```
 
-Google OAuth is optional. Credential signup/login works without Google credentials. To enable organizer clips, set `CLIPS_ENABLED=true`, provide the three Google Drive values, share the destination folder with the service-account email, and deploy migration `0015_clip_jobs`. Credentials stay on the backend and are never sent to the browser.
+Google OAuth is optional for login, but is required for the current personal-Drive clip test flow. Set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_CALLBACK_URL`, and `GOOGLE_DRIVE_CALLBACK_URL`. Register both callbacks in Google Cloud, deploy migrations through `0017_tournament_clip_destination`, then use **Link your Google account** on the organizer match page to grant the `drive` scope and enter the `Fieldcast-Clips` folder ID. One organizer’s linked account and folder are shared by every organizer on that tournament. Refresh tokens are encrypted and remain on the backend.
 
 ### Create the local database once
 
@@ -70,7 +71,7 @@ npm run db:generate
 npm run db:seed
 ```
 
-The repository currently contains migrations `0001` through `0014`. Migration `0012_match_viewers` is required for the live/unique viewer counters; `0013` enables duplicate jersey numbers within a team and `0014` stores penalty-goal metadata.
+The repository currently contains migrations `0001` through `0017`. Migration `0012_match_viewers` persists unique browser views; `0015` stores clip jobs; `0016` stores encrypted Google OAuth connections; and `0017` stores the shared tournament Drive destination.
 
 ### Start the application
 
@@ -447,7 +448,7 @@ After the push:
    ffmpeg -version
    ```
 
-5. Verify migrations through `0014_add_penalty_to_football_events` were applied by checking the successful migration job. They are required before relying on duplicate jersey numbers or penalty-goal metadata.
+5. Verify migrations through `0017_tournament_clip_destination` were applied by checking the successful migration job. They are required before relying on duplicate jersey numbers, penalty-goal metadata, organizer clip jobs, or shared Drive destinations.
 6. Open the Vercel site in a fresh/private browser, sign in as an organiser, update a test score, and confirm the Football event appears immediately while the public score follows the temporary 15-second holdback.
 7. Run a real external-phone SRT test, confirm HTTPS HLS playback, finalize the match, refresh `/`, and confirm it appears under **Recent matches**.
 

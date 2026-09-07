@@ -6,6 +6,7 @@ const crypto = require('crypto');
 const { spawn } = require('child_process');
 const env = require('../config/env');
 const prisma = require('../config/prisma');
+const googleDriveOAuth = require('./googleDriveOAuth.service');
 
 const recorders = new Map();
 const root = path.resolve(process.cwd(), env.clips.tempDir);
@@ -22,12 +23,14 @@ async function driveToken() {
   return (await response.json()).access_token;
 }
 
-async function upload(filePath, name) {
-  if (!env.clips.folderId) throw new Error('GOOGLE_DRIVE_FOLDER_ID is not configured');
-  const token = await driveToken();
+async function upload(filePath, name, tournamentId) {
+  const destination = tournamentId ? await prisma.tournamentClipDestination.findUnique({ where: { tournamentId: Number(tournamentId) }, include: { googleDriveConnection: true } }) : null;
+  const token = destination ? await googleDriveOAuth.accessTokenForConnection(destination.googleDriveConnection) : await driveToken();
+  const folderId = destination?.folderId || env.clips.folderId;
+  if (!folderId) throw new Error('Connect Google Drive and configure a clips folder first');
   const content = await fs.readFile(filePath);
   const boundary = `fieldcast-${crypto.randomBytes(12).toString('hex')}`;
-  const metadata = JSON.stringify({ name, parents: [env.clips.folderId], mimeType: 'video/mp4' });
+  const metadata = JSON.stringify({ name, parents: [folderId], mimeType: 'video/mp4' });
   const body = Buffer.concat([Buffer.from(`--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${metadata}\r\n--${boundary}\r\nContent-Type: video/mp4\r\n\r\n`), content, Buffer.from(`\r\n--${boundary}--`) ]);
   const response = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink', { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': `multipart/related; boundary=${boundary}` }, body });
   if (!response.ok) throw new Error(`Google Drive upload failed (${response.status})`);
@@ -50,7 +53,7 @@ function stop(matchId) {
   recorders.delete(Number(matchId));
 }
 
-async function createClip(matchId) {
+async function createClip(matchId, tournamentId) {
   const recorder = recorders.get(Number(matchId));
   if (!recorder) throw new Error('Rolling recording is not available for this match');
   const files = (await fs.readdir(recorder.directory)).filter((file) => /^segment-\d+\.ts$/.test(file));
@@ -60,12 +63,12 @@ async function createClip(matchId) {
   const output = path.join(recorder.directory, `clip-${Date.now()}.mp4`);
   await fs.writeFile(list, recent.map((file) => `file '${file.replace(/'/g, "'\\''")}'`).join('\n'));
   await new Promise((resolve, reject) => { const proc = spawn(env.clips.ffmpegPath || env.stream.ffmpegPath, ['-hide_banner', '-loglevel', 'error', '-f', 'concat', '-safe', '0', '-i', list, '-c', 'copy', '-movflags', '+faststart', output]); proc.on('error', reject); proc.on('exit', (code) => code === 0 ? resolve() : reject(new Error(`ffmpeg clip assembly failed (${code})`))); });
-  try { return await upload(output, `FieldCast-match-${matchId}-${new Date().toISOString().replace(/[:.]/g, '-')}.mp4`); } finally { await fs.rm(list, { force: true }); await fs.rm(output, { force: true }); }
+  try { return await upload(output, `FieldCast-match-${matchId}-${new Date().toISOString().replace(/[:.]/g, '-')}.mp4`, tournamentId); } finally { await fs.rm(list, { force: true }); await fs.rm(output, { force: true }); }
 }
 
-async function queue(matchId) {
-  const job = await prisma.clipJob.create({ data: { matchId: Number(matchId), status: 'processing' } });
-  createClip(matchId).then(async (file) => prisma.clipJob.update({ where: { id: job.id }, data: { status: 'completed', completedAt: new Date(), driveFileId: file.id, driveUrl: file.webViewLink || `https://drive.google.com/open?id=${file.id}` } })).catch(async (error) => prisma.clipJob.update({ where: { id: job.id }, data: { status: 'failed', error: error.message } }));
+async function queue(matchId, userId, tournamentId) {
+  const job = await prisma.clipJob.create({ data: { matchId: Number(matchId), requestedById: Number(userId), status: 'processing' } });
+  createClip(matchId, tournamentId).then(async (file) => prisma.clipJob.update({ where: { id: job.id }, data: { status: 'completed', completedAt: new Date(), driveFileId: file.id, driveUrl: file.webViewLink || `https://drive.google.com/open?id=${file.id}` } })).catch(async (error) => prisma.clipJob.update({ where: { id: job.id }, data: { status: 'failed', error: error.message } }));
   return job;
 }
 

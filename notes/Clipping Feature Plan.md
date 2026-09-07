@@ -26,4 +26,6 @@ Let an organiser press **Save last 2 minutes** during a live match and receive a
 
 ## Current status (2026-09-04)
 
-Phase 1 and the initial Phase 2 foundation are now implemented: migration `0015_clip_jobs`, a match-scoped rolling ffmpeg recorder, background clip assembly, organizer-only clip APIs, and a live organizer button with status polling. Google Drive upload is backend-only and remains disabled until `CLIPS_ENABLED` plus the service-account/folder environment values are configured. Retry notifications, retention cleanup, camera-cut policy, and production observability remain follow-up work.
+Phase 1 and the initial Phase 2 foundation are implemented: migrations `0015_clip_jobs`, `0016_google_drive_oauth`, and `0017_tournament_clip_destination`; a match-scoped rolling ffmpeg recorder; background clip assembly; organizer-only clip APIs; and OAuth connection/status/folder endpoints. A Drive account and folder are shared at tournament scope, so any organizer can request a clip using the linked account. The current folder-ID flow requests the Google Drive `drive` scope. Retry notifications, retention cleanup, camera-cut policy, and production observability remain follow-up work.
+
+Google Cloud needs two distinct redirect URIs: `/api/auth/google/callback` for normal FieldCast sign-in and `/api/integrations/google-drive/callback` for Drive linking. Do not point `GOOGLE_CALLBACK_URL` at the Drive callback.

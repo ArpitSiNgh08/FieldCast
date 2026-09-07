@@ -65,6 +65,7 @@ function shapeMatch(m) {
     venue: m.venue,
     broadcastChecklist: m.broadcastChecklist ?? {},
     cameras: m.cameras ?? [],
+    viewCount: m._count?.views ?? 0,
     // HLS URL derived from the active camera if streamUrl not overridden
     liveUrl: m.streamUrl ?? null,
     teamA: shapeTeam(m.teamA),
@@ -81,6 +82,7 @@ const MATCH_INCLUDE = {
   teamB: { include: { players: { include: { player: true }, orderBy: { jerseyNumber: 'asc' } } } },
   state: true,
   cameras: { orderBy: { createdAt: 'asc' } },
+  _count: { select: { views: true } },
 };
 
 // ─── queries ─────────────────────────────────────────────────────────────────
