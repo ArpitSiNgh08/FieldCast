@@ -8,6 +8,7 @@ import type { FootballEvent, Match, Scorecard, StandingRow, Tournament } from "@
 import { Button } from "@/ui/Button";
 import { Field } from "@/ui/Field";
 import { Input, Select } from "@/ui/Input";
+import { LoadingScreen } from "@/ui/Spinner";
 
 type OpenSection = "match" | "standings" | null;
 
@@ -19,6 +20,7 @@ export default function AdminCorrectionsPage() {
   const [standings, setStandings] = useState<StandingRow[]>([]);
   const [scorecard, setScorecard] = useState<Scorecard | null>(null);
   const [openSection, setOpenSection] = useState<OpenSection>(null);
+  const [loadingTournament, setLoadingTournament] = useState(false);
   const [loadingMatch, setLoadingMatch] = useState(false);
   const [error, setError] = useState("");
 
@@ -32,14 +34,19 @@ export default function AdminCorrectionsPage() {
 
   const loadTournament = useCallback(async () => {
     if (!tournamentId) return;
-    const [fixtures, table] = await Promise.all([
-      api.listMatches({ tournamentId: String(tournamentId), status: "completed" }),
-      api.getStandings(tournamentId),
-    ]);
-    setMatches(fixtures);
-    setStandings(table);
-    setScorecard(null);
-    setOpenSection(null);
+    setLoadingTournament(true);
+    try {
+      const [fixtures, table] = await Promise.all([
+        api.listMatches({ tournamentId: String(tournamentId), status: "completed" }),
+        api.getStandings(tournamentId),
+      ]);
+      setMatches(fixtures);
+      setStandings(table);
+      setScorecard(null);
+      setOpenSection(null);
+    } finally {
+      setLoadingTournament(false);
+    }
   }, [tournamentId]);
 
   useEffect(() => {
@@ -84,7 +91,7 @@ export default function AdminCorrectionsPage() {
     setStandings(updatedStandings);
   }
 
-  if (loading) return <div className="py-24 text-center text-muted">Loading…</div>;
+  if (loading) return <LoadingScreen label="Checking admin credentials…" />;
   if (!isAdmin) return <div className="py-24 text-center text-muted">Admin access required.</div>;
 
   return (

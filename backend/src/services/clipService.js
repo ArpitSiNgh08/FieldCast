@@ -42,7 +42,7 @@ async function start(matchId, liveUrl) {
   const directory = path.join(root, `match-${Number(matchId)}`);
   await fs.mkdir(directory, { recursive: true });
   const pattern = path.join(directory, 'segment-%03d.ts');
-  const proc = spawn(env.stream.ffmpegPath, ['-hide_banner', '-loglevel', 'error', '-i', liveUrl, '-c', 'copy', '-f', 'segment', '-segment_time', '6', '-segment_wrap', '30', '-reset_timestamps', '1', pattern], { stdio: 'ignore' });
+  const proc = spawn(env.stream.ffmpegPath, ['-hide_banner', '-loglevel', 'error', '-i', liveUrl, '-c', 'copy', '-f', 'segment', '-segment_time', '6', '-segment_wrap', '40', '-reset_timestamps', '1', pattern], { stdio: 'ignore' });
   proc.on('exit', () => { if (recorders.get(Number(matchId))?.proc === proc) recorders.delete(Number(matchId)); });
   recorders.set(Number(matchId), { proc, directory });
 }
@@ -57,8 +57,8 @@ async function createClip(matchId, tournamentId) {
   const recorder = recorders.get(Number(matchId));
   if (!recorder) throw new Error('Rolling recording is not available for this match');
   const files = (await fs.readdir(recorder.directory)).filter((file) => /^segment-\d+\.ts$/.test(file));
-  const recent = (await Promise.all(files.map(async (file) => ({ file, stat: await fs.stat(path.join(recorder.directory, file)) })))).sort((a, b) => a.stat.mtimeMs - b.stat.mtimeMs).slice(-20).map((entry) => path.join(recorder.directory, entry.file));
-  if (recent.length < 20) throw new Error('The rolling recording has not reached two minutes yet');
+  const recent = (await Promise.all(files.map(async (file) => ({ file, stat: await fs.stat(path.join(recorder.directory, file)) })))).sort((a, b) => a.stat.mtimeMs - b.stat.mtimeMs).slice(-30).map((entry) => path.join(recorder.directory, entry.file));
+  if (recent.length < 10) throw new Error('The rolling recording does not have enough buffer yet (needs at least 1 minute)');
   const list = path.join(recorder.directory, `clip-${Date.now()}.txt`);
   const output = path.join(recorder.directory, `clip-${Date.now()}.mp4`);
   await fs.writeFile(list, recent.map((file) => `file '${file.replace(/'/g, "'\\''")}'`).join('\n'));

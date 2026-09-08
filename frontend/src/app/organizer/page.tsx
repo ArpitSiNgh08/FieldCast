@@ -10,7 +10,7 @@ import { api } from "@/lib/api";
 import type { Match, Tournament } from "@/lib/types";
 import { Badge } from "@/ui/Badge";
 import { Button } from "@/ui/Button";
-import { LoadingScreen } from "@/ui/Spinner";
+import { LoadingScreen, Spinner } from "@/ui/Spinner";
 import { Card, CardBody } from "@/ui/Card";
 import { Field } from "@/ui/Field";
 import { Input, Select } from "@/ui/Input";
@@ -56,8 +56,19 @@ export default function OrganizerPage() {
     setSelectedId((current) => current || initialId || data[0]?.id || 0);
   }, []);
 
+  const [loadingMatches, setLoadingMatches] = useState(false);
+
   const loadMatches = useCallback(async () => {
-    setMatches(selectedId ? await api.listMatches({ tournamentId: String(selectedId) }) : []);
+    if (!selectedId) {
+      setMatches([]);
+      return;
+    }
+    setLoadingMatches(true);
+    try {
+      setMatches(await api.listMatches({ tournamentId: String(selectedId) }));
+    } finally {
+      setLoadingMatches(false);
+    }
   }, [selectedId]);
 
   useEffect(() => {
@@ -179,15 +190,19 @@ export default function OrganizerPage() {
               <details open className="group overflow-hidden rounded-xl border border-border bg-surface shadow-sm">
                 <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-4 font-semibold marker:hidden"><span>Upcoming and live matches</span><span className="text-sm text-muted transition-transform group-open:rotate-180">⌄</span></summary>
                 <div className="border-t border-border p-4">
-                    <div className="space-y-3">
-                      {activeMatches.map((match) => (
-                        <Link href={`/organizer/matches/${match.id}`} key={match.id} className="flex items-center justify-between rounded-lg border border-border p-4 transition-colors hover:border-accent">
-                          <div><p className="font-medium">{match.teamA.name} vs {match.teamB.name}</p><p className="mt-1 text-xs text-muted">{match.poolName || match.knockoutStage || "Legacy fixture"} · {match.venue || "Venue pending"} · {match.cameras.length} camera{match.cameras.length === 1 ? "" : "s"}</p></div>
-                          <Badge tone={match.status === "live" ? "accent" : "muted"}>{match.resultType === "washout" ? "washout" : match.status}</Badge>
-                        </Link>
-                      ))}
-                      {!activeMatches.length && <p className="py-8 text-center text-sm text-muted">No upcoming or live matches. Completed-match results are managed by the admin.</p>}
-                    </div>
+                    {loadingMatches ? (
+                      <div className="py-8 text-center text-muted"><Spinner className="h-5 w-5" /></div>
+                    ) : (
+                      <div className="space-y-3">
+                        {activeMatches.map((match) => (
+                          <Link href={`/organizer/matches/${match.id}`} key={match.id} className="flex items-center justify-between rounded-lg border border-border p-4 transition-colors hover:border-accent">
+                            <div><p className="font-medium">{match.teamA.name} vs {match.teamB.name}</p><p className="mt-1 text-xs text-muted">{match.poolName || match.knockoutStage || "Legacy fixture"} · {match.venue || "Venue pending"} · {match.cameras.length} camera{match.cameras.length === 1 ? "" : "s"}</p></div>
+                            <Badge tone={match.status === "live" ? "accent" : "muted"}>{match.resultType === "washout" ? "washout" : match.status}</Badge>
+                          </Link>
+                        ))}
+                        {!activeMatches.length && <p className="py-8 text-center text-sm text-muted">No upcoming or live matches. Completed-match results are managed by the admin.</p>}
+                      </div>
+                    )}
                 </div>
               </details>
 
