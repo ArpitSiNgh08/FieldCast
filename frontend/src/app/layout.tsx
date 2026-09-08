@@ -44,7 +44,16 @@ export default function RootLayout({
           <NavigationLoading />
           <main className="flex-1">{children}</main>
           <footer className="border-t border-border py-6 text-center text-xs text-muted">
-            FieldCast — built for the ground, designed for scale.
+            <div className="flex flex-wrap items-center justify-center gap-4 mb-2">
+              <a href="/terms" className="hover:text-foreground transition-colors">
+                Terms of Service
+              </a>
+              <span>·</span>
+              <a href="/privacy" className="hover:text-foreground transition-colors">
+                Privacy Policy
+              </a>
+            </div>
+            <p>FieldCast — built for the ground, designed for scale.</p>
           </footer>
           {/* {process.env.NODE_ENV === "development" && <Agentation endpoint="http://localhost:4747" />} */}
         </Providers>
