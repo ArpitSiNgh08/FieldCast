@@ -40,17 +40,26 @@ async function main() {
     prisma.user.deleteMany(),
   ]);
 
+  // ── Admin User ─────────────────────────────────────────────────────────────
+  const adminUser = await prisma.user.create({
+    data: {
+      email: 'admin@fieldcast.org',
+      name: 'System Admin',
+      role: 'admin',
+    },
+  });
+
   // ── Teams ─────────────────────────────────────────────────────────────────
   const [eng, sci, com, art, nbf, sbf, ewu, hh, ff] = await Promise.all([
-    prisma.team.create({ data: { name: 'Engineering Eagles',  shortName: 'ENG', sport: 'cricket'    } }),
-    prisma.team.create({ data: { name: 'Science Strikers',    shortName: 'SCI', sport: 'cricket'    } }),
-    prisma.team.create({ data: { name: 'Commerce Chargers',   shortName: 'COM', sport: 'cricket'    } }),
-    prisma.team.create({ data: { name: 'Arts Avengers',       shortName: 'ART', sport: 'cricket'    } }),
-    prisma.team.create({ data: { name: 'North Block FC',      shortName: 'NBF', sport: 'football'   } }),
-    prisma.team.create({ data: { name: 'South Block FC',      shortName: 'SBF', sport: 'football'   } }),
-    prisma.team.create({ data: { name: 'East Wing United',    shortName: 'EWU', sport: 'football'   } }),
-    prisma.team.create({ data: { name: 'Hostel Hoops',        shortName: 'HH',  sport: 'basketball' } }),
-    prisma.team.create({ data: { name: 'Faculty Flyers',      shortName: 'FF',  sport: 'basketball' } }),
+    prisma.team.create({ data: { name: 'Engineering Eagles',  shortName: 'ENG', sport: 'cricket', ownerId: adminUser.id } }),
+    prisma.team.create({ data: { name: 'Science Strikers',    shortName: 'SCI', sport: 'cricket', ownerId: adminUser.id } }),
+    prisma.team.create({ data: { name: 'Commerce Chargers',   shortName: 'COM', sport: 'cricket', ownerId: adminUser.id } }),
+    prisma.team.create({ data: { name: 'Arts Avengers',       shortName: 'ART', sport: 'cricket', ownerId: adminUser.id } }),
+    prisma.team.create({ data: { name: 'North Block FC',      shortName: 'NBF', sport: 'football', ownerId: adminUser.id } }),
+    prisma.team.create({ data: { name: 'South Block FC',      shortName: 'SBF', sport: 'football', ownerId: adminUser.id } }),
+    prisma.team.create({ data: { name: 'East Wing United',    shortName: 'EWU', sport: 'football', ownerId: adminUser.id } }),
+    prisma.team.create({ data: { name: 'Hostel Hoops',        shortName: 'HH',  sport: 'basketball', ownerId: adminUser.id } }),
+    prisma.team.create({ data: { name: 'Faculty Flyers',      shortName: 'FF',  sport: 'basketball', ownerId: adminUser.id } }),
   ]);
 
   // ── Tournaments ───────────────────────────────────────────────────────────
@@ -58,14 +67,17 @@ async function main() {
     prisma.tournament.create({ data: {
       name: 'Inter-Dept Cricket Cup', sport: 'cricket',    format: 'league',
       startDate: new Date('2026-07-01'), endDate: new Date('2026-07-20'), status: 'ongoing', approvalStatus: 'approved',
+      creatorId: adminUser.id,
     }}),
     prisma.tournament.create({ data: {
       name: 'Campus Football League',  sport: 'football',  format: 'league',
       startDate: new Date('2026-07-05'), endDate: new Date('2026-07-25'), status: 'ongoing', approvalStatus: 'approved',
+      creatorId: adminUser.id,
     }}),
     prisma.tournament.create({ data: {
       name: 'Basketball Knockout',     sport: 'basketball', format: 'knockout',
       startDate: new Date('2026-07-10'), endDate: new Date('2026-07-15'), status: 'upcoming', approvalStatus: 'approved',
+      creatorId: adminUser.id,
     }}),
   ]);
 

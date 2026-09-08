@@ -328,9 +328,12 @@ export default function FootballMatchControl() {
           teamBScore: scoreB,
           period: clock.half,
           periodLabel: `${clock.minute}${clock.extraTimeMinute ? `+${clock.extraTimeMinute}` : ""}'`,
-          status: "live",
-          extra: { clockElapsedSeconds: elapsedSeconds((match.state.extra || {}) as FootballClockState, clockNow) },
-        },
+          extra: {
+            ...(match.state.extra || {}),
+            clockElapsedSeconds: match.state.extra?.clockRunning
+              ? Number(match.state.extra?.clockElapsedSeconds || 0)
+              : elapsedSeconds((match.state.extra || {}) as FootballClockState, clockNow),
+          },
         detail:
           eventType === "substitution"
             ? {

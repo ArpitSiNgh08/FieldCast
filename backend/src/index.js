@@ -38,7 +38,7 @@ async function start() {
     const passwordHash = await bcrypt.hash(env.adminCredentials.password, 12);
     await users.ensureCredentialAdmin({ ...env.adminCredentials, passwordHash });
   }
-  server.listen(env.port, '0.0.0.0', () => {
+  server.listen(env.port, () => {
     console.log(`\n  FieldCast API  →  http://localhost:${env.port}`);
     console.log(`  Socket.io      →  ws://localhost:${env.port}`);
     console.log(`  Frontend CORS  →  ${env.frontendUrl}`);

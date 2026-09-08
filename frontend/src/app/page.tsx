@@ -8,16 +8,17 @@ import Link from "next/link";
 export const revalidate = 0;
 
 async function getMatches(): Promise<Match[]> {
-  try { return await api.listMatches(); } catch { return []; }
+  try { return await api.listMatches(); } catch (err) { console.error("Failed to fetch matches:", err); return []; }
 }
 
 async function getTournaments(): Promise<Tournament[]> {
-  try { return await api.listTournaments(); } catch { return []; }
+  try { return await api.listTournaments(); } catch (err) { console.error("Failed to fetch tournaments:", err); return []; }
 }
 
 export default async function HomePage() {
   const [matches, tournaments] = await Promise.all([getMatches(), getTournaments()]);
   const live = matches.filter((match) => match.status === "live");
+  const upcoming = matches.filter((match) => match.status === "upcoming");
   const recent = matches
     .filter((match) => match.status === "completed")
     .sort((a, b) => completedAt(b) - completedAt(a))
@@ -36,6 +37,7 @@ export default async function HomePage() {
     </section>
 
     {live.length > 0 && <MatchRailSection title="Live matches" live matches={live} />}
+    {upcoming.length > 0 && <MatchRailSection title="Upcoming fixtures" matches={upcoming} />}
     {recent.length > 0 && <MatchRailSection title="Recent matches" matches={recent} />}
 
     {tournaments.length > 0 && <section className="mb-8" aria-label="Approved tournaments"><h2 className="mb-4 text-sm font-semibold uppercase tracking-widest text-muted">Tournaments</h2><div className="-mx-4 flex gap-4 overflow-x-auto px-4 pb-2 sm:mx-0 sm:grid sm:grid-cols-2 sm:justify-items-center sm:overflow-visible sm:px-0 lg:grid-cols-3">{tournaments.map((tournament) => <Link key={tournament.id} href={`/tournaments/${tournament.id}`} aria-label={`Open ${tournament.name}`} className="group w-[82vw] max-w-[300px] shrink-0 overflow-hidden rounded-xl border border-border bg-surface shadow-sm transition-all hover:-translate-y-0.5 hover:border-accent hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60 sm:w-[300px]"><div className="flex aspect-square w-full items-center justify-center bg-surface-2 p-2"><img src={tournament.imageUrl || "/tournament-placeholder.svg"} alt="" className="h-full w-full object-contain" /></div><div className="p-4"><p className="text-xs font-medium uppercase tracking-wide text-muted">{SPORT_LABEL[tournament.sport]}</p><h3 className="mt-1 font-semibold text-foreground">{tournament.name}</h3><p className="mt-2 text-xs text-muted">{tournament.teams.length} teams · {tournament.format || "Format to be announced"}</p></div></Link>)}</div></section>}

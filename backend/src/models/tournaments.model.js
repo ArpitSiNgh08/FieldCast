@@ -31,7 +31,6 @@ function list({ sport, creatorId, approvalStatus = 'approved' } = {}) {
       ...(sport ? { sport } : {}),
       ...(creatorId ? { creatorId: Number(creatorId) } : {}),
       ...(approvalStatus ? { approvalStatus } : {}),
-      ...(approvalStatus === 'approved' && !creatorId ? { creatorId: { not: null } } : {}),
     },
     include: DETAIL_INCLUDE,
     orderBy: [{ updatedAt: 'desc' }, { id: 'desc' }],

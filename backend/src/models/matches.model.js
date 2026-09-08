@@ -4,10 +4,9 @@ const prisma = require('../config/prisma');
 
 const UPCOMING_RETENTION_MS = 4 * 60 * 60 * 1000;
 
-/** Upcoming fixtures remain publicly/workspace-visible until four hours after kickoff. */
-function isUpcomingVisible(match, now = Date.now()) {
-  if (match.status !== 'upcoming' || !match.scheduledAt) return true;
-  return new Date(match.scheduledAt).getTime() >= now - UPCOMING_RETENTION_MS;
+/** Upcoming fixtures remain visible across the app regardless of scheduled date. */
+function isUpcomingVisible(match) {
+  return true;
 }
 
 // ─── shape helpers ───────────────────────────────────────────────────────────
@@ -92,9 +91,8 @@ async function list({ sport, status, tournamentId } = {}) {
   if (sport) where.sport = sport;
   if (status) where.status = status;
   if (tournamentId) where.tournamentId = Number(tournamentId);
-  // Legacy seed fixtures have no creator. Lists contain only approved,
-  // user-created tournament matches.
-  where.tournament = { approvalStatus: 'approved', creatorId: { not: null } };
+  // Lists contain all matches from approved tournaments.
+  where.tournament = { approvalStatus: 'approved' };
 
   const rows = await prisma.match.findMany({
     where,

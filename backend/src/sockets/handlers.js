@@ -228,11 +228,23 @@ function register(io, socket) {
         const match = await Matches.findById(matchId);
         if (!match || match.sport !== sport) throw new Error('Invalid match sport');
         if (sport === 'football' && !detail) throw new Error('Football score updates require a match event');
-        if (sport === 'football' && detail?.eventType === 'halftime') {
-          return matchState.update(matchId, { periodLabel: 'Halftime', status: 'break' });
-        }
         const current = sport === 'football' ? await matchState.findByMatch(matchId) : null;
-        if (sport === 'football' && !current?.extra?.clockStartedAt) throw new Error('Kick off the match clock before recording events');
+        if (sport === 'football' && detail?.eventType === 'halftime') {
+          const clock = current ? footballClock.snapshot(current) : null;
+          const elapsedAtHalf = clock ? Math.max(1800, Math.floor(clock.elapsedSeconds)) : 1800;
+          return matchState.update(matchId, {
+            periodLabel: 'Halftime',
+            status: 'break',
+            period: 2,
+            extra: {
+              ...(current?.extra || {}),
+              clockRunning: false,
+              clockStartedAt: null,
+              clockElapsedSeconds: elapsedAtHalf,
+            },
+          });
+        }
+        if (sport === 'football' && (!current?.extra?.clockStartedAt || !current?.extra?.clockRunning)) throw new Error('Kick off the match clock before recording events');
         const clock = sport === 'football' ? footballClock.snapshot(current) : null;
         const effectiveDetail = sport === 'football' && clock
           ? { ...detail, minute: clock.minute, extraTimeMinute: clock.extraTimeMinute, half: clock.half }
@@ -242,11 +254,17 @@ function register(io, socket) {
         if (sport === 'football') {
           // Football scores are server-authoritative. A stale organiser screen
           // may update the clock or a card, but cannot roll the score backward.
+          // Maintain baseline: do NOT overwrite clockElapsedSeconds while clock is running!
+          const running = Boolean(current.extra?.clockRunning);
+          const savedSeconds = Number(current.extra?.clockElapsedSeconds || 0);
           statePatch = {
             ...statePatch,
             period: clock.half,
             periodLabel: `${clock.minute}${clock.extraTimeMinute ? `+${clock.extraTimeMinute}` : ""}'`,
-            extra: { ...(current.extra || {}), clockElapsedSeconds: clock.elapsedSeconds },
+            extra: {
+              ...(current.extra || {}),
+              clockElapsedSeconds: running ? savedSeconds : clock.elapsedSeconds,
+            },
             teamAScore: current.teamAScore + (recorded?.eventType === 'goal' && recorded.teamId === match.teamA.id ? 1 : 0),
             teamBScore: current.teamBScore + (recorded?.eventType === 'goal' && recorded.teamId === match.teamB.id ? 1 : 0),
           };
@@ -264,11 +282,21 @@ function register(io, socket) {
     try {
       await assertManager(socket, matchId);
       const current = await matchState.findByMatch(matchId);
-      if (current?.extra?.clockStartedAt) throw new Error('The match clock has already started');
+      if (current?.extra?.clockRunning && current?.extra?.clockStartedAt) throw new Error('The match clock has already started');
       const now = new Date().toISOString();
+      const isSecondHalf = current?.periodLabel === 'Halftime' || current?.status === 'break' || current?.period === 2;
+      const initialElapsed = isSecondHalf ? Math.max(1800, Number(current?.extra?.clockElapsedSeconds || 1800)) : 0;
       const state = await matchState.update(matchId, {
-        status: 'live', period: 1, periodLabel: "0'",
-        extra: { ...(current?.extra || {}), clockStartedAt: now, clockElapsedSeconds: 0, clockRunning: true, clockFullTime: false },
+        status: 'live',
+        period: isSecondHalf ? 2 : 1,
+        periodLabel: isSecondHalf ? "30'" : "0'",
+        extra: {
+          ...(current?.extra || {}),
+          clockStartedAt: now,
+          clockElapsedSeconds: initialElapsed,
+          clockRunning: true,
+          clockFullTime: false,
+        },
       });
       io.to(room(matchId)).emit('score:updated', { matchId, state });
       if (typeof ack === 'function') ack({ ok: true, state });

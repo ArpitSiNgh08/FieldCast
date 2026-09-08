@@ -35,7 +35,7 @@ async function getData() {
 export default async function StandingsPage({ searchParams }: { searchParams: Promise<{ tournament?: string }> }) {
   const data = await getData();
   const { tournament } = await searchParams;
-  const eligible = data.filter((entry) => entry.rows.length > 0 || entry.tournament.status !== "upcoming");
+  const eligible = data;
   const requestedId = Number(tournament);
   const requested = Number.isInteger(requestedId) && requestedId > 0 ? eligible.find((entry) => entry.tournament.id === requestedId) : undefined;
   const selected = requested || eligible[0];
