@@ -31,6 +31,9 @@ function createApp() {
   // Decode a bearer token into req.user (optional) for every request.
   app.use(attachUser);
 
+  // In-memory 3s response cache for GET queries to prevent database bandwidth exhaustion
+  app.use('/api', require('./middleware/apiCache').apiCache);
+
   app.use('/api', routes);
 
   app.use(notFound);

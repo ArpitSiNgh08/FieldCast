@@ -24,8 +24,12 @@ Let an organiser press **Save last 2 minutes** during a live match and receive a
 - Phase 2: Drive OAuth/service-account integration, upload retries, and persisted clip jobs.
 - Phase 3: organiser UI, notifications, permissions, retention cleanup, and production observability.
 
-## Current status (2026-09-04)
+## Current status (2026-09-10)
 
-Phase 1 and the initial Phase 2 foundation are implemented: migrations `0015_clip_jobs`, `0016_google_drive_oauth`, and `0017_tournament_clip_destination`; a match-scoped rolling ffmpeg recorder; background clip assembly; organizer-only clip APIs; and OAuth connection/status/folder endpoints. A Drive account and folder are shared at tournament scope, so any organizer can request a clip using the linked account. The current folder-ID flow requests the Google Drive `drive` scope. Retry notifications, retention cleanup, camera-cut policy, and production observability remain follow-up work.
+Phase 1, Phase 2, and Phase 3 organizer UI/resilience foundations are fully implemented:
+- **Resilient Rolling Capture**: FFmpeg rolling recorder includes HTTP reconnect flags (`-reconnect 1 -reconnect_at_eof 1 -reconnect_streamed 1 -reconnect_delay_max 5`) and an automated 3-second retry loop to auto-heal from initial SRS HLS segment generation delays or transient stream drops.
+- **On-Demand Auto-Start**: If the recorder process isn't running when a clip is requested during a live match, it auto-spawns on-demand.
+- **Clipping Status & Manual Control**: Added `GET /api/matches/:id/clip-status` and `POST /api/matches/:id/clip-status/wake` endpoints. The organizer match control room renders a real-time status badge (🟢 UP, 🟡 BUFFERING, 🔴 DOWN), live buffer duration (`2m 18s buffered`), and an explicit **"⚡ Wake Up Clipping Service (Start FFmpeg)"** button for manual intervention.
+- **Drive Destination**: Shared Google Drive OAuth linking (`0016_google_drive_oauth` / `0017_tournament_clip_destination`) stores encrypted refresh tokens so all organizers of a tournament can save highlight clips to a single destination folder.
 
 Google Cloud needs two distinct redirect URIs: `/api/auth/google/callback` for normal FieldCast sign-in and `/api/integrations/google-drive/callback` for Drive linking. Do not point `GOOGLE_CALLBACK_URL` at the Drive callback.

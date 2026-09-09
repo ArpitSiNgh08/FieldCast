@@ -14,6 +14,8 @@ router.get('/', attachUser, asyncHandler(ctrl.list));
 router.get('/:id', asyncHandler(ctrl.get));
 router.get('/:id/scorecard', asyncHandler(scorecard.get));
 router.get('/:id/clips', requireAuth, asyncHandler(clips.list));
+router.get('/:id/clip-status', requireAuth, asyncHandler(clips.getStatus));
+router.post('/:id/clip-status/wake', requireAuth, asyncHandler(clips.wakeService));
 
 router.post('/', requireAuth, asyncHandler(ctrl.create));
 router.patch('/:id/status', requireAuth, asyncHandler(ctrl.updateStatus));

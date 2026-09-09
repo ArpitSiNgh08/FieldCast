@@ -50,7 +50,17 @@ export default function FootballMatchControl() {
   const [busy, setBusy] = useState(false);
   const [clockNow, setClockNow] = useState(0);
   const [clipBusy, setClipBusy] = useState(false);
+  const [wakeBusy, setWakeBusy] = useState(false);
   const [clipMessage, setClipMessage] = useState("");
+  const [clipStatus, setClipStatus] = useState<{
+    enabled: boolean;
+    active: boolean;
+    status: "UP" | "DOWN" | "BUFFERING";
+    bufferedSeconds: number;
+    bufferedSegments: number;
+    canClip: boolean;
+    message: string;
+  } | null>(null);
   const [clips, setClips] = useState<Array<{ id: number; status: string; driveUrl?: string | null; error?: string | null; createdAt: string }>>([]);
   const [driveConnected, setDriveConnected] = useState(false);
   const [driveEmail, setDriveEmail] = useState("");
@@ -79,6 +89,7 @@ export default function FootballMatchControl() {
     }
     if (data.status === "live") {
       setClips(await api.listMatchClips(id).catch(() => []));
+      setClipStatus(await api.getClipStatus(id).catch(() => null));
     }
   }, [id]);
 
@@ -86,6 +97,7 @@ export default function FootballMatchControl() {
     if (!match || match.status !== "live") return;
     const timer = window.setInterval(() => {
       api.listMatchClips(match.id).then(setClips).catch(() => {});
+      api.getClipStatus(match.id).then(setClipStatus).catch(() => {});
     }, 3000);
     return () => window.clearInterval(timer);
   }, [match?.id, match?.status]);
@@ -266,6 +278,21 @@ export default function FootballMatchControl() {
       setClipMessage(reason instanceof Error ? reason.message : "Could not create clip");
     } finally {
       setClipBusy(false);
+    }
+  }
+
+  async function wakeClipService() {
+    if (!match) return;
+    setWakeBusy(true);
+    setClipMessage("Sending wake command to FFmpeg rolling recorder…");
+    try {
+      const status = await api.wakeClipService(match.id);
+      setClipStatus(status);
+      setClipMessage(status.message);
+    } catch (reason) {
+      setClipMessage(reason instanceof Error ? reason.message : "Could not wake clipping service");
+    } finally {
+      setWakeBusy(false);
     }
   }
 
@@ -750,17 +777,66 @@ export default function FootballMatchControl() {
                       >
                         Start 2nd Half (30:00) ⚽
                       </Button>
-                      <Button variant="outline" loading={clipBusy} onClick={saveLastTwoMinutes} disabled={clipBusy || !connected}>
-                        Save last 3 minutes
+                      <Button
+                        variant="outline"
+                        loading={clipBusy}
+                        onClick={saveLastTwoMinutes}
+                        disabled={clipBusy || !connected || (clipStatus !== null && !clipStatus.canClip)}
+                        title={clipStatus && !clipStatus.canClip ? "Needs at least 1 minute of live stream buffer before clipping" : ""}
+                      >
+                        🎬 Save last 3 minutes
                       </Button>
                     </div>
                   </CardBody>
+                  <div className="border-t border-border px-4 py-3 bg-surface-2/40">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-xs font-semibold uppercase tracking-wider text-muted">Clipping Service:</span>
+                        {clipStatus?.status === "UP" ? (
+                          <Badge tone="live" className="text-xs font-medium">🟢 UP · {Math.floor((clipStatus.bufferedSeconds || 0) / 60)}m {(clipStatus.bufferedSeconds || 0) % 60}s buffered ({clipStatus.bufferedSegments} segs)</Badge>
+                        ) : clipStatus?.status === "BUFFERING" ? (
+                          <Badge tone="muted" className="text-xs font-medium border-amber-500/40 bg-amber-500/10 text-amber-300">🟡 BUFFERING · {clipStatus.bufferedSeconds}s / 60s needed</Badge>
+                        ) : (
+                          <Badge tone="muted" className="text-xs font-medium border-red-500/40 bg-red-500/10 text-red-400">🔴 DOWN (Inactive)</Badge>
+                        )}
+                      </div>
+                      {clipStatus?.status !== "UP" && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          loading={wakeBusy}
+                          onClick={wakeClipService}
+                          disabled={wakeBusy || !connected}
+                          className="border-amber-500/50 text-amber-300 hover:bg-amber-500/20 text-xs"
+                        >
+                          ⚡ Wake / Restart Recorder
+                        </Button>
+                      )}
+                    </div>
+                    <div className="mt-2 rounded bg-background/60 p-2 font-mono text-[11px] text-muted border border-border/40 break-all">
+                      {clipStatus?.message || "FFmpeg records rolling match video in the background to generate Google Drive clips."}
+                    </div>
+                  </div>
                   {clipMessage && <p className="border-t border-border px-4 py-2 text-sm text-muted">{clipMessage}</p>}
-                  {clips.slice(0, 3).map((clip) => (
+                  {clips.slice(0, 5).map((clip) => (
                     <div key={clip.id} className="flex items-center justify-between border-t border-border px-4 py-2 text-sm">
-                      <span>Clip · {clip.status}</span>
-                      {clip.driveUrl && <a className="text-accent underline" href={clip.driveUrl} target="_blank" rel="noreferrer">Open in Drive</a>}
-                      {clip.error && <span className="text-red-700">{clip.error}</span>}
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-xs text-muted">Clip #{clip.id}</span>
+                        <Badge
+                          tone={
+                            clip.status === "completed"
+                              ? "live"
+                              : clip.status.startsWith("failed")
+                              ? "muted"
+                              : "accent"
+                          }
+                          className="text-xs font-mono"
+                        >
+                          {clip.status.includes("uploading") ? `📤 ${clip.status}` : clip.status === "completed" ? "🟢 Completed" : clip.status}
+                        </Badge>
+                      </div>
+                      {clip.driveUrl && <a className="text-xs text-accent underline hover:text-accent/80" href={clip.driveUrl} target="_blank" rel="noreferrer">Open in Google Drive ↗</a>}
+                      {clip.error && <span className="text-xs text-red-400">{clip.error}</span>}
                     </div>
                   ))}
                 </Card>

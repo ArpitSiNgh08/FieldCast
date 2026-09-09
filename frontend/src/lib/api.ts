@@ -35,6 +35,7 @@ interface RequestOptions {
   body?: unknown;
   // Force uncached (default). Server components pass their own cache option.
   cache?: RequestCache;
+  silent?: boolean;
 }
 
 export async function apiFetch<T>(
@@ -46,7 +47,9 @@ export async function apiFetch<T>(
   const token = getToken();
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
-  if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent("fieldcast:request", { detail: { active: true } }));
+  if (typeof window !== "undefined" && !opts.silent) {
+    window.dispatchEvent(new CustomEvent("fieldcast:request", { detail: { active: true } }));
+  }
   try {
     const res = await fetch(`${API_URL}/api${path}`, {
       method: opts.method || "GET", headers, body: opts.body ? JSON.stringify(opts.body) : undefined, cache: opts.cache ?? "no-store",
@@ -59,7 +62,9 @@ export async function apiFetch<T>(
     if (res.status === 204) return undefined as T;
     return res.json() as Promise<T>;
   } finally {
-    if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent("fieldcast:request", { detail: { active: false } }));
+    if (typeof window !== "undefined" && !opts.silent) {
+      window.dispatchEvent(new CustomEvent("fieldcast:request", { detail: { active: false } }));
+    }
   }
 }
 
@@ -77,12 +82,14 @@ export const api = {
   listMatches: (q: Record<string, string> = {}) =>
     apiFetch<Match[]>(`/matches${toQuery(q)}`),
   getMatch: (id: number | string) => apiFetch<Match>(`/matches/${id}`),
-  getScorecard: (id: number | string) =>
-    apiFetch<Scorecard>(`/matches/${id}/scorecard`),
-  googleDriveStatus: (tournamentId: number) => apiFetch<{ enabled: boolean; connected: boolean; accountEmail?: string | null; folderId?: string | null; linkedByUserId?: number | null }>(`/integrations/google-drive/status?tournamentId=${tournamentId}`),
+  getScorecard: (id: number | string, opts?: { silent?: boolean }) =>
+    apiFetch<Scorecard>(`/matches/${id}/scorecard`, opts),
+  googleDriveStatus: (tournamentId: number) => apiFetch<{ enabled: boolean; connected: boolean; accountEmail?: string | null; folderId?: string | null; linkedByUserId?: number | null }>(`/integrations/google-drive/status?tournamentId=${tournamentId}`, { silent: true }),
   startGoogleDriveLink: (tournamentId: number, matchId: number) => apiFetch<{ url: string }>("/integrations/google-drive/start", { method: "POST", body: { tournamentId, matchId } }),
   setGoogleDriveFolder: (tournamentId: number, folderId: string) => apiFetch<{ connected: boolean; folderId?: string | null }>("/integrations/google-drive/folder", { method: "PATCH", body: { tournamentId, folderId } }),
-  listMatchClips: (id: number | string) => apiFetch<Array<{ id: number; status: string; driveUrl?: string | null; error?: string | null; createdAt: string }>>(`/matches/${id}/clips`),
+  listMatchClips: (id: number | string) => apiFetch<Array<{ id: number; status: string; driveUrl?: string | null; error?: string | null; createdAt: string }>>(`/matches/${id}/clips`, { silent: true }),
+  getClipStatus: (id: number | string) => apiFetch<{ enabled: boolean; active: boolean; status: "UP" | "DOWN" | "BUFFERING"; bufferedSeconds: number; bufferedSegments: number; canClip: boolean; message: string }>(`/matches/${id}/clip-status`, { silent: true }),
+  wakeClipService: (id: number | string) => apiFetch<{ enabled: boolean; active: boolean; status: "UP" | "DOWN" | "BUFFERING"; bufferedSeconds: number; bufferedSegments: number; canClip: boolean; message: string }>(`/matches/${id}/clip-status/wake`, { method: "POST" }),
   createMatchClip: (id: number | string) => apiFetch<{ id: number; status: string }>(`/matches/${id}/clips`, { method: "POST" }),
   createMatch: (body: unknown) =>
     apiFetch<Match>("/matches", { method: "POST", body }),

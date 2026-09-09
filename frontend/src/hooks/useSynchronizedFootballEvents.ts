@@ -28,7 +28,7 @@ export function useSynchronizedFootballEvents(matchId: number, initialEvents: Fo
 
   const syncScorecard = async () => {
     try {
-      const scorecard = await api.getScorecard(matchId);
+      const scorecard = await api.getScorecard(matchId, { silent: true });
       if (scorecard.footballEvents) {
         const fetched = scorecard.footballEvents;
         const currentCutoff = streamTimeRef.current ?? Date.now();

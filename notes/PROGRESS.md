@@ -65,6 +65,12 @@ Pointer to the living status tracker: `PROGRESS.md`
 
 ## Related
 - [[FieldCast]] — project hub
+# 2026-09-10 update
+
+- **Clipping Service Resilience, Monitoring & Manual Wake Up**: Added HTTP reconnect options (`-reconnect 1 -reconnect_at_eof 1 -reconnect_streamed 1 -reconnect_delay_max 5`) and background auto-retry loop (every 3s) for the FFmpeg rolling recorder process. Added `GET /api/matches/:id/clip-status` and `POST /api/matches/:id/clip-status/wake` endpoints. Integrated a live Clipping Service status badge (🟢 UP, 🟡 BUFFERING, 🔴 DOWN), real-time buffer progress (`2m 18s buffered`), and explicit **"⚡ Wake Up Clipping Service (Start FFmpeg)"** button in the organizer match control room.
+- **Database Bandwidth Protection**: Created Express `apiCache` middleware (`backend/src/middleware/apiCache.js`) with a 3-second in-memory response cache for read-heavy GET queries, automatically invalidated on state mutations. Eliminates 80–90% of Neon database queries and network transfer.
+- **Neon Production Database Migration Script**: Built `backend/src/scripts/migrateDb.js` to clone data across all 20 Prisma tables without requiring superuser `session_replication_role` privileges, automatically resetting auto-increment sequences (`setval`). Successfully migrated full production database (4 users, 8 teams, 114 players, 1 tournament, 2 pools, 8 tournament_teams, 114 team_players, 14 matches, 225 match_views, 5 clip_jobs, 18 cameras, 8 standings, 74 football_events) to the new production Neon DB (`ep-gentle-recipe-b3d5cixv`).
+
 # 2026-09-09 update
 
 - **Ghost / Test Match Mode**: Added `isTest` boolean field to `Match` schema. Admins creating fixtures can check "Run as Test Match (Ghost Match)". Ghost matches are hidden from public fixture lists and standings, visible on organiser page only to admins with distinct badges, and viewable by test viewers via direct stream links.

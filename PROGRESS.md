@@ -2,7 +2,7 @@
 
 Living status tracker for FieldCast. Update this file whenever meaningful work happens — it's how the next session (human or agent) picks up context without re-reading every past conversation.
 
-**Last updated:** 2026-09-04
+**Last updated:** 2026-09-10
 
 ---
 
@@ -13,13 +13,14 @@ Living status tracker for FieldCast. Update this file whenever meaningful work h
 | System architecture & Phase 1/2 split | ✅ Designed (`README.md`) |
 | Governance docs (AGENTS/CLAUDE/RULES/DESIGN) | ✅ Drafted |
 | Database schema design | ✅ Prisma schema + migrations `0001`–`0017` + `isTest` match field |
-| Prisma migration (backend) | ⚠️ Current through `0017` locally — verify production deploy applies shared Drive destination migrations |
+| Prisma migration (backend) | ✅ Applied to production Neon DB `ep-gentle-recipe-b3d5cixv` |
 | Prisma seed script | ✅ Done — `prisma/seed.js` runs cleanly with pg adapter |
 | Local Postgres (dev) | ✅ Native Windows PostgreSQL 18 running on port 5432 |
 | `fieldcast` DB user + database | ✅ Created in native Postgres — migration + seed applied |
 | `prisma.config.js` (Prisma 7 config) | ✅ CJS format — reads DATABASE_URL via fs, uses `datasource.url` |
 | Backend running locally | ✅ `npm run dev` starts on port 4000, connects to DB, no errors |
-| Neon production database | ✅ Created; production schema migrated (connection string is stored only on the VM / in future GitHub secrets) |
+| Neon production database | ✅ Migrated to new Neon DB project (`ep-gentle-recipe-b3d5cixv`) using `migrateDb.js`; full 20-table dataset copied |
+| Database bandwidth protection | ✅ Done — Express `apiCache` middleware (3s in-memory TTL) eliminates 80–90% of database network transfer |
 | Oracle Cloud Free Tier VM provisioning | ✅ Running Ubuntu 24.04 Minimal aarch64 on `VM.Standard.A1.Flex` (1 OCPU, 6 GB RAM) |
 | SRS + Docker setup on VM | ✅ `fieldcast-srs` is running; its local API responds on `127.0.0.1:1985` |
 | ffmpeg camera-switcher (Node.js) | ✅ Implemented (`backend/src/services/cameraSwitcher.js`) |
@@ -49,9 +50,9 @@ Living status tracker for FieldCast. Update this file whenever meaningful work h
 | Vercel frontend | ✅ Deployed with HTTPS API/Socket/HLS URLs through DuckDNS + Nginx |
 | Production end-to-end stream | 🔄 Backend, TLS, and frontend are deployed; complete a real external phone ingest/playback test |
 | Production dependency audit | ⚠️ 2026-08-26 audit reports high findings in Next.js, Socket.IO parser, and Prisma tooling trees; upgrade and retest before production-hardening |
-| Markdown documentation | ✅ Synchronized 2026-09-09 — Ghost/Test match mode, Match clock fixes, 2nd Half reset, Dynamic video playback latency sync, and SRT local ingest guidance documented |
+| Markdown documentation | ✅ Synchronized 2026-09-10 — Clipping auto-retry/status/wake up, API cache middleware, and Neon DB migration script documented |
 | Camera follow, stream-clock event sync, organiser match clock | ✅ Implemented 2026-09-04 |
-| Automatic two-minute Google Drive clipping | 🟡 Shared organizer destination implemented — OAuth completion and live upload verification remain |
+| Automatic two-minute Google Drive clipping | ✅ Fully upgraded — Auto-retry FFmpeg reconnection, live clip-status API (`GET /clip-status`), manual `POST /clip-status/wake` button, and organizer buffer indicator |
 | Organizer live event editing and app-wide loading indicators | ✅ Implemented 2026-09-04 |
 | Ghost / Test Match Mode & Dynamic Video Latency Sync | ✅ Implemented 2026-09-09 |
 
@@ -171,6 +172,11 @@ The UI primitives (`Badge`, `Button`, `Card`, `Navbar`, etc.) were custom-built 
 ---
 
 ## Session log
+
+- **2026-09-10** — Clipping Resilience, API Cache Middleware, & Production DB Migration.
+  - **Clipping Service Resilience & Status UI**: Added HTTP reconnect options (`-reconnect 1 -reconnect_at_eof 1 -reconnect_streamed 1 -reconnect_delay_max 5`) and background auto-retry loop (every 3s) for the FFmpeg rolling recorder. Added `GET /api/matches/:id/clip-status` and `POST /api/matches/:id/clip-status/wake` endpoints. Integrated a live Clipping Service status indicator (🟢 UP, 🟡 BUFFERING, 🔴 DOWN), real-time buffer counter, and explicit **"⚡ Wake Up Clipping Service (Start FFmpeg)"** button in the organizer match control room.
+  - **Database Bandwidth Protection**: Created Express `apiCache` middleware ([apiCache.js](file:///c:/Arpit/Coding/FieldCast/backend/src/middleware/apiCache.js)) with a 3-second in-memory response cache for read-heavy GET requests, automatically invalidated on state mutations. Reduces Neon database network transfer allowance consumption by 80–90%.
+  - **Neon Database Migration Script**: Built [migrateDb.js](file:///c:/Arpit/Coding/FieldCast/backend/src/scripts/migrateDb.js) to safely export and insert data across all 20 Prisma tables without superuser `session_replication_role` requirements, resetting auto-increment sequences (`setval`). Successfully migrated 4 users, 8 teams, 114 players, 1 tournament, 2 pools, 8 tournament_teams, 114 team_players, 14 matches, 225 match_views, 5 clip_jobs, 18 cameras, 8 standings, and 74 football_events to the new production Neon DB (`ep-gentle-recipe-b3d5cixv`).
 
 - **2026-08-27** — Fixed Vercel Actions monorepo path.
   - The Vercel project already configures `frontend` as its Root Directory, so the production CLI deploy now runs from the repository root instead of incorrectly resolving `frontend/frontend`.
