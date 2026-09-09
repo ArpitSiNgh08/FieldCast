@@ -169,11 +169,15 @@ The UI primitives (`Badge`, `Button`, `Card`, `Navbar`, etc.) were custom-built 
 7. **Replace the temporary score holdback** — `SCORE_SYNC_DELAY_MS = 15_000` approximates HLS delay but can drift without program-date-time metadata.
 8. **Implement ImageKit VOD, Cricket/Basketball organiser controls, and automated coverage.**
 
+| Clipping resilience & status API | ✅ Implemented 2026-09-10 |
+| Cloudflare CDN Edge Scaling | ✅ Implemented 2026-09-10 — Cloudflare Worker proxy (`fieldcast-cdn.workers.dev`), 24h .ts edge caching, 1s .m3u8 TTL, originLiveUrl bypass for clip service |
+
 ---
 
 ## Session log
 
-- **2026-09-10** — Clipping Resilience, API Cache Middleware, & Production DB Migration.
+- **2026-09-10** — Cloudflare CDN Scaling, Clipping Resilience, API Cache Middleware, & Production DB Migration.
+  - **Cloudflare CDN Edge Streaming Architecture**: Integrated `CLOUDFLARE_CDN_URL` / `cdnBase` into [env.js](file:///c:/Arpit/Coding/FieldCast/backend/src/config/env.js) and [matches.controller.js](file:///c:/Arpit/Coding/FieldCast/backend/src/controllers/matches.controller.js). Formats public `liveUrl` with Cloudflare Worker proxy (`https://fieldcast-cdn.your-account.workers.dev`) for 24h edge-cached `.ts` segment delivery and 1s `.m3u8` playlist TTL. Preserved direct origin URL (`originLiveUrl`) for zero-delay FFmpeg clip buffering in [clips.controller.js](file:///c:/Arpit/Coding/FieldCast/backend/src/controllers/clips.controller.js). Created system architecture diagrams in [ARCHITECTURE.md](file:///c:/Arpit/Coding/FieldCast/ARCHITECTURE.md) and Obsidian notes ([Cloudflare CDN.md](file:///c:/Arpit/Coding/FieldCast/notes/Cloudflare%20CDN.md), [ARCHITECTURE.md](file:///c:/Arpit/Coding/FieldCast/notes/ARCHITECTURE.md)).
   - **Clipping Service Resilience & Status UI**: Added HTTP reconnect options (`-reconnect 1 -reconnect_at_eof 1 -reconnect_streamed 1 -reconnect_delay_max 5`) and background auto-retry loop (every 3s) for the FFmpeg rolling recorder. Added `GET /api/matches/:id/clip-status` and `POST /api/matches/:id/clip-status/wake` endpoints. Integrated a live Clipping Service status indicator (🟢 UP, 🟡 BUFFERING, 🔴 DOWN), real-time buffer counter, and explicit **"⚡ Wake Up Clipping Service (Start FFmpeg)"** button in the organizer match control room.
   - **Database Bandwidth Protection**: Created Express `apiCache` middleware ([apiCache.js](file:///c:/Arpit/Coding/FieldCast/backend/src/middleware/apiCache.js)) with a 3-second in-memory response cache for read-heavy GET requests, automatically invalidated on state mutations. Reduces Neon database network transfer allowance consumption by 80–90%.
   - **Neon Database Migration Script**: Built [migrateDb.js](file:///c:/Arpit/Coding/FieldCast/backend/src/scripts/migrateDb.js) to safely export and insert data across all 20 Prisma tables without superuser `session_replication_role` requirements, resetting auto-increment sequences (`setval`). Successfully migrated 4 users, 8 teams, 114 players, 1 tournament, 2 pools, 8 tournament_teams, 114 team_players, 14 matches, 225 match_views, 5 clip_jobs, 18 cameras, 8 standings, and 74 football_events to the new production Neon DB (`ep-gentle-recipe-b3d5cixv`).

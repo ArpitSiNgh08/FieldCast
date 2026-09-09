@@ -42,17 +42,15 @@ Current organiser-created cameras use unique backend-generated keys per match, f
 https://<duckdns-host>/live/<match-camera-key>.m3u8
 ```
 
-- Single camera: viewer plays the camera-specific manifest directly.
-- Multiple cameras: ffmpeg republishes the selected feed to `/live/active_<matchId>.m3u8`.
-- The raw IP/port URL is for VM-only diagnostics. Production browser playback uses Nginx HTTPS on the DuckDNS hostname; do not expose SRS `1985` or direct HLS `8080` publicly.
-
-The public player reads HLS program-date-time metadata when SRS exposes it and uses that timestamp to hold score events until the corresponding video time. Manifests without usable timing metadata use the documented 15-second fallback. The clip recorder uses the same backend stream path and retains a rolling window for organizer requests.
+## Cloudflare CDN Scaling
+Public HLS video playback is edge-cached via a [[Cloudflare CDN]] Worker proxy (`fieldcast-cdn.workers.dev`).
+- `.ts` video chunks: Edge-cached globally for 24 hours (`Cache-Control: public, max-age=86400`).
+- `.m3u8` playlists: 1-second TTL (`Cache-Control: public, max-age=1`) for low latency.
+- Internal clip recording (`clipService.js`) bypasses CDN and connects directly to SRS origin (`originLiveUrl`).
 
 ## Related
+- [[Cloudflare CDN]] — Cloudflare Worker edge proxy setup
+- [[ARCHITECTURE]] — Full system architecture diagram
 - [[Camera Switching]] — selects which camera feed goes to viewers
-
-## Viewer synchronization
-
-Camera-switch notifications now make public HLS players reinitialize automatically, so viewers follow the new active feed without a manual page reload. HLS program-date-time is also surfaced to the score state hook; timestamped score updates are held until the corresponding video time is available, with a 15-second fallback for manifests without program-date-time.
 - [[Larix Broadcaster → RTMP → SRS]] — how phones push video in
 - [[Phase 1 — Oracle VM]] — where SRS runs in production
