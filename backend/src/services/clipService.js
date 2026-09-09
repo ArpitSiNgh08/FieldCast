@@ -37,33 +37,56 @@ async function upload(filePath, name, tournamentId) {
   return response.json();
 }
 
+async function cleanupDirectory(directory) {
+  if (!directory) return;
+  try { await fs.rm(directory, { recursive: true, force: true }); } catch (_) {}
+}
+
 async function start(matchId, liveUrl) {
   if (!env.clips.enabled || recorders.has(Number(matchId)) || !liveUrl || env.stream.simulate) return;
   const directory = path.join(root, `match-${Number(matchId)}`);
   await fs.mkdir(directory, { recursive: true });
   const pattern = path.join(directory, 'segment-%03d.ts');
   const proc = spawn(env.stream.ffmpegPath, ['-hide_banner', '-loglevel', 'error', '-i', liveUrl, '-c', 'copy', '-f', 'segment', '-segment_time', '6', '-segment_wrap', '40', '-reset_timestamps', '1', pattern], { stdio: 'ignore' });
-  proc.on('exit', () => { if (recorders.get(Number(matchId))?.proc === proc) recorders.delete(Number(matchId)); });
-  recorders.set(Number(matchId), { proc, directory });
+  const info = { proc, directory, activeJobs: 0, stopped: false };
+  proc.on('exit', () => { if (recorders.get(Number(matchId))?.proc === proc) stop(matchId); });
+  recorders.set(Number(matchId), info);
 }
 
-function stop(matchId) {
+async function stop(matchId) {
   const recorder = recorders.get(Number(matchId));
-  if (recorder?.proc) recorder.proc.kill('SIGKILL');
-  recorders.delete(Number(matchId));
+  if (!recorder) return;
+  recorder.stopped = true;
+  if (recorder.proc) {
+    recorder.proc.kill('SIGKILL');
+    recorder.proc = null;
+  }
+  if (recorder.activeJobs <= 0) {
+    recorders.delete(Number(matchId));
+    await cleanupDirectory(recorder.directory);
+  }
 }
 
 async function createClip(matchId, tournamentId) {
   const recorder = recorders.get(Number(matchId));
   if (!recorder) throw new Error('Rolling recording is not available for this match');
-  const files = (await fs.readdir(recorder.directory)).filter((file) => /^segment-\d+\.ts$/.test(file));
-  const recent = (await Promise.all(files.map(async (file) => ({ file, stat: await fs.stat(path.join(recorder.directory, file)) })))).sort((a, b) => a.stat.mtimeMs - b.stat.mtimeMs).slice(-30).map((entry) => path.join(recorder.directory, entry.file));
-  if (recent.length < 10) throw new Error('The rolling recording does not have enough buffer yet (needs at least 1 minute)');
-  const list = path.join(recorder.directory, `clip-${Date.now()}.txt`);
-  const output = path.join(recorder.directory, `clip-${Date.now()}.mp4`);
-  await fs.writeFile(list, recent.map((file) => `file '${file.replace(/'/g, "'\\''")}'`).join('\n'));
-  await new Promise((resolve, reject) => { const proc = spawn(env.clips.ffmpegPath || env.stream.ffmpegPath, ['-hide_banner', '-loglevel', 'error', '-f', 'concat', '-safe', '0', '-i', list, '-c', 'copy', '-movflags', '+faststart', output]); proc.on('error', reject); proc.on('exit', (code) => code === 0 ? resolve() : reject(new Error(`ffmpeg clip assembly failed (${code})`))); });
-  try { return await upload(output, `FieldCast-match-${matchId}-${new Date().toISOString().replace(/[:.]/g, '-')}.mp4`, tournamentId); } finally { await fs.rm(list, { force: true }); await fs.rm(output, { force: true }); }
+  recorder.activeJobs++;
+  try {
+    const files = (await fs.readdir(recorder.directory)).filter((file) => /^segment-\d+\.ts$/.test(file));
+    const recent = (await Promise.all(files.map(async (file) => ({ file, stat: await fs.stat(path.join(recorder.directory, file)) })))).sort((a, b) => a.stat.mtimeMs - b.stat.mtimeMs).slice(-30).map((entry) => path.join(recorder.directory, entry.file));
+    if (recent.length < 10) throw new Error('The rolling recording does not have enough buffer yet (needs at least 1 minute)');
+    const list = path.join(recorder.directory, `clip-${Date.now()}.txt`);
+    const output = path.join(recorder.directory, `clip-${Date.now()}.mp4`);
+    await fs.writeFile(list, recent.map((file) => `file '${file.replace(/'/g, "'\\''")}'`).join('\n'));
+    await new Promise((resolve, reject) => { const proc = spawn(env.clips.ffmpegPath || env.stream.ffmpegPath, ['-hide_banner', '-loglevel', 'error', '-f', 'concat', '-safe', '0', '-i', list, '-c', 'copy', '-movflags', '+faststart', output]); proc.on('error', reject); proc.on('exit', (code) => code === 0 ? resolve() : reject(new Error(`ffmpeg clip assembly failed (${code})`))); });
+    try { return await upload(output, `FieldCast-match-${matchId}-${new Date().toISOString().replace(/[:.]/g, '-')}.mp4`, tournamentId); } finally { await fs.rm(list, { force: true }); await fs.rm(output, { force: true }); }
+  } finally {
+    recorder.activeJobs--;
+    if (recorder.stopped && recorder.activeJobs <= 0) {
+      recorders.delete(Number(matchId));
+      await cleanupDirectory(recorder.directory);
+    }
+  }
 }
 
 async function queue(matchId, userId, tournamentId) {
