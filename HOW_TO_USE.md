@@ -71,7 +71,8 @@ npm run db:generate
 npm run db:seed
 ```
 
-The repository currently contains migrations `0001` through `0017`. Migration `0012_match_viewers` persists unique browser views; `0015` stores clip jobs; `0016` stores encrypted Google OAuth connections; and `0017` stores the shared tournament Drive destination.
+The repository currently contains migrations `0001` through `0018`. Migration `0012_match_viewers` persists unique browser views; `0015` stores clip jobs; `0016` stores encrypted Google OAuth connections; `0017` stores the shared tournament Drive destination; and `0018` adds `is_test` for Ghost Match mode.
+
 
 ### Start the application
 
@@ -171,10 +172,12 @@ The global admin account cannot control a live match unless it has also been exp
 3. For a knockout fixture, choose the built-in **Semi-final** or **Final**, or add another stage such as Round of 16 or Quarterfinal.
 4. Choose different home and away teams.
 5. Set kickoff time and venue.
-6. Press **Create match & prepare stream**.
+6. (Admin Only) Optionally check **Run as Test Match (Ghost Match)**. Ghost matches are hidden from public fixture lists and standings, visible only to admins in the organiser view, and viewable by test viewers via direct link (`?test=true`).
+7. Press **Create match & prepare stream**.
 
 Knockout results do not change pool standings.
 The public tournament hub and `/standings` arrange knockout fixtures into a connected bracket. Matches sharing a stage become one column, such as SF 1 and SF 2 feeding the Final; earlier custom stages such as Quarterfinal or Round of 16 are added as preceding columns automatically.
+
 
 Every win awards three points and a draw awards one point. Football standings show **GD** (goal difference) instead of separate goals-for and goals-against columns.
 
@@ -249,13 +252,19 @@ The corresponding HLS URL is:
 http://SERVER:8080/live/MATCH_CAMERA_KEY.m3u8
 ```
 
-### Go live
+### Go live & Match Clock Controls
 
-The Football control room requires a kickoff time, venue, and at least one registered camera. Configure the phone with the generated SRT destination (or RTMP fallback), start publishing, then press **Go live**. There is no separate broadcast checklist gate.
+The Football control room requires a kickoff time, venue, and at least one registered camera. Configure the phone with the generated SRT destination (or RTMP fallback), start publishing, then press **Go live**.
 
-The match appears in **Live now** on the public homepage and tournament hub. During the match, use **Mark halftime** to publish the halftime state. The half is derived automatically from the entered minute. **End stream & finalize** publishes full time and recalculates the result and standings.
+Organisers have decoupled clock controls:
+- **Start / Resume Clock ▶️**: Starts or resumes the live match clock. First half kickoff starts at `00:00`.
+- **Pause Clock ⏸️**: Pauses the match clock for stoppages/halftime.
+- **Start 2nd Half (30:00) ⚽**: Explicitly starts the 2nd half and sets the timer to `30:00` regardless of 1st half stoppage time.
+- **Mark Halftime**: Publishes the halftime state.
+- **End stream & finalize**: Publishes full time and recalculates final result and standings.
 
 For one camera, the public player uses the raw camera HLS manifest. For multiple cameras, ffmpeg republishes the selected camera to `active_[matchId].m3u8`, allowing cuts without changing the viewer URL.
+
 
 ## 7. Update the Football scorecard
 

@@ -65,6 +65,13 @@ Pointer to the living status tracker: `PROGRESS.md`
 
 ## Related
 - [[FieldCast]] — project hub
+# 2026-09-09 update
+
+- **Ghost / Test Match Mode**: Added `isTest` boolean field to `Match` schema. Admins creating fixtures can check "Run as Test Match (Ghost Match)". Ghost matches are hidden from public fixture lists and standings, visible on organiser page only to admins with distinct badges, and viewable by test viewers via direct stream links.
+- **Match Clock Controls & 2nd Half Reset**: Fixed 1st half kickoff jumping to 30:00. Added explicit socket events `clock:start`, `clock:pause`, and `clock:start_second_half`. Dedicated **Start 2nd Half (30:00)** sets initial period elapsed time to 1800s regardless of previous clock state.
+- **Dynamic Video Playback Latency Sync**: Replaced artificial 15s holdback and HLS program-date-time metadata requirements. `HlsPlayer.tsx` calculates real-time video playback latency (`liveEdge - currentTime`) and broadcasts `streamTime`. `useMatchState` and `useSynchronizedFootballEvents` hold and reveal scores and timeline events synchronized with actual viewer playback.
+- **SRT Ingest Settings**: Clarified local SRT ingest settings for mobile streaming apps like Lols IRL / Larix: Host: `127.0.0.1` (or local LAN IP), Port: `10080`, Stream ID: `live/camera1`.
+
 # 2026-09-04 update
 
 - Added app-wide request/navigation loading indicators and organizer live-match event editing with goal-score synchronization.
@@ -77,3 +84,4 @@ Pointer to the living status tracker: `PROGRESS.md`
 - Updated clipping for JWT-authenticated accounts: the Drive OAuth link is initiated through authenticated backend API calls, and migration `0017_tournament_clip_destination` shares one linked organizer account/folder across all organizers of the same tournament.
 - Public homepage match cards and scorecards show the persistent unique-browser count from `MatchView` as `x views`.
 - The Obsidian graph context convention is documented in [[FieldCast]] and should be followed before future implementation tasks.
+

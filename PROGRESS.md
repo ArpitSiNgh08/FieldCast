@@ -12,7 +12,7 @@ Living status tracker for FieldCast. Update this file whenever meaningful work h
 |---|---|
 | System architecture & Phase 1/2 split | ✅ Designed (`README.md`) |
 | Governance docs (AGENTS/CLAUDE/RULES/DESIGN) | ✅ Drafted |
-| Database schema design | ✅ Prisma schema + migrations `0001`–`0017` |
+| Database schema design | ✅ Prisma schema + migrations `0001`–`0017` + `isTest` match field |
 | Prisma migration (backend) | ⚠️ Current through `0017` locally — verify production deploy applies shared Drive destination migrations |
 | Prisma seed script | ✅ Done — `prisma/seed.js` runs cleanly with pg adapter |
 | Local Postgres (dev) | ✅ Native Windows PostgreSQL 18 running on port 5432 |
@@ -49,10 +49,11 @@ Living status tracker for FieldCast. Update this file whenever meaningful work h
 | Vercel frontend | ✅ Deployed with HTTPS API/Socket/HLS URLs through DuckDNS + Nginx |
 | Production end-to-end stream | 🔄 Backend, TLS, and frontend are deployed; complete a real external phone ingest/playback test |
 | Production dependency audit | ⚠️ 2026-08-26 audit reports high findings in Next.js, Socket.IO parser, and Prisma tooling trees; upgrade and retest before production-hardening |
-| Markdown documentation | ✅ Synchronized 2026-08-27 — penalty goals, duplicate jersey numbers, admin half derivation, immediate events, and Socket.IO fallback documented |
+| Markdown documentation | ✅ Synchronized 2026-09-09 — Ghost/Test match mode, Match clock fixes, 2nd Half reset, Dynamic video playback latency sync, and SRT local ingest guidance documented |
 | Camera follow, stream-clock event sync, organiser match clock | ✅ Implemented 2026-09-04 |
 | Automatic two-minute Google Drive clipping | 🟡 Shared organizer destination implemented — OAuth completion and live upload verification remain |
 | Organizer live event editing and app-wide loading indicators | ✅ Implemented 2026-09-04 |
+| Ghost / Test Match Mode & Dynamic Video Latency Sync | ✅ Implemented 2026-09-09 |
 
 Legend: ✅ done · 🔄 in progress · ⬜ not started · 🚫 blocked · ⚠️ attention needed
 
@@ -305,3 +306,10 @@ The UI primitives (`Badge`, `Button`, `Card`, `Navbar`, etc.) were custom-built 
   - Fixed `prisma/seed.js` to use pg adapter (same pattern as singleton).
   - `prisma db seed` → all sample data loaded ✅
   - **Backend fully running locally** — `npm run dev` on :4000, no errors.
+
+- **2026-09-09** — Ghost Match Mode, Match Clock Fixes, & Dynamic Video Latency Sync.
+  - **Ghost / Test Match Mode**: Added `isTest Boolean @default(false) @map("is_test")` to `Match` schema (`prisma db push` applied). Admins creating fixtures can toggle "Run as Test Match (Ghost Match)". Test matches are excluded from public listings/standings, visible in organiser view only to admins with warning badges, and viewable by test viewers via direct link (`?test=true`).
+  - **Match Clock Fixes & 2nd Half Reset**: Fixed kickoff jumping to 30:00 by separating initial kickoff from second-half start logic. Added explicit server-authoritative socket events (`clock:start`, `clock:pause`, `clock:start_second_half`). "Start 2nd Half" explicitly sets elapsed time to 1800s (30:00).
+  - **Dynamic Video Playback Latency Sync**: `HlsPlayer.tsx` calculates real-time video playback latency (`liveEdge - currentTime`) and dispatches `streamTime = Date.now() - (latency * 1000)`. `useMatchState` and `useSynchronizedFootballEvents` sync score overlays and event timelines directly with actual stream playback timestamp without artificial 15s delays or reliance on stream SEI metadata.
+  - **SRT Ingest Guidance**: Documented local SRT configuration for mobile apps (Larix / Lols IRL): Host `127.0.0.1` (or local PC IP), Port `10080`, Stream ID `live/camera1`.
+
