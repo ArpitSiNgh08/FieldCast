@@ -34,7 +34,7 @@ export function useMatchState(
 
   const receiveState = useCallback((next: MatchState) => {
     const updatedAt = next.updatedAt ? Date.parse(next.updatedAt) : NaN;
-    const cutoff = streamTime.current ?? Date.now() - SCORE_SYNC_DELAY_MS;
+    const cutoff = streamTime.current ?? Date.now();
     if (!Number.isFinite(updatedAt) || updatedAt <= cutoff) {
       setState(next);
       return;
@@ -81,7 +81,7 @@ export function useMatchState(
 
   useEffect(() => {
     const timer = window.setInterval(() => {
-      const cutoff = streamTime.current ?? Date.now() - SCORE_SYNC_DELAY_MS;
+      const cutoff = streamTime.current ?? Date.now();
       const ready = pendingStates.current.filter((candidate) => {
         const updatedAt = candidate.updatedAt ? Date.parse(candidate.updatedAt) : NaN;
         return Number.isFinite(updatedAt) && updatedAt <= cutoff;
@@ -89,7 +89,7 @@ export function useMatchState(
       if (!ready.length) return;
       pendingStates.current = pendingStates.current.filter((candidate) => !ready.includes(candidate));
       setState(ready[ready.length - 1]);
-    }, 500);
+    }, 250);
     return () => window.clearInterval(timer);
   }, []);
 

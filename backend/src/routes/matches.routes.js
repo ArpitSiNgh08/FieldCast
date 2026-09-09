@@ -1,7 +1,7 @@
 'use strict';
 
 const express = require('express');
-const { requireAuth } = require('../middleware/auth');
+const { requireAuth, attachUser } = require('../middleware/auth');
 const { asyncHandler } = require('../middleware/errorHandler');
 const ctrl = require('../controllers/matches.controller');
 const scorecard = require('../controllers/scorecard.controller');
@@ -10,7 +10,7 @@ const clips = require('../controllers/clips.controller');
 
 const router = express.Router();
 
-router.get('/', asyncHandler(ctrl.list));
+router.get('/', attachUser, asyncHandler(ctrl.list));
 router.get('/:id', asyncHandler(ctrl.get));
 router.get('/:id/scorecard', asyncHandler(scorecard.get));
 router.get('/:id/clips', requireAuth, asyncHandler(clips.list));

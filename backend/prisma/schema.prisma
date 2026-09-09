@@ -201,6 +201,7 @@ model Match {
   replayUrl          String?   @map("replay_url")
   venue              String?
   broadcastChecklist Json      @default("{}") @map("broadcast_checklist")
+  isTest             Boolean   @default(false) @map("is_test")
   createdAt          DateTime  @default(now()) @map("created_at")
 
   tournament         Tournament?         @relation(fields: [tournamentId], references: [id])

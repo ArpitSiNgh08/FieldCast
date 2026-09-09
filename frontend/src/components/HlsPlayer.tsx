@@ -132,17 +132,22 @@ export function HlsPlayer({ match, liveUrl, fallbackLiveUrl }: Props) {
     }
   }, [cameraRevision, fallbackLiveUrl, liveUrl, match.cameraFallbackUrl]);
 
-  // Publish the wall-clock represented by the current HLS fragment. The
-  // score hook uses it to reveal events when their timestamp reaches video.
+  // Publish the current video playback position (Date.now() - video latency).
+  // This allows the score overlay and timeline to sync with video playback
+  // without spoiling events before they appear on screen.
   useEffect(() => {
     const timer = window.setInterval(() => {
       const video = videoRef.current;
-      const hls = hlsRef.current;
-      const details = hls?.levels[hls.currentLevel]?.details;
-      const fragment = details?.fragments.find((candidate) => video && video.currentTime >= candidate.start && video.currentTime <= candidate.start + candidate.duration);
-      if (!fragment?.programDateTime || !video) return;
-      window.dispatchEvent(new CustomEvent("fieldcast:stream-time", { detail: { matchId: match.id, streamTime: fragment.programDateTime + (video.currentTime - fragment.start) * 1000 } }));
-    }, 500);
+      if (!video || !video.seekable.length || !Number.isFinite(video.currentTime)) return;
+      const liveEdge = video.seekable.end(video.seekable.length - 1);
+      const latencySeconds = Math.max(0, liveEdge - video.currentTime);
+      const streamTime = Date.now() - (latencySeconds * 1000);
+      window.dispatchEvent(
+        new CustomEvent("fieldcast:stream-time", {
+          detail: { matchId: match.id, streamTime },
+        })
+      );
+    }, 250);
     return () => window.clearInterval(timer);
   }, [match.id]);
 

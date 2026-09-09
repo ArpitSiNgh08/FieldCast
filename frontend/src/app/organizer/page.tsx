@@ -34,6 +34,7 @@ export default function OrganizerPage() {
   const [knockoutChoice, setKnockoutChoice] = useState("Semi-final");
   const [customKnockoutStage, setCustomKnockoutStage] = useState("");
   const [createAsWashout, setCreateAsWashout] = useState(false);
+  const [isTestMatch, setIsTestMatch] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [cropFile, setCropFile] = useState<File | null>(null);
@@ -65,11 +66,13 @@ export default function OrganizerPage() {
     }
     setLoadingMatches(true);
     try {
-      setMatches(await api.listMatches({ tournamentId: String(selectedId) }));
+      const query: Record<string, string> = { tournamentId: String(selectedId) };
+      if (user?.role === "admin") query.includeTest = "true";
+      setMatches(await api.listMatches(query));
     } finally {
       setLoadingMatches(false);
     }
-  }, [selectedId]);
+  }, [selectedId, user?.role]);
 
   useEffect(() => {
     if (!user) return;
@@ -136,12 +139,15 @@ export default function OrganizerPage() {
         stageType: effectiveStageType,
         poolId: effectiveStageType === "pool" ? Number(effectivePoolId) : undefined,
         knockoutStage: effectiveStageType === "knockout" ? (knockoutChoice === "custom" ? customKnockoutStage : knockoutChoice) : undefined,
+        isTest: user?.role === "admin" ? isTestMatch : false,
       });
       if (createAsWashout) {
         await api.setMatchResult(match.id, { resultType: "washout" });
         setCreateAsWashout(false);
+        setIsTestMatch(false);
         await loadMatches();
       } else {
+        setIsTestMatch(false);
         window.location.assign(`/organizer/matches/${match.id}`);
       }
     } catch (reason) {
@@ -196,8 +202,14 @@ export default function OrganizerPage() {
                       <div className="space-y-3">
                         {activeMatches.map((match) => (
                           <Link href={`/organizer/matches/${match.id}`} key={match.id} className="flex items-center justify-between rounded-lg border border-border p-4 transition-colors hover:border-accent">
-                            <div><p className="font-medium">{match.teamA.name} vs {match.teamB.name}</p><p className="mt-1 text-xs text-muted">{match.poolName || match.knockoutStage || "Legacy fixture"} · {match.venue || "Venue pending"} · {match.cameras.length} camera{match.cameras.length === 1 ? "" : "s"}</p></div>
-                            <Badge tone={match.status === "live" ? "accent" : "muted"}>{match.resultType === "washout" ? "washout" : match.status}</Badge>
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <p className="font-medium">{match.teamA.name} vs {match.teamB.name}</p>
+                                {match.isTest && <Badge tone="warning" className="text-xs">TEST MATCH</Badge>}
+                              </div>
+                              <p className="mt-1 text-xs text-muted">{match.poolName || match.knockoutStage || "Legacy fixture"} · {match.venue || "Venue pending"} · {match.cameras.length} camera{match.cameras.length === 1 ? "" : "s"}</p>
+                            </div>
+                            <Badge tone={match.isTest ? "warning" : match.status === "live" ? "accent" : "muted"}>{match.isTest ? "ghost match" : match.resultType === "washout" ? "washout" : match.status}</Badge>
                           </Link>
                         ))}
                         {!activeMatches.length && <p className="py-8 text-center text-sm text-muted">No upcoming or live matches. Completed-match results are managed by the admin.</p>}
@@ -219,7 +231,7 @@ export default function OrganizerPage() {
                           <Select value={startMatchId} onChange={(e) => setStartMatchId(e.target.value)} required>
                             <option value="">Choose match</option>
                             {activeMatches.filter(m => m.status === "upcoming").map(m => (
-                              <option key={m.id} value={m.id}>{m.teamA.name} vs {m.teamB.name}</option>
+                              <option key={m.id} value={m.id}>{m.teamA.name} vs {m.teamB.name}{m.isTest ? " (TEST)" : ""}</option>
                             ))}
                           </Select>
                         </Field>
@@ -246,6 +258,15 @@ export default function OrganizerPage() {
                           </Select>
                         </Field>
                         {venueChoice === "custom" && <Field label="Custom venue"><Input value={venue} onChange={(event) => setVenue(event.target.value)} required placeholder="Enter venue name" /></Field>}
+                        {user?.role === "admin" && (
+                          <label className="flex items-start gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 sm:col-span-2">
+                            <input type="checkbox" checked={isTestMatch} onChange={(event) => setIsTestMatch(event.target.checked)} className="mt-1 h-4 w-4 accent-amber-500" />
+                            <span>
+                              <span className="block text-sm font-semibold text-amber-400">Run as Test Match (Ghost Match)</span>
+                              <span className="block text-xs text-amber-200/80">Creates a hidden test fixture visible only to admins in this listing. Viewers can only join via direct stream link.</span>
+                            </span>
+                          </label>
+                        )}
                         <label className="flex items-start gap-3 rounded-lg border border-border p-3 sm:col-span-2"><input type="checkbox" checked={createAsWashout} onChange={(event) => setCreateAsWashout(event.target.checked)} className="mt-1 h-4 w-4 accent-accent" /><span><span className="block text-sm font-medium">Declare this fixture a washout</span><span className="block text-xs text-muted">Creates the fixture as completed without affecting played, wins, draws, losses, or points.</span></span></label>
                         <Button type="submit" disabled={busy} className="sm:col-span-2">{createAsWashout ? "Create and declare washout" : "Create match & prepare stream"}</Button>
                       </form>

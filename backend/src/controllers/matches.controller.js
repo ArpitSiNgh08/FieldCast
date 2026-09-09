@@ -59,11 +59,13 @@ function withStreamUrl(match) {
 }
 
 async function list(req, res) {
-  const { sport, status, tournamentId } = req.query;
+  const { sport, status, tournamentId, includeTest } = req.query;
+  const isAdmin = req.user?.role === 'admin';
   const matches = await Matches.list({
     sport,
     status,
     tournamentId: tournamentId ? Number(tournamentId) : undefined,
+    includeTest: isAdmin && includeTest === 'true',
   });
   res.json(matches.map(withStreamUrl));
 }
@@ -75,8 +77,11 @@ async function get(req, res) {
 }
 
 async function create(req, res) {
-  const { tournamentId, teamAId, teamBId, sport, scheduledAt, venue, stageType, poolId } = req.body;
+  const { tournamentId, teamAId, teamBId, sport, scheduledAt, venue, stageType, poolId, isTest } = req.body;
   const knockoutStage = typeof req.body.knockoutStage === 'string' ? req.body.knockoutStage.trim() : '';
+  if (isTest && req.user?.role !== 'admin') {
+    return res.status(403).json({ error: 'Only admins can create test matches' });
+  }
   if (!tournamentId || !teamAId || !teamBId || !sport) {
     return res.status(400).json({ error: 'tournamentId, teamAId, teamBId and sport are required' });
   }
@@ -94,7 +99,7 @@ async function create(req, res) {
     if (selectedTeams.some((entry) => entry.poolId !== pool.id)) return res.status(400).json({ error: 'Pool matches can only use teams assigned to the selected pool' });
   }
   if (stageType === 'knockout' && (!knockoutStage || knockoutStage.length > 50)) return res.status(400).json({ error: 'Choose or enter a knockout stage of 50 characters or fewer' });
-  const match = await Matches.create({ tournamentId, teamAId, teamBId, sport, scheduledAt, venue, stageType, poolId, knockoutStage });
+  const match = await Matches.create({ tournamentId, teamAId, teamBId, sport, scheduledAt, venue, stageType, poolId, knockoutStage, isTest: req.user?.role === 'admin' ? Boolean(isTest) : false });
   res.status(201).json(withStreamUrl(match));
 }
 

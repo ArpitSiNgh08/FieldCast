@@ -50,6 +50,7 @@ export interface Match {
   broadcastChecklist: Record<string, boolean>;
   cameras: MatchCamera[];
   viewCount: number;
+  isTest?: boolean;
   liveUrl?: string;
   cameraFallbackUrl?: string | null;
   teamA: Team;

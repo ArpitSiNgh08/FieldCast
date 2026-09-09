@@ -5,63 +5,92 @@ import { useSocket } from "./useSocket";
 import { api } from "@/lib/api";
 import type { FootballEvent } from "@/lib/types";
 
-const FALLBACK_DELAY_MS = 15_000;
-
 export function useSynchronizedFootballEvents(matchId: number, initialEvents: FootballEvent[]) {
   const { socket, connected } = useSocket();
   const [events, setEvents] = useState<FootballEvent[]>([]);
-  const pending = useRef<FootballEvent[]>([]);
-  const visibleIds = useRef(new Set(initialEvents.map((event) => event.id)));
-  const streamTime = useRef<number | null>(null);
+  const pendingEvents = useRef<FootballEvent[]>([]);
+  const streamTimeRef = useRef<number | null>(null);
 
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      const cutoff = Date.now() - FALLBACK_DELAY_MS;
-      const ready = initialEvents.filter((event) => !event.created_at || Date.parse(event.created_at) <= cutoff);
-      const waiting = initialEvents.filter((event) => event.created_at && Date.parse(event.created_at) > cutoff);
-      setEvents(ready);
-      ready.forEach((event) => visibleIds.current.add(event.id));
-      pending.current = waiting;
-    }, 0);
-    return () => window.clearTimeout(timer);
-  }, [initialEvents]);
+  const releaseEvents = (cutoffTime: number) => {
+    const ready = pendingEvents.current.filter((ev) => {
+      const ts = ev.created_at ? Date.parse(ev.created_at) : NaN;
+      return !Number.isFinite(ts) || ts <= cutoffTime;
+    });
+    if (ready.length) {
+      pendingEvents.current = pendingEvents.current.filter((ev) => !ready.includes(ev));
+      setEvents((current) => {
+        const existingIds = new Set(current.map((e) => e.id));
+        const newToAdd = ready.filter((e) => !existingIds.has(e.id));
+        return [...current, ...newToAdd];
+      });
+    }
+  };
 
-  useEffect(() => {
-    const receive = async () => {
+  const syncScorecard = async () => {
+    try {
       const scorecard = await api.getScorecard(matchId);
-      const next = scorecard.footballEvents || [];
-      const nextIds = new Set(next.map((event) => event.id));
-      setEvents((current) => current.filter((event) => nextIds.has(event.id)).map((event) => next.find((candidate) => candidate.id === event.id) || event));
-      const additions = next.filter((event) => !visibleIds.current.has(event.id) && !pending.current.some((candidate) => candidate.id === event.id));
-      const cutoff = streamTime.current ?? Date.now() - FALLBACK_DELAY_MS;
-      const ready = additions.filter((event) => !event.created_at || Date.parse(event.created_at) <= cutoff);
-      const waiting = additions.filter((event) => event.created_at && Date.parse(event.created_at) > cutoff);
-      if (ready.length) { setEvents((current) => [...current, ...ready]); ready.forEach((event) => visibleIds.current.add(event.id)); }
-      pending.current = [...pending.current, ...waiting];
+      if (scorecard.footballEvents) {
+        const fetched = scorecard.footballEvents;
+        const currentCutoff = streamTimeRef.current ?? Date.now();
+        const ready: FootballEvent[] = [];
+        const pending: FootballEvent[] = [];
+        for (const ev of fetched) {
+          const ts = ev.created_at ? Date.parse(ev.created_at) : NaN;
+          if (!Number.isFinite(ts) || ts <= currentCutoff) {
+            ready.push(ev);
+          } else {
+            pending.push(ev);
+          }
+        }
+        setEvents(ready);
+        pendingEvents.current = pending;
+      }
+    } catch (err) {
+      console.error("Failed to sync match timeline events:", err);
+    }
+  };
+
+  useEffect(() => {
+    void syncScorecard();
+  }, [initialEvents, matchId]);
+
+  useEffect(() => {
+    const onScoreUpdated = (payload: { matchId: number }) => {
+      if (payload.matchId === matchId) {
+        void syncScorecard();
+      }
     };
-    const onScore = (payload: { matchId: number }) => { if (payload.matchId === matchId) void receive().catch(() => {}); };
-    socket.on("score:updated", onScore);
-    if (connected) socket.emit("match:join", { matchId });
-    return () => { socket.off("score:updated", onScore); socket.emit("match:leave", { matchId }); };
+
+    socket.on("score:updated", onScoreUpdated);
+    if (connected) {
+      socket.emit("match:join", { matchId });
+    }
+
+    return () => {
+      socket.off("score:updated", onScoreUpdated);
+      socket.emit("match:leave", { matchId });
+    };
   }, [connected, matchId, socket]);
 
   useEffect(() => {
-    const release = (cutoff: number) => {
-      streamTime.current = cutoff;
-      const ready = pending.current.filter((event) => !event.created_at || Date.parse(event.created_at) <= cutoff);
-      if (!ready.length) return;
-      pending.current = pending.current.filter((event) => !ready.includes(event));
-      setEvents((current) => [...current, ...ready]);
-      ready.forEach((event) => visibleIds.current.add(event.id));
-    };
     const onStreamTime = (event: Event) => {
       const detail = (event as CustomEvent<{ matchId: number; streamTime: number }>).detail;
-      if (detail.matchId === matchId) release(detail.streamTime);
+      if (detail.matchId !== matchId) return;
+      streamTimeRef.current = detail.streamTime;
+      releaseEvents(detail.streamTime);
     };
+
     window.addEventListener("fieldcast:stream-time", onStreamTime);
-    const timer = window.setInterval(() => release(streamTime.current ?? Date.now() - FALLBACK_DELAY_MS), 500);
-    return () => { window.removeEventListener("fieldcast:stream-time", onStreamTime); window.clearInterval(timer); };
+    return () => window.removeEventListener("fieldcast:stream-time", onStreamTime);
   }, [matchId]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      const cutoff = streamTimeRef.current ?? Date.now();
+      releaseEvents(cutoff);
+    }, 250);
+    return () => window.clearInterval(timer);
+  }, []);
 
   return events;
 }

@@ -65,6 +65,7 @@ function shapeMatch(m) {
     broadcastChecklist: m.broadcastChecklist ?? {},
     cameras: m.cameras ?? [],
     viewCount: m._count?.views ?? 0,
+    isTest: m.isTest ?? false,
     // HLS URL derived from the active camera if streamUrl not overridden
     liveUrl: m.streamUrl ?? null,
     teamA: shapeTeam(m.teamA),
@@ -86,13 +87,16 @@ const MATCH_INCLUDE = {
 
 // ─── queries ─────────────────────────────────────────────────────────────────
 
-async function list({ sport, status, tournamentId } = {}) {
+async function list({ sport, status, tournamentId, includeTest } = {}) {
   const where = {};
   if (sport) where.sport = sport;
   if (status) where.status = status;
   if (tournamentId) where.tournamentId = Number(tournamentId);
   // Lists contain all matches from approved tournaments.
   where.tournament = { approvalStatus: 'approved' };
+  if (!includeTest) {
+    where.isTest = false;
+  }
 
   const rows = await prisma.match.findMany({
     where,
@@ -115,7 +119,7 @@ async function findById(id) {
   return m ? shapeMatch(m) : null;
 }
 
-async function create({ tournamentId, teamAId, teamBId, sport, scheduledAt, venue, stageType, poolId, knockoutStage }) {
+async function create({ tournamentId, teamAId, teamBId, sport, scheduledAt, venue, stageType, poolId, knockoutStage, isTest }) {
   const m = await prisma.match.create({
     data: {
       tournamentId: tournamentId ? Number(tournamentId) : null,
@@ -127,6 +131,7 @@ async function create({ tournamentId, teamAId, teamBId, sport, scheduledAt, venu
       sport,
       scheduledAt: scheduledAt ? new Date(scheduledAt) : null,
       venue: venue?.trim() || null,
+      isTest: Boolean(isTest),
     },
     include: MATCH_INCLUDE,
   });

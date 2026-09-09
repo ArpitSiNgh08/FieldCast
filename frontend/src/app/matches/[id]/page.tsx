@@ -53,6 +53,15 @@ export default async function MatchPage({ params }: Props) {
   return (
     <div className="mx-auto max-w-5xl px-4 py-8">
         <ScorecardLiveRefresh matchId={match.id} />
+        {match.isTest && (
+          <div className="mb-4 flex items-center justify-between rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-amber-300">
+            <div className="flex items-center gap-2 text-sm font-medium">
+              <span>🧪</span>
+              <span>Test Match (Ghost Mode) — Accessible via direct link only</span>
+            </div>
+            <Badge tone="warning">Test Match</Badge>
+          </div>
+        )}
         {/* Header */}
         <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
           <div>

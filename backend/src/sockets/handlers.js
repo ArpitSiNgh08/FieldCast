@@ -282,14 +282,17 @@ function register(io, socket) {
     try {
       await assertManager(socket, matchId);
       const current = await matchState.findByMatch(matchId);
-      if (current?.extra?.clockRunning && current?.extra?.clockStartedAt) throw new Error('The match clock has already started');
+      if (current?.extra?.clockRunning && current?.extra?.clockStartedAt) {
+        throw new Error('The match clock is already running');
+      }
       const now = new Date().toISOString();
-      const isSecondHalf = current?.periodLabel === 'Halftime' || current?.status === 'break' || current?.period === 2;
-      const initialElapsed = isSecondHalf ? Math.max(1800, Number(current?.extra?.clockElapsedSeconds || 1800)) : 0;
+      const period = current?.period || 1;
+      const initialElapsed = Number(current?.extra?.clockElapsedSeconds || 0);
+
       const state = await matchState.update(matchId, {
         status: 'live',
-        period: isSecondHalf ? 2 : 1,
-        periodLabel: isSecondHalf ? "30'" : "0'",
+        period,
+        periodLabel: current?.periodLabel || (period === 2 ? "30'" : "0'"),
         extra: {
           ...(current?.extra || {}),
           clockStartedAt: now,
@@ -300,7 +303,60 @@ function register(io, socket) {
       });
       io.to(room(matchId)).emit('score:updated', { matchId, state });
       if (typeof ack === 'function') ack({ ok: true, state });
-    } catch (err) { if (typeof ack === 'function') ack({ ok: false, error: err.message }); }
+    } catch (err) {
+      if (typeof ack === 'function') ack({ ok: false, error: err.message });
+    }
+  });
+
+  socket.on('clock:start_second_half', async ({ matchId }, ack) => {
+    try {
+      await assertManager(socket, matchId);
+      const current = await matchState.findByMatch(matchId);
+      const now = new Date().toISOString();
+      const currentElapsed = footballClock.elapsedSeconds(current);
+      const initialElapsed = Math.max(1800, Number(currentElapsed || 1800));
+
+      const state = await matchState.update(matchId, {
+        status: 'live',
+        period: 2,
+        periodLabel: "30'",
+        extra: {
+          ...(current?.extra || {}),
+          clockStartedAt: now,
+          clockElapsedSeconds: initialElapsed,
+          clockRunning: true,
+          clockFullTime: false,
+        },
+      });
+      io.to(room(matchId)).emit('score:updated', { matchId, state });
+      if (typeof ack === 'function') ack({ ok: true, state });
+    } catch (err) {
+      if (typeof ack === 'function') ack({ ok: false, error: err.message });
+    }
+  });
+
+  socket.on('clock:pause', async ({ matchId }, ack) => {
+    try {
+      await assertManager(socket, matchId);
+      const current = await matchState.findByMatch(matchId);
+      if (!current?.extra?.clockRunning) {
+        throw new Error('The clock is already stopped');
+      }
+      const elapsed = footballClock.elapsedSeconds(current);
+      const state = await matchState.update(matchId, {
+        status: 'break',
+        extra: {
+          ...(current?.extra || {}),
+          clockRunning: false,
+          clockStartedAt: null,
+          clockElapsedSeconds: elapsed,
+        },
+      });
+      io.to(room(matchId)).emit('score:updated', { matchId, state });
+      if (typeof ack === 'function') ack({ ok: true, state });
+    } catch (err) {
+      if (typeof ack === 'function') ack({ ok: false, error: err.message });
+    }
   });
 
   // Organiser switches the active camera → ffmpeg re-pipe → broadcast.

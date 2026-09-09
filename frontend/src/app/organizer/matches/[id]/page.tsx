@@ -148,9 +148,32 @@ export default function FootballMatchControl() {
   function startClock() {
     if (!match) return;
     setBusy(true);
+    setError("");
     socket.emit("clock:start", { matchId: match.id }, (ack: { ok: boolean; error?: string; state?: Match["state"] }) => {
       setBusy(false);
       if (!ack.ok) setError(ack.error || "Could not start clock");
+      else if (ack.state) setMatch((current) => current ? { ...current, state: ack.state! } : current);
+    });
+  }
+
+  function startSecondHalf() {
+    if (!match) return;
+    setBusy(true);
+    setError("");
+    socket.emit("clock:start_second_half", { matchId: match.id }, (ack: { ok: boolean; error?: string; state?: Match["state"] }) => {
+      setBusy(false);
+      if (!ack.ok) setError(ack.error || "Could not start 2nd half");
+      else if (ack.state) setMatch((current) => current ? { ...current, state: ack.state! } : current);
+    });
+  }
+
+  function pauseClock() {
+    if (!match) return;
+    setBusy(true);
+    setError("");
+    socket.emit("clock:pause", { matchId: match.id }, (ack: { ok: boolean; error?: string; state?: Match["state"] }) => {
+      setBusy(false);
+      if (!ack.ok) setError(ack.error || "Could not pause clock");
       else if (ack.state) setMatch((current) => current ? { ...current, state: ack.state! } : current);
     });
   }
@@ -483,6 +506,27 @@ export default function FootballMatchControl() {
           </Link>
         )}
       </div>
+      {match.isTest && (
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-amber-200">
+          <div>
+            <p className="font-semibold text-amber-300">🧪 Ghost Test Match</p>
+            <p className="text-xs text-amber-200/80">This match is hidden from public listings and viewers. Anyone with the direct stream link can watch.</p>
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            className="border-amber-500/40 text-amber-300 hover:bg-amber-500/20"
+            onClick={() => {
+              const directUrl = `${window.location.origin}/matches/${match.id}`;
+              navigator.clipboard.writeText(directUrl);
+              setSuccess("Direct watch link copied to clipboard!");
+              setTimeout(() => setSuccess(""), 3000);
+            }}
+          >
+            Copy direct watch link 🔗
+          </Button>
+        </div>
+      )}
       {error && (
         <p className="mt-5 rounded-lg bg-red-50 p-3 text-sm text-red-700">
           {error}
@@ -662,7 +706,65 @@ export default function FootballMatchControl() {
               </span>
             </summary>
             <div className="border-t border-border">
-              {match.status === "live" && <Card className="rounded-none border-0 border-b border-border bg-accent/5 shadow-none"><CardBody className="flex flex-wrap items-center justify-between gap-4 p-4"><div><p className="text-xs font-semibold uppercase tracking-widest text-accent">Match clock</p><p className="mt-1 font-mono text-4xl font-bold tabular-nums">{formatClock(elapsedSeconds((match.state.extra || {}) as FootballClockState, clockNow))}</p><p className="text-xs text-muted">{match.state.extra?.clockStartedAt ? "Running · organiser only" : "Start the clock when the referee kicks off"}</p></div><div className="flex flex-wrap gap-2">{!match.state.extra?.clockStartedAt && <Button loading={busy} onClick={startClock} disabled={busy || !connected}>Kick off</Button>}<Button variant="outline" loading={clipBusy} onClick={saveLastTwoMinutes} disabled={clipBusy || !connected}>Save last 3 minutes</Button></div></CardBody>{clipMessage && <p className="border-t border-border px-4 py-2 text-sm text-muted">{clipMessage}</p>}{clips.slice(0, 3).map((clip) => <div key={clip.id} className="flex items-center justify-between border-t border-border px-4 py-2 text-sm"><span>Clip · {clip.status}</span>{clip.driveUrl && <a className="text-accent underline" href={clip.driveUrl} target="_blank" rel="noreferrer">Open in Drive</a>}{clip.error && <span className="text-red-700">{clip.error}</span>}</div>)}</Card>}
+              {match.status === "live" && (
+                <Card className="rounded-none border-0 border-b border-border bg-accent/5 shadow-none">
+                  <CardBody className="flex flex-wrap items-center justify-between gap-4 p-4">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <p className="text-xs font-semibold uppercase tracking-widest text-accent">Match clock</p>
+                        <Badge tone={match.state.extra?.clockRunning ? "live" : "muted"} className="text-[10px]">
+                          {match.state.extra?.clockRunning
+                            ? `${match.state.period === 2 ? "2nd Half" : "1st Half"} Running`
+                            : match.state.periodLabel === "Halftime"
+                            ? "Halftime"
+                            : "Clock Paused"}
+                        </Badge>
+                      </div>
+                      <p className="mt-1 font-mono text-4xl font-bold tabular-nums">
+                        {formatClock(elapsedSeconds((match.state.extra || {}) as FootballClockState, clockNow))}
+                      </p>
+                      <p className="text-xs text-muted">
+                        {match.state.extra?.clockRunning ? "Clock is running" : "Use controls to start, pause, or switch half"}
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {match.state.extra?.clockRunning ? (
+                        <Button variant="outline" loading={busy} onClick={pauseClock} disabled={busy || !connected}>
+                          Pause Clock ⏸️
+                        </Button>
+                      ) : (
+                        <Button loading={busy} onClick={startClock} disabled={busy || !connected}>
+                          {match.state.extra?.clockElapsedSeconds ? "Start / Resume Clock ▶️" : "Start 1st Half Kickoff ▶️"}
+                        </Button>
+                      )}
+                      {match.state.period === 1 && (
+                        <Button variant="outline" loading={busy} onClick={markHalftime} disabled={busy || !connected}>
+                          Mark Halftime
+                        </Button>
+                      )}
+                      <Button
+                        variant={match.state.period === 2 ? "primary" : "outline"}
+                        loading={busy}
+                        onClick={startSecondHalf}
+                        disabled={busy || !connected}
+                      >
+                        Start 2nd Half (30:00) ⚽
+                      </Button>
+                      <Button variant="outline" loading={clipBusy} onClick={saveLastTwoMinutes} disabled={clipBusy || !connected}>
+                        Save last 3 minutes
+                      </Button>
+                    </div>
+                  </CardBody>
+                  {clipMessage && <p className="border-t border-border px-4 py-2 text-sm text-muted">{clipMessage}</p>}
+                  {clips.slice(0, 3).map((clip) => (
+                    <div key={clip.id} className="flex items-center justify-between border-t border-border px-4 py-2 text-sm">
+                      <span>Clip · {clip.status}</span>
+                      {clip.driveUrl && <a className="text-accent underline" href={clip.driveUrl} target="_blank" rel="noreferrer">Open in Drive</a>}
+                      {clip.error && <span className="text-red-700">{clip.error}</span>}
+                    </div>
+                  ))}
+                </Card>
+              )}
               <Card className="rounded-none border-0 border-b border-border bg-transparent shadow-none">
                 <CardHeader className="p-4">
                   <CardTitle>Update football scorecard</CardTitle>

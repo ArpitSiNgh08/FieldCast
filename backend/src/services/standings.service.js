@@ -28,6 +28,7 @@ async function recomputeForTournament(tournamentId) {
       tournamentId: id,
       status: 'completed',
       resultType: 'played',
+      isTest: false,
       // Legacy fixtures had no stage. New knockout fixtures must not change pool standings.
       OR: [{ stageType: null }, { stageType: 'pool' }],
     },
