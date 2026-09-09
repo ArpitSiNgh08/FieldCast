@@ -35,7 +35,8 @@ async function create(req, res) {
   const destination = await prisma.tournamentClipDestination.findUnique({ where: { tournamentId: match.tournamentId } });
   if (!destination?.folderId) return res.status(409).json({ error: 'An organizer must link Google Drive and choose a shared clips folder first' });
   const formatted = withStreamUrl(match);
-  const job = await clipService.queue(match.id, req.user.sub, match.tournamentId, formatted.liveUrl);
+  const streamUrl = formatted.originLiveUrl || formatted.liveUrl;
+  const job = await clipService.queue(match.id, req.user.sub, match.tournamentId, streamUrl);
   res.status(202).json(job);
 }
 
@@ -44,11 +45,12 @@ async function getStatus(req, res) {
   const match = await Matches.findById(req.params.id);
   if (!match) return res.status(404).json({ error: 'Match not found' });
   const formatted = withStreamUrl(match);
-  if (match.status === 'live' && formatted.liveUrl) {
+  const streamUrl = formatted.originLiveUrl || formatted.liveUrl;
+  if (match.status === 'live' && streamUrl) {
     const existing = clipService.getRecorder(match.id);
     const has404 = Boolean(existing?.lastError && /404|Not Found|Server returned 4/i.test(existing.lastError));
     if ((!existing || existing.stopped || !existing.proc) && !has404) {
-      await clipService.start(match.id, formatted.liveUrl);
+      await clipService.start(match.id, streamUrl);
     }
   }
   const status = await clipService.getStatus(req.params.id);
@@ -61,7 +63,8 @@ async function wakeService(req, res) {
   if (!match) return res.status(404).json({ error: 'Match not found' });
   if (match.status !== 'live') return res.status(409).json({ error: 'Clips can only be requested during a live match' });
   const formatted = withStreamUrl(match);
-  const status = await clipService.wake(match.id, formatted.liveUrl);
+  const streamUrl = formatted.originLiveUrl || formatted.liveUrl;
+  const status = await clipService.wake(match.id, streamUrl);
   res.json(status);
 }
 

@@ -29,7 +29,7 @@ Living status tracker for FieldCast. Update this file whenever meaningful work h
 | UI theme (DESIGN.md compliance) | ✅ Fixed — light theme, Geist + Inter fonts |
 | Homepage (fixtures list) | ✅ Done |
 | Public tournament hub `/tournaments/[id]` | ✅ Done — teams, live/upcoming/past matches, and standings |
-| Live match viewer `/matches/[id]` | ✅ Done — HLS.js + Socket.io ScoreOverlay |
+| Live match viewer `/matches/[id]` | ✅ Done — HLS.js auto-resuming stream + instant camera cut buffer flush + Socket.io ScoreOverlay |
 | Scorecard page `/scorecard/[id]` | ✅ Done |
 | Standings page `/standings` | ✅ Done |
 | Admin panel `/admin` | ✅ Historical completed-match/event corrections and persistent standings overrides; no live controls |
@@ -50,9 +50,9 @@ Living status tracker for FieldCast. Update this file whenever meaningful work h
 | Vercel frontend | ✅ Deployed with HTTPS API/Socket/HLS URLs through DuckDNS + Nginx |
 | Production end-to-end stream | 🔄 Backend, TLS, and frontend are deployed; complete a real external phone ingest/playback test |
 | Production dependency audit | ⚠️ 2026-08-26 audit reports high findings in Next.js, Socket.IO parser, and Prisma tooling trees; upgrade and retest before production-hardening |
-| Markdown documentation | ✅ Synchronized 2026-09-10 — Clipping auto-retry/status/wake up, API cache middleware, and Neon DB migration script documented |
+| Markdown documentation | ✅ Synchronized 2026-09-10 — Clipping auto-retry/resumable 1MB upload %, 404/stale detection, silent API polling, and HLS auto-resume/camera buffer flush documented |
 | Camera follow, stream-clock event sync, organiser match clock | ✅ Implemented 2026-09-04 |
-| Automatic two-minute Google Drive clipping | ✅ Fully upgraded — Auto-retry FFmpeg reconnection, live clip-status API (`GET /clip-status`), manual `POST /clip-status/wake` button, and organizer buffer indicator |
+| Automatic two-minute Google Drive clipping | ✅ Fully upgraded — Resumable 1MB chunked upload percentage progress (`uploading 45%`), 404 stream disconnect detection, auto-purge stale segments, silent background polling, and organizer wake/restart control |
 | Organizer live event editing and app-wide loading indicators | ✅ Implemented 2026-09-04 |
 | Ghost / Test Match Mode & Dynamic Video Latency Sync | ✅ Implemented 2026-09-09 |
 

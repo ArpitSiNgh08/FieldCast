@@ -27,9 +27,11 @@ Let an organiser press **Save last 2 minutes** during a live match and receive a
 ## Current status (2026-09-10)
 
 Phase 1, Phase 2, and Phase 3 organizer UI/resilience foundations are fully implemented:
-- **Resilient Rolling Capture**: FFmpeg rolling recorder includes HTTP reconnect flags (`-reconnect 1 -reconnect_at_eof 1 -reconnect_streamed 1 -reconnect_delay_max 5`) and an automated 3-second retry loop to auto-heal from initial SRS HLS segment generation delays or transient stream drops.
-- **On-Demand Auto-Start**: If the recorder process isn't running when a clip is requested during a live match, it auto-spawns on-demand.
-- **Clipping Status & Manual Control**: Added `GET /api/matches/:id/clip-status` and `POST /api/matches/:id/clip-status/wake` endpoints. The organizer match control room renders a real-time status badge (🟢 UP, 🟡 BUFFERING, 🔴 DOWN), live buffer duration (`2m 18s buffered`), and an explicit **"⚡ Wake Up Clipping Service (Start FFmpeg)"** button for manual intervention.
+- **Resilient Rolling Capture**: FFmpeg rolling recorder uses `-live_start_index -3` and reconnect flags with background retry loops to auto-heal from initial SRS HLS segment generation delays or transient stream drops.
+- **On-Demand Auto-Start & Stale File Cleanup**: Recorder auto-spawns when clips are requested or status is checked for live matches. Old segment files are automatically purged on `wake()` and files older than 3 minutes are cleaned up to prevent false stalling alerts.
+- **404 Disconnect & Staleness Detection**: Detects camera disconnects (`HTTP 404 Not Found`) and stalled streams (`>25s` without new video frames), accurately transitioning status to `🔴 DOWN`.
+- **Resumable 1MB Upload Progress**: Google Drive uploads use the Resumable Upload protocol (`uploadType=resumable`) with 1MB chunking and live percentage progress callbacks (`uploading 15%`, `uploading 45%`, `uploading 75%`, `completed`).
+- **Clipping Status & Manual Control**: Added `GET /api/matches/:id/clip-status` and `POST /api/matches/:id/clip-status/wake` endpoints. The organizer match control room renders a real-time status badge (🟢 UP, 🟡 BUFFERING, 🔴 DOWN), live buffer duration, diagnostic logs box, percentage upload badges, and an explicit **"⚡ Wake / Restart Recorder"** button.
 - **Drive Destination**: Shared Google Drive OAuth linking (`0016_google_drive_oauth` / `0017_tournament_clip_destination`) stores encrypted refresh tokens so all organizers of a tournament can save highlight clips to a single destination folder.
 
 Google Cloud needs two distinct redirect URIs: `/api/auth/google/callback` for normal FieldCast sign-in and `/api/integrations/google-drive/callback` for Drive linking. Do not point `GOOGLE_CALLBACK_URL` at the Drive callback.

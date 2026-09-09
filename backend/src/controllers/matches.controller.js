@@ -34,20 +34,33 @@ async function requireManager(req, res, matchId = req.params.id) {
 function withStreamUrl(match) {
   if (!match) return match;
   // Explicit override wins; otherwise derive from SRS. One active output per match.
-  const derived = `${env.stream.hlsBase}/live/active_${match.id}.m3u8`;
+  const publicHlsBase = env.stream.cdnBase || env.stream.hlsBase;
+  const originHlsBase = env.stream.hlsBase;
+
+  const derived = `${publicHlsBase}/live/active_${match.id}.m3u8`;
+  const originDerived = `${originHlsBase}/live/active_${match.id}.m3u8`;
+
   const selectedCamera = match.cameras?.find((camera) => camera.streamKey === match.activeCamera);
   const cameraFallbackUrl = selectedCamera
-    ? `${env.stream.hlsBase}/live/${selectedCamera.streamKey}.m3u8`
+    ? `${publicHlsBase}/live/${selectedCamera.streamKey}.m3u8`
     : null;
+  const originCameraFallbackUrl = selectedCamera
+    ? `${originHlsBase}/live/${selectedCamera.streamKey}.m3u8`
+    : null;
+
+  const liveUrl = match.streamUrl || (match.cameras?.length === 1 ? cameraFallbackUrl : derived);
+  const originLiveUrl = match.streamUrl || (match.cameras?.length === 1 ? originCameraFallbackUrl : originDerived);
+
   return {
     ...match,
-    // A single-camera local broadcast does not need ffmpeg re-publishing.
-    // Multi-camera matches keep the stable active_<id> URL for seamless cuts.
-    liveUrl: match.streamUrl || (match.cameras?.length === 1 ? cameraFallbackUrl : derived),
+    // Public HLS URL (served via Cloudflare CDN when configured)
+    liveUrl,
+    // Direct SRS origin URL (used internally by clip recorder FFmpeg)
+    originLiveUrl,
     cameraFallbackUrl,
     cameras: (match.cameras || []).map((camera) => ({
       ...camera,
-        ingestUrl: `rtmp://${env.stream.rtmpHost}:${env.stream.rtmpPort}/live/${camera.streamKey}`,
+      ingestUrl: `rtmp://${env.stream.rtmpHost}:${env.stream.rtmpPort}/live/${camera.streamKey}`,
       srtIngestUrl: `srt://${env.stream.rtmpHost}:${env.stream.srtPort}?streamid=#!::r=live/${camera.streamKey},m=publish`,
       // Moblin parses the destination as a URL, so encode the SRT stream ID's
       // leading '#' instead of letting it become a URL fragment.
@@ -114,9 +127,8 @@ async function updateStatus(req, res) {
     if (!candidate?.scheduledAt || !candidate.venue) return res.status(400).json({ error: 'Kickoff time and venue are required before going live' });
     if (!candidate.cameras.length) return res.status(400).json({ error: 'Add at least one camera before going live' });
     const selected = candidate.cameras.find((camera) => camera.streamKey === candidate.activeCamera) || candidate.cameras[0];
-    await Matches.setActiveCamera(candidate.id, selected.streamKey);
-    cameraSwitcher.switchCamera(candidate.id, selected.streamKey);
-    await clipService.start(candidate.id, withStreamUrl(candidate).liveUrl);
+    const formattedCandidate = withStreamUrl(candidate);
+    await clipService.start(candidate.id, formattedCandidate.originLiveUrl || formattedCandidate.liveUrl);
   }
   if (status === 'completed') {
     cameraSwitcher.stop(Number(req.params.id));

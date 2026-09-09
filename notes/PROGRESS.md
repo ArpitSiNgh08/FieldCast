@@ -67,9 +67,19 @@ Pointer to the living status tracker: `PROGRESS.md`
 - [[FieldCast]] — project hub
 # 2026-09-10 update
 
-- **Clipping Service Resilience, Monitoring & Manual Wake Up**: Added HTTP reconnect options (`-reconnect 1 -reconnect_at_eof 1 -reconnect_streamed 1 -reconnect_delay_max 5`) and background auto-retry loop (every 3s) for the FFmpeg rolling recorder process. Added `GET /api/matches/:id/clip-status` and `POST /api/matches/:id/clip-status/wake` endpoints. Integrated a live Clipping Service status badge (🟢 UP, 🟡 BUFFERING, 🔴 DOWN), real-time buffer progress (`2m 18s buffered`), and explicit **"⚡ Wake Up Clipping Service (Start FFmpeg)"** button in the organizer match control room.
+- **Clipping Service Resumable Uploads & 404 Disconnect Detection**:
+  - Implemented Google Drive Resumable Upload protocol (`uploadType=resumable`) with 1MB chunking and live percentage progress callbacks (`uploading 15%`, `uploading 45%`, `uploading 75%`, `completed`).
+  - Added FFmpeg stderr diagnostic logging, HTTP 404 camera offline detection, and stale file detection (`>25s` without new video frames).
+  - Added automatic purge of stale segment files on `wake()` and automatic cleanup of files older than 3 minutes in `getStatus()`.
+  - Fixed HLS demuxing options: removed `-reconnect_at_eof 1` (which caused `error=End of file` crash loops on live SRS playlists) and added `-live_start_index -3`.
+- **Silent Background API Polling & Loader Flashing Fix**:
+  - Added `silent?: boolean` flag to `apiFetch` in `frontend/src/lib/api.ts`.
+  - Marked background status polling endpoints (`getClipStatus`, `listMatchClips`, background scorecard timeline syncs) as `silent: true` so they do not trigger global `NavigationLoading` page spinner backdrop flashes.
+- **Auto-Resuming Stream & Instant Camera Switch Cut**:
+  - Updated `HlsPlayer.tsx` with background HEAD request auto-reconnect polling (every 3s) when the stream goes offline or resumes. Viewer pages on `/matches/[id]` now automatically resume video playback when the camera turns on without requiring browser reloads.
+  - Added media element detachment and time reset on `camera:switched` WebSocket events to flush pre-buffered video frames from HTML5 `<video>` memory, executing an instant, seamless camera cut.
 - **Database Bandwidth Protection**: Created Express `apiCache` middleware (`backend/src/middleware/apiCache.js`) with a 3-second in-memory response cache for read-heavy GET queries, automatically invalidated on state mutations. Eliminates 80–90% of Neon database queries and network transfer.
-- **Neon Production Database Migration Script**: Built `backend/src/scripts/migrateDb.js` to clone data across all 20 Prisma tables without requiring superuser `session_replication_role` privileges, automatically resetting auto-increment sequences (`setval`). Successfully migrated full production database (4 users, 8 teams, 114 players, 1 tournament, 2 pools, 8 tournament_teams, 114 team_players, 14 matches, 225 match_views, 5 clip_jobs, 18 cameras, 8 standings, 74 football_events) to the new production Neon DB (`ep-gentle-recipe-b3d5cixv`).
+- **Neon Production Database Migration Script**: Built `backend/src/scripts/migrateDb.js` to clone data across all 20 Prisma tables without requiring superuser `session_replication_role` privileges, automatically resetting auto-increment sequences (`setval`). Successfully migrated full production database to the new production Neon DB (`ep-gentle-recipe-b3d5cixv`).
 
 # 2026-09-09 update
 
