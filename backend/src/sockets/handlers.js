@@ -313,8 +313,8 @@ function register(io, socket) {
       await assertManager(socket, matchId);
       const current = await matchState.findByMatch(matchId);
       const now = new Date().toISOString();
-      const currentElapsed = footballClock.elapsedSeconds(current);
-      const initialElapsed = Math.max(1800, Number(currentElapsed || 1800));
+      // 2nd Half ALWAYS starts at exactly 30:00 (1800 seconds)
+      const initialElapsed = 1800;
 
       const state = await matchState.update(matchId, {
         status: 'live',
