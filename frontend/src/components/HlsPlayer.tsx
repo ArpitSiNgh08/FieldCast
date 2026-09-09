@@ -28,7 +28,19 @@ export function HlsPlayer({ match, liveUrl, fallbackLiveUrl }: Props) {
   useEffect(() => {
     const socket = getSocket();
     const onCamera = (payload: { matchId: number }) => {
-      if (payload.matchId === match.id) setCameraRevision((value) => value + 1);
+      if (payload.matchId === match.id) {
+        if (hlsRef.current) {
+          hlsRef.current.stopLoad();
+          hlsRef.current.detachMedia();
+          hlsRef.current.destroy();
+          hlsRef.current = null;
+        }
+        if (videoRef.current) {
+          videoRef.current.pause();
+          try { videoRef.current.currentTime = 0; } catch (_) {}
+        }
+        setCameraRevision((value) => value + 1);
+      }
     };
     socket.on("camera:switched", onCamera);
     return () => { socket.off("camera:switched", onCamera); };
@@ -80,6 +92,37 @@ export function HlsPlayer({ match, liveUrl, fallbackLiveUrl }: Props) {
     setError(null);
     setLoading(true);
     usedFallbackRef.current = false;
+    let retryInterval: number | null = null;
+
+    const cleanupHls = () => {
+      if (retryInterval) {
+        window.clearInterval(retryInterval);
+        retryInterval = null;
+      }
+      if (hlsRef.current) {
+        hlsRef.current.destroy();
+        hlsRef.current = null;
+      }
+    };
+
+    const startAutoRetry = () => {
+      if (retryInterval) return;
+      retryInterval = window.setInterval(async () => {
+        try {
+          const targetUrl = usedFallbackRef.current && match.cameraFallbackUrl ? match.cameraFallbackUrl : liveUrl;
+          const res = await fetch(targetUrl, { method: "HEAD", cache: "no-store" });
+          if (res.ok) {
+            if (retryInterval) {
+              window.clearInterval(retryInterval);
+              retryInterval = null;
+            }
+            setCameraRevision((r) => r + 1);
+          }
+        } catch {
+          /* keep retrying in background */
+        }
+      }, 3000);
+    };
 
     if (Hls.isSupported()) {
       const hls = new Hls({
@@ -92,6 +135,7 @@ export function HlsPlayer({ match, liveUrl, fallbackLiveUrl }: Props) {
       hls.attachMedia(video);
 
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
+        setError(null);
         setLoading(false);
         video.play().catch(() => {});
       });
@@ -110,22 +154,27 @@ export function HlsPlayer({ match, liveUrl, fallbackLiveUrl }: Props) {
             hls.loadSource(fallbackUrl);
             return;
           }
-          setError("Stream unavailable. The broadcast may not have started yet.");
-          setLoading(false);
+          setError("Stream disconnected or not started yet. Waiting for live broadcast to resume…");
+          setLoading(true);
+          startAutoRetry();
         }
       });
 
-      return () => {
-        hls.destroy();
-        hlsRef.current = null;
-      };
+      return cleanupHls;
     } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
       // Safari native HLS
       video.src = liveUrl;
       video.addEventListener("loadedmetadata", () => {
+        setError(null);
         setLoading(false);
         video.play().catch(() => {});
       });
+      video.addEventListener("error", () => {
+        setError("Stream disconnected. Waiting for live broadcast to resume…");
+        setLoading(true);
+        startAutoRetry();
+      });
+      return cleanupHls;
     } else {
       setError("Your browser does not support HLS playback.");
       setLoading(false);
