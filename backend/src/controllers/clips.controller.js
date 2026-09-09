@@ -46,7 +46,8 @@ async function getStatus(req, res) {
   const formatted = withStreamUrl(match);
   if (match.status === 'live' && formatted.liveUrl) {
     const existing = clipService.getRecorder(match.id);
-    if (!existing || existing.stopped || !existing.proc) {
+    const has404 = Boolean(existing?.lastError && /404|Not Found|Server returned 4/i.test(existing.lastError));
+    if ((!existing || existing.stopped || !existing.proc) && !has404) {
       await clipService.start(match.id, formatted.liveUrl);
     }
   }

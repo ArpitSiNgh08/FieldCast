@@ -113,13 +113,12 @@ function spawnRecorder(matchId, liveUrl, directory) {
 
   const proc = spawn(env.stream.ffmpegPath, [
     '-hide_banner', '-loglevel', 'warning',
+    '-live_start_index', '-3',
     '-reconnect', '1',
-    '-reconnect_at_eof', '1',
     '-reconnect_streamed', '1',
     '-reconnect_delay_max', '5',
     '-i', liveUrl,
     '-c', 'copy',
-    '-bsf:v', 'h264_mp4toannexb',
     '-f', 'segment',
     '-segment_time', '6',
     '-segment_wrap', '40',
@@ -231,25 +230,56 @@ async function getStatus(matchId) {
   const directory = path.join(root, `match-${numId}`);
 
   let bufferedSegments = 0;
+  let latestMtimeMs = 0;
+  const now = Date.now();
+
   try {
     const files = (await fs.readdir(directory)).filter((file) => /^segment-\d+\.ts$/.test(file));
-    bufferedSegments = files.length;
+    if (files.length > 0) {
+      const fileStats = await Promise.all(files.map(async (file) => ({
+        file,
+        stat: await fs.stat(path.join(directory, file))
+      })));
+
+      // Auto-purge segments older than 180 seconds (3 minutes)
+      const staleFiles = fileStats.filter((f) => now - f.stat.mtimeMs >= 180_000);
+      for (const sf of staleFiles) {
+        fs.rm(path.join(directory, sf.file), { force: true }).catch(() => {});
+      }
+
+      const freshFiles = fileStats.filter((f) => now - f.stat.mtimeMs < 180_000);
+      bufferedSegments = freshFiles.length;
+      if (freshFiles.length > 0) {
+        latestMtimeMs = Math.max(...freshFiles.map((f) => f.stat.mtimeMs));
+      }
+    }
   } catch (_) {}
 
   const bufferedSeconds = bufferedSegments * 6;
   const active = Boolean(recorder?.proc);
-  const canClip = bufferedSegments >= 10;
+  const isStale = latestMtimeMs > 0 && (now - latestMtimeMs > 25000);
+  const has404Error = Boolean(recorder?.lastError && /404|Not Found|Server returned 4/i.test(recorder.lastError));
+  
+  const streamActive = active && !has404Error && (!isStale || bufferedSegments === 0);
+  const canClip = active && !has404Error && !isStale && bufferedSegments >= 10;
 
   let status = 'DOWN';
   let message = 'Clipping service is DOWN (FFmpeg recorder process inactive)';
-  if (active) {
+
+  if (has404Error) {
+    status = 'DOWN';
+    message = `Camera stream offline (404 Not Found) · Stream: ${recorder?.liveUrl || 'unknown'}`;
+  } else if (isStale) {
+    status = 'DOWN';
+    message = `Camera stream stalled (no live frames for ${Math.round((now - latestMtimeMs) / 1000)}s) · Click Wake / Restart to reconnect`;
+  } else if (active) {
     if (canClip) {
       status = 'UP';
       message = `Clipping service UP · ${Math.floor(bufferedSeconds / 60)}m ${bufferedSeconds % 60}s buffered (${bufferedSegments} segments)`;
     } else {
       status = 'BUFFERING';
       message = recorder?.lastError
-        ? `Clipping service buffering (${bufferedSeconds}s/60s) · Stream: ${recorder?.liveUrl || 'unknown'} · Error/Log: ${recorder.lastError}`
+        ? `Clipping service buffering (${bufferedSeconds}s/60s) · Stream: ${recorder?.liveUrl || 'unknown'} · Recent Log: ${recorder.lastError}`
         : `Clipping service buffering (${bufferedSeconds}s/60s) · Stream: ${recorder?.liveUrl || 'unknown'}`;
     }
   } else if (recorder && !recorder.stopped) {
@@ -261,9 +291,9 @@ async function getStatus(matchId) {
 
   return {
     enabled: true,
-    active,
+    active: streamActive,
     status,
-    bufferedSeconds,
+    bufferedSeconds: streamActive ? bufferedSeconds : 0,
     bufferedSegments,
     canClip,
     message,
@@ -281,6 +311,21 @@ async function wake(matchId, liveUrl) {
     try { recorder.proc.kill('SIGKILL'); } catch (_) {}
     recorder.proc = null;
   }
+
+  const directory = path.join(root, `match-${numId}`);
+  try {
+    const files = await fs.readdir(directory);
+    for (const file of files) {
+      if (/^segment-\d+\.ts$/.test(file)) {
+        await fs.rm(path.join(directory, file), { force: true }).catch(() => {});
+      }
+    }
+  } catch (_) {}
+
+  if (recorder) {
+    recorder.lastError = null;
+  }
+
   await start(matchId, liveUrl);
   return getStatus(matchId);
 }
