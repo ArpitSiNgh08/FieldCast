@@ -108,6 +108,7 @@ function spawnRecorder(matchId, liveUrl, directory) {
 
   console.log(`[clipService] Spawning recorder for match ${matchId} | URL: ${liveUrl} | Dir: ${directory}`);
 
+  recorder.lastError = null;
   const pattern = path.join(directory, 'segment-%03d.ts');
   let stderrBuffer = '';
 
@@ -258,10 +259,11 @@ async function getStatus(matchId) {
   const bufferedSeconds = bufferedSegments * 6;
   const active = Boolean(recorder?.proc);
   const isStale = latestMtimeMs > 0 && (now - latestMtimeMs > 25000);
-  const has404Error = Boolean(recorder?.lastError && /404|Not Found|Server returned 4/i.test(recorder.lastError));
+  // Stale 404 error only applies if FFmpeg is NOT active and zero segments are buffered
+  const has404Error = Boolean(!active && bufferedSegments === 0 && recorder?.lastError && /404|Not Found|Server returned 4/i.test(recorder.lastError));
   
-  const streamActive = active && !has404Error && (!isStale || bufferedSegments === 0);
-  const canClip = active && !has404Error && !isStale && bufferedSegments >= 10;
+  const streamActive = active && (!isStale || bufferedSegments === 0);
+  const canClip = active && !isStale && bufferedSegments >= 10;
 
   let status = 'DOWN';
   let message = 'Clipping service is DOWN (FFmpeg recorder process inactive)';
