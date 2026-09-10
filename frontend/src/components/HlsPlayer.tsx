@@ -27,8 +27,13 @@ export function HlsPlayer({ match, liveUrl, fallbackLiveUrl }: Props) {
   // without having to reload the page.
   useEffect(() => {
     const socket = getSocket();
+    const joinRoom = () => socket.emit("match:join", { matchId: match.id });
+
+    if (socket.connected) joinRoom();
+    socket.on("connect", joinRoom);
+
     const onCamera = (payload: { matchId: number }) => {
-      if (payload.matchId === match.id) {
+      if (Number(payload.matchId) === Number(match.id)) {
         if (hlsRef.current) {
           hlsRef.current.stopLoad();
           hlsRef.current.detachMedia();
@@ -43,7 +48,10 @@ export function HlsPlayer({ match, liveUrl, fallbackLiveUrl }: Props) {
       }
     };
     socket.on("camera:switched", onCamera);
-    return () => { socket.off("camera:switched", onCamera); };
+    return () => {
+      socket.off("connect", joinRoom);
+      socket.off("camera:switched", onCamera);
+    };
   }, [match.id]);
 
   function goLive() {
