@@ -131,7 +131,10 @@ export function HlsPlayer({ match, liveUrl, fallbackLiveUrl }: Props) {
       });
       hlsRef.current = hls;
 
-      hls.loadSource(liveUrl);
+      const targetUrl = usedFallbackRef.current && match.cameraFallbackUrl ? match.cameraFallbackUrl : liveUrl;
+      const busterUrl = targetUrl.includes("?") ? `${targetUrl}&_rev=${cameraRevision}` : `${targetUrl}?_rev=${cameraRevision}`;
+
+      hls.loadSource(busterUrl);
       hls.attachMedia(video);
 
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
@@ -163,7 +166,9 @@ export function HlsPlayer({ match, liveUrl, fallbackLiveUrl }: Props) {
       return cleanupHls;
     } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
       // Safari native HLS
-      video.src = liveUrl;
+      const targetUrl = usedFallbackRef.current && match.cameraFallbackUrl ? match.cameraFallbackUrl : liveUrl;
+      const busterUrl = targetUrl.includes("?") ? `${targetUrl}&_rev=${cameraRevision}` : `${targetUrl}?_rev=${cameraRevision}`;
+      video.src = busterUrl;
       video.addEventListener("loadedmetadata", () => {
         setError(null);
         setLoading(false);
