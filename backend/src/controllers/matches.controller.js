@@ -127,6 +127,8 @@ async function updateStatus(req, res) {
     if (!candidate?.scheduledAt || !candidate.venue) return res.status(400).json({ error: 'Kickoff time and venue are required before going live' });
     if (!candidate.cameras.length) return res.status(400).json({ error: 'Add at least one camera before going live' });
     const selected = candidate.cameras.find((camera) => camera.streamKey === candidate.activeCamera) || candidate.cameras[0];
+    await Matches.setActiveCamera(candidate.id, selected.streamKey);
+    cameraSwitcher.switchCamera(candidate.id, selected.streamKey);
     const formattedCandidate = withStreamUrl(candidate);
     await clipService.start(candidate.id, formattedCandidate.originLiveUrl || formattedCandidate.liveUrl);
   }
