@@ -77,40 +77,52 @@ export default async function ScorecardPage({ params }: Props) {
       </div>
 
       {/* Live matches use the exact same score component as the streaming page. */}
-      {match.status === "live" ? <ScoreOverlay match={match} footballEvents={footballEvents || []} /> : <Card className="mb-8">
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>Final Score</CardTitle>
-            <Badge tone="muted">Full time</Badge>
-          </div>
-        </CardHeader>
-        <CardBody>
-          <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 sm:gap-6">
-            <TeamSummary
-              name={match.teamA.name}
-              short={match.teamA.shortName}
-              logoUrl={match.teamA.logoUrl}
-              score={match.state.teamAScore}
-              winner={match.winnerTeamId === match.teamA.id}
-              side="left"
-            />
-            <span className="text-sm font-bold uppercase tracking-widest text-muted">vs</span>
-            <TeamSummary
-              name={match.teamB.name}
-              short={match.teamB.shortName}
-              logoUrl={match.teamB.logoUrl}
-              score={match.state.teamBScore}
-              winner={match.winnerTeamId === match.teamB.id}
-              side="right"
-            />
-          </div>
-          {winnerName && (
-            <p className="mt-4 border-t border-border pt-3 text-center text-sm text-muted">
-              🏆 <span className="font-semibold text-accent">{winnerName}</span> won
-            </p>
-          )}
-        </CardBody>
-      </Card>}
+      {match.status === "live" ? <ScoreOverlay match={match} footballEvents={footballEvents || []} /> : (() => {
+        const shootoutEvents = (footballEvents || []).filter((e) => e.event_type === "penalty_shootout");
+        const teamAShootouts = shootoutEvents.filter((e) => e.team_id === match.teamA.id && e.is_penalty).length;
+        const teamBShootouts = shootoutEvents.filter((e) => e.team_id === match.teamB.id && e.is_penalty).length;
+        const hasShootout = shootoutEvents.length > 0;
+
+        return (
+          <Card className="mb-8">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle>Final Score</CardTitle>
+                <Badge tone="muted">Full time</Badge>
+              </div>
+            </CardHeader>
+            <CardBody>
+              <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 sm:gap-6">
+                <TeamSummary
+                  name={match.teamA.name}
+                  short={match.teamA.shortName}
+                  logoUrl={match.teamA.logoUrl}
+                  score={match.state.teamAScore}
+                  winner={match.winnerTeamId === match.teamA.id}
+                  side="left"
+                  shootoutScore={hasShootout ? teamAShootouts : undefined}
+                />
+                <span className="text-sm font-bold uppercase tracking-widest text-muted">vs</span>
+                <TeamSummary
+                  name={match.teamB.name}
+                  short={match.teamB.shortName}
+                  logoUrl={match.teamB.logoUrl}
+                  score={match.state.teamBScore}
+                  winner={match.winnerTeamId === match.teamB.id}
+                  side="right"
+                  shootoutScore={hasShootout ? teamBShootouts : undefined}
+                />
+              </div>
+              {winnerName && (
+                <p className="mt-4 border-t border-border pt-3 text-center text-sm text-muted">
+                  🏆 <span className="font-semibold text-accent">{winnerName}</span> won
+                  {hasShootout && ` on penalties (${teamAShootouts}–${teamBShootouts})`}
+                </p>
+              )}
+            </CardBody>
+          </Card>
+        );
+      })()}
 
       {/* Sport-specific detail */}
       {match.sport === "cricket" && cricketEvents && cricketEvents.length > 0 && (
@@ -158,6 +170,7 @@ function TeamSummary({
   score,
   winner,
   side,
+  shootoutScore,
 }: {
   name: string;
   short: string;
@@ -165,6 +178,7 @@ function TeamSummary({
   score: number;
   winner: boolean;
   side: "left" | "right";
+  shootoutScore?: number;
 }) {
   return (
     <div className={`flex min-w-0 items-center gap-2 sm:gap-3 ${side === "left" ? "justify-end text-right" : "justify-start text-left"}`}>
@@ -173,6 +187,9 @@ function TeamSummary({
         <p className="truncate text-sm font-semibold text-foreground sm:text-base">{name}</p>
         <p className={`mt-1 text-3xl font-bold tabular-nums sm:text-4xl ${winner ? "text-accent" : "text-foreground"}`}>
           {score}
+          {shootoutScore !== undefined && (
+            <span className="ml-1 text-lg font-bold text-accent">({shootoutScore})</span>
+          )}
           {winner && <span className="ml-1 text-base">🏆</span>}
         </p>
       </div>

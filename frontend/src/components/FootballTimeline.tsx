@@ -10,9 +10,11 @@ const EVENT_ICON: Record<string, string> = {
   corner: "🚩",
   free_kick: "🦶",
   offside: "🚫",
+  penalty_shootout: "🎯",
+  outside: "↗️",
 };
 
-const TEAM_EVENT_TYPES = new Set(["foul", "corner", "free_kick", "offside"]);
+const TEAM_EVENT_TYPES = new Set(["foul", "corner", "free_kick", "offside", "outside"]);
 
 function eventMinute(event: FootballEvent) {
   return `${event.minute}${event.extra_time_minute ? `+${event.extra_time_minute}` : ""}'`;
@@ -31,14 +33,21 @@ export function FootballTimeline({ events, embedded = false }: { events: Footbal
           <div className="flex flex-col gap-3">
             {events.map((event) => (
               <div key={event.id} className="flex items-start gap-3">
-                <span className="mt-0.5 text-lg leading-none" aria-hidden="true">
-                  {EVENT_ICON[event.event_type] || "·"}
-                </span>
+                {event.event_type !== "penalty_shootout" && (
+                  <span className="mt-0.5 text-lg leading-none" aria-hidden="true">
+                    {EVENT_ICON[event.event_type] || "·"}
+                  </span>
+                )}
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium text-foreground">
                     <span className="mr-2 tabular-nums">{eventMinute(event)}</span>
                     <span className="capitalize">{event.event_type.replace("_", " ")}</span>
                     {event.event_type === "goal" && event.is_penalty && <span className="ml-2 text-accent">(Penalty)</span>}
+                    {event.event_type === "penalty_shootout" && (
+                      <span className={`ml-2 font-bold ${event.is_penalty ? "text-green-500" : "text-red-500"}`}>
+                        {event.is_penalty ? "✓ Scored" : "✗ Missed"}
+                      </span>
+                    )}
                     {event.event_type !== "substitution" && !TEAM_EVENT_TYPES.has(event.event_type) && event.player_name && (
                       <span className="text-muted">
                         {" — "}{event.jersey_number ? `#${event.jersey_number} ` : ""}{event.player_name}

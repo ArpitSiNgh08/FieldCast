@@ -349,11 +349,11 @@ export default function FootballMatchControl() {
       (!outgoing || !incoming || outgoing.team.id !== incoming.team.id)
     )
       return;
-    const teamEvent = ["foul", "corner", "free_kick", "offside"].includes(eventType);
-    if (eventType !== "substitution" && !teamEvent && !selected) return;
+    const teamEvent = ["foul", "corner", "free_kick", "offside", "outside"].includes(eventType);
+    if (eventType !== "substitution" && eventType !== "penalty_shootout" && !teamEvent && !selected) return;
     const eventTeam = eventType === "substitution"
       ? outgoing!.team
-      : teamEvent
+      : (teamEvent || eventType === "penalty_shootout")
         ? [match.teamA, match.teamB].find((team) => team.id === (selectedTeamId || match.teamA.id))
         : selected!.team;
     if (!eventTeam) return;
@@ -386,7 +386,16 @@ export default function FootballMatchControl() {
           },
         },
         detail:
-          eventType === "substitution"
+          eventType === "penalty_shootout"
+            ? {
+                ...clock,
+                eventType,
+                teamId: eventTeam.id,
+                playerId: selectedPlayerId,
+                playerName: playerQuery.replace(/^#\d+\s*·\s*/, "").replace(/\s*·\s*.*$/, "").trim(),
+                isPenalty, // true for scored, false for missed
+              }
+            : eventType === "substitution"
             ? {
                 ...clock,
                 eventType,
@@ -484,9 +493,11 @@ export default function FootballMatchControl() {
       )
     : benchPlayers;
   const eventReady =
-    eventType === "substitution"
+    eventType === "penalty_shootout"
+      ? Boolean(playerQuery.trim())
+      : eventType === "substitution"
       ? Boolean(selectedPlayerOutId && selectedPlayerInId)
-      : ["foul", "corner", "free_kick", "offside"].includes(eventType) || Boolean(selectedPlayerId);
+      : ["foul", "corner", "free_kick", "offside", "outside"].includes(eventType) || Boolean(selectedPlayerId);
 
   return (
     <div className="mx-auto w-full max-w-none px-3 py-8 sm:px-4">
@@ -850,138 +861,190 @@ export default function FootballMatchControl() {
                   </p>
                 </CardHeader>
                 <CardBody className="px-4 pb-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <Field label="Match event">
-                      <Select
-                        value={eventType}
-                        onChange={(event) => {
-                          setEventType(event.target.value);
-                          setIsPenalty(false);
-                          setSelectedPlayerId(null);
-                          setSelectedPlayerOutId(null);
-                          setSelectedPlayerInId(null);
-                          setPlayerQuery("");
-                          setPlayerOutQuery("");
-                          setPlayerInQuery("");
-                        }}
-                      >
-                        <option value="goal">Goal</option>
-                        <option value="yellow_card">Yellow card</option>
-                        <option value="red_card">Red card</option>
-                        <option value="substitution">Substitution</option>
-                        <option value="foul">Foul</option>
-                        <option value="corner">Corner</option>
-                        <option value="free_kick">Free kick</option>
-                        <option value="offside">Offside given</option>
-                      </Select>
-                    </Field>
-                  </div>
-                  {eventType === "substitution" ? (
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <PlayerSearch
-                        label="Player off"
-                        hint="Choose a player currently on the field."
-                        entries={activePlayers}
-                        query={playerOutQuery}
-                        selectedPlayerId={selectedPlayerOutId}
-                        onQueryChange={(value) => {
-                          setPlayerOutQuery(value);
-                          setSelectedPlayerOutId(null);
-                          setSelectedPlayerInId(null);
-                          setPlayerInQuery("");
-                        }}
-                        onSelect={(playerId, label) => {
-                          setSelectedPlayerOutId(playerId);
-                          setPlayerOutQuery(label);
-                          setSelectedPlayerInId(null);
-                          setPlayerInQuery("");
-                        }}
-                      />
-                      <PlayerSearch
-                        label="Player on"
-                        hint={
-                          selectedPlayerOutId
-                            ? "Choose a substitute from the same team."
-                            : "Choose the player going off first."
+                  <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-4 mb-4">
+                    <div>
+                      <CardTitle>{eventType === "penalty_shootout" ? "🎯 Penalty Shootout Control Mode" : "Update football scorecard"}</CardTitle>
+                      <p className="mt-1 text-sm text-muted">
+                        {eventType === "penalty_shootout"
+                          ? "Record shootout attempts turn-by-turn. Results reflect instantly for viewers on 5-circle scoreboards."
+                          : "Record goals, cards, and substitutions during standard match play."}
+                      </p>
+                    </div>
+                    <Button
+                      variant={eventType === "penalty_shootout" ? "outline" : "primary"}
+                      className={eventType === "penalty_shootout" ? "border-accent text-accent" : "bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-bold"}
+                      onClick={() => {
+                        if (eventType === "penalty_shootout") {
+                          setEventType("goal");
+                        } else {
+                          setEventType("penalty_shootout");
+                          setSelectedTeamId(match.teamA.id);
                         }
-                        entries={incomingPlayers}
-                        query={playerInQuery}
-                        selectedPlayerId={selectedPlayerInId}
-                        disabled={!selectedPlayerOutId}
-                        onQueryChange={(value) => {
-                          setPlayerInQuery(value);
-                          setSelectedPlayerInId(null);
-                        }}
-                        onSelect={(playerId, label) => {
-                          setSelectedPlayerInId(playerId);
-                          setPlayerInQuery(label);
-                        }}
-                      />
-                    </div>
-                  ) : ["foul", "corner", "free_kick", "offside"].includes(eventType) ? (
-                    <Field label="Team">
-                      <Select
-                        value={String(selectedTeamId || match.teamA.id)}
-                        onChange={(event) => setSelectedTeamId(Number(event.target.value))}
-                      >
-                        <option value={match.teamA.id}>{match.teamA.shortName}</option>
-                        <option value={match.teamB.id}>{match.teamB.shortName}</option>
-                      </Select>
-                    </Field>
-                  ) : (
-                    <div className="space-y-3">
-                      <PlayerSearch
-                        label="Player"
-                        hint="Choose a player currently on the field."
-                        entries={activePlayers}
-                        query={playerQuery}
-                        selectedPlayerId={selectedPlayerId}
-                        onQueryChange={(value) => {
-                          setPlayerQuery(value);
-                          setSelectedPlayerId(null);
-                        }}
-                        onSelect={(playerId, label) => {
-                          setSelectedPlayerId(playerId);
-                          setPlayerQuery(label);
-                        }}
-                      />
-                      {eventType === "goal" && (
-                        <label className="flex items-center gap-2 text-sm text-muted">
-                          <input
-                            type="checkbox"
-                            checked={isPenalty}
-                            onChange={(event) => setIsPenalty(event.target.checked)}
-                            className="h-4 w-4 rounded border-border accent-accent"
-                          />
-                          Goal scored as penalty
-                        </label>
-                      )}
-                    </div>
-                  )}
-                  {success && (
-                    <p className="mt-4 rounded-lg bg-green-50 px-3 py-2 text-sm text-green-700">
-                      {success}
-                    </p>
-                  )}
-                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                    <Button
-                      onClick={updateScorecard}
-                      disabled={match.status !== "live" || !match.state.extra?.clockStartedAt || !eventReady || busy || !connected}
+                        setIsPenalty(true);
+                        setSelectedPlayerId(null);
+                        setPlayerQuery("");
+                      }}
                     >
-                      {busy
-                        ? "Updating…"
-                        : eventType === "substitution"
-                        ? "Record substitution"
-                          : "Update scorecard"}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={markHalftime}
-                      disabled={match.status !== "live" || busy}
-                    >
-                      Mark halftime
+                      {eventType === "penalty_shootout" ? "← Back to Regular Match Events" : "⚽ Move to Penalty Shootout 🎯"}
                     </Button>
                   </div>
+
+                  {eventType === "penalty_shootout" ? (
+                    <PenaltyShootoutOrganiserControl
+                      match={match}
+                      footballEvents={footballEvents}
+                      selectedTeamId={selectedTeamId || match.teamA.id}
+                      setSelectedTeamId={setSelectedTeamId}
+                      playerQuery={playerQuery}
+                      setPlayerQuery={setPlayerQuery}
+                      selectedPlayerId={selectedPlayerId}
+                      setSelectedPlayerId={setSelectedPlayerId}
+                      isPenalty={isPenalty}
+                      setIsPenalty={setIsPenalty}
+                      updateScorecard={updateScorecard}
+                      busy={busy}
+                      connected={connected}
+                    />
+                  ) : (
+                    <>
+                      <div className="grid grid-cols-2 gap-4">
+                        <Field label="Match event">
+                          <Select
+                            value={eventType}
+                            onChange={(event) => {
+                              setEventType(event.target.value);
+                              setIsPenalty(false);
+                              setSelectedPlayerId(null);
+                              setSelectedPlayerOutId(null);
+                              setSelectedPlayerInId(null);
+                              setPlayerQuery("");
+                              setPlayerOutQuery("");
+                              setPlayerInQuery("");
+                            }}
+                          >
+                            <option value="goal">Goal</option>
+                            <option value="yellow_card">Yellow card</option>
+                            <option value="red_card">Red card</option>
+                            <option value="substitution">Substitution</option>
+                            <option value="foul">Foul</option>
+                            <option value="corner">Corner</option>
+                            <option value="free_kick">Free kick</option>
+                            <option value="offside">Offside given</option>
+                            <option value="outside">Outside</option>
+                          </Select>
+                        </Field>
+                      </div>
+
+                      {eventType === "substitution" ? (
+                        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                          <PlayerSearch
+                            label="Player off"
+                            hint="Choose a player currently on the field."
+                            entries={activePlayers}
+                            query={playerOutQuery}
+                            selectedPlayerId={selectedPlayerOutId}
+                            onQueryChange={(value) => {
+                              setPlayerOutQuery(value);
+                              setSelectedPlayerOutId(null);
+                              setSelectedPlayerInId(null);
+                              setPlayerInQuery("");
+                            }}
+                            onSelect={(playerId, label) => {
+                              setSelectedPlayerOutId(playerId);
+                              setPlayerOutQuery(label);
+                              setSelectedPlayerInId(null);
+                              setPlayerInQuery("");
+                            }}
+                          />
+                          <PlayerSearch
+                            label="Player on"
+                            hint={
+                              selectedPlayerOutId
+                                ? "Choose a substitute from the same team."
+                                : "Choose the player going off first."
+                            }
+                            entries={incomingPlayers}
+                            query={playerInQuery}
+                            selectedPlayerId={selectedPlayerInId}
+                            disabled={!selectedPlayerOutId}
+                            onQueryChange={(value) => {
+                              setPlayerInQuery(value);
+                              setSelectedPlayerInId(null);
+                            }}
+                            onSelect={(playerId, label) => {
+                              setSelectedPlayerInId(playerId);
+                              setPlayerInQuery(label);
+                            }}
+                          />
+                        </div>
+                      ) : ["foul", "corner", "free_kick", "offside", "outside"].includes(eventType) ? (
+                        <Field label="Team" className="mt-4">
+                          <Select
+                            value={String(selectedTeamId || match.teamA.id)}
+                            onChange={(event) => setSelectedTeamId(Number(event.target.value))}
+                          >
+                            <option value={match.teamA.id}>{match.teamA.shortName}</option>
+                            <option value={match.teamB.id}>{match.teamB.shortName}</option>
+                          </Select>
+                        </Field>
+                      ) : (
+                        <div className="mt-4 space-y-3">
+                          <PlayerSearch
+                            label="Player"
+                            hint="Choose a player currently on the field."
+                            entries={activePlayers}
+                            query={playerQuery}
+                            selectedPlayerId={selectedPlayerId}
+                            onQueryChange={(value) => {
+                              setPlayerQuery(value);
+                              setSelectedPlayerId(null);
+                            }}
+                            onSelect={(playerId, label) => {
+                              setSelectedPlayerId(playerId);
+                              setPlayerQuery(label);
+                            }}
+                          />
+                          {eventType === "goal" && (
+                            <label className="flex items-center gap-2 text-sm text-muted">
+                              <input
+                                type="checkbox"
+                                checked={isPenalty}
+                                onChange={(event) => setIsPenalty(event.target.checked)}
+                                className="h-4 w-4 rounded border-border accent-accent"
+                              />
+                              Goal scored as penalty
+                            </label>
+                          )}
+                        </div>
+                      )}
+
+                      {success && (
+                        <p className="mt-4 rounded-lg bg-green-50 px-3 py-2 text-sm text-green-700">
+                          {success}
+                        </p>
+                      )}
+
+                      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                        <Button
+                          onClick={updateScorecard}
+                          disabled={match.status !== "live" || !match.state.extra?.clockStartedAt || !eventReady || busy || !connected}
+                        >
+                          {busy
+                            ? "Updating…"
+                            : eventType === "substitution"
+                            ? "Record substitution"
+                            : "Update scorecard"}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          onClick={markHalftime}
+                          disabled={match.status !== "live" || busy}
+                        >
+                          Mark halftime
+                        </Button>
+                      </div>
+                    </>
+                  )}
                 </CardBody>
               </Card>
               <div className="border-b border-border p-4">
@@ -1029,6 +1092,7 @@ export default function FootballMatchControl() {
 function LiveFootballEventEditor({ match, event, onChanged }: { match: Match; event: FootballEvent; onChanged: () => Promise<void> }) {
   const [eventType, setEventType] = useState(event.event_type);
   const [teamId, setTeamId] = useState(event.team_id || match.teamA.id);
+  const [playerName, setPlayerName] = useState(event.player_name || "");
   const [minute, setMinute] = useState(event.minute);
   const [extraTimeMinute, setExtraTimeMinute] = useState(event.extra_time_minute);
   const [isPenalty, setIsPenalty] = useState(event.is_penalty);
@@ -1036,7 +1100,15 @@ function LiveFootballEventEditor({ match, event, onChanged }: { match: Match; ev
   async function save() {
     setBusy(true);
     try {
-      await api.updateLiveFootballEvent(match.id, event.id, { eventType, teamId, playerId: event.player_id, minute, extraTimeMinute, isPenalty: eventType === "goal" && isPenalty });
+      await api.updateLiveFootballEvent(match.id, event.id, {
+        eventType,
+        teamId,
+        playerId: event.player_id,
+        playerName,
+        minute,
+        extraTimeMinute,
+        isPenalty: eventType === "penalty_shootout" ? isPenalty : (eventType === "goal" && isPenalty),
+      });
       await onChanged();
     } finally { setBusy(false); }
   }
@@ -1046,7 +1118,68 @@ function LiveFootballEventEditor({ match, event, onChanged }: { match: Match; ev
     try { await api.deleteLiveFootballEvent(match.id, event.id); await onChanged(); }
     finally { setBusy(false); }
   }
-  return <details className="rounded-lg border border-border"><summary className="cursor-pointer list-none px-3 py-2 text-xs"><span className="flex items-center justify-between gap-2"><span>{event.event_type.replace("_", " ")} · {event.minute}{event.extra_time_minute ? `+${event.extra_time_minute}` : ""}&apos; · {event.team_short}</span><span className="text-accent">Edit</span></span></summary><div className="grid grid-cols-2 gap-2 border-t border-border p-3"><Field label="Event"><Select value={eventType} disabled={event.event_type === "substitution"} onChange={(e) => setEventType(e.target.value as FootballEvent["event_type"])}><option value="goal">Goal</option><option value="yellow_card">Yellow card</option><option value="red_card">Red card</option><option value="substitution">Substitution</option><option value="foul">Foul</option><option value="corner">Corner</option><option value="free_kick">Free kick</option><option value="offside">Offside</option></Select></Field><Field label="Team"><Select value={teamId} onChange={(e) => setTeamId(Number(e.target.value))}><option value={match.teamA.id}>{match.teamA.shortName}</option><option value={match.teamB.id}>{match.teamB.shortName}</option></Select></Field><Field label="Minute"><Input type="number" min={0} max={120} value={minute} onChange={(e) => setMinute(Number(e.target.value))} /></Field><Field label="Added minute"><Input type="number" min={0} max={30} value={extraTimeMinute} onChange={(e) => setExtraTimeMinute(Number(e.target.value))} /></Field>{eventType === "goal" && <label className="col-span-2 flex items-center gap-2 text-xs text-muted"><input type="checkbox" checked={isPenalty} onChange={(e) => setIsPenalty(e.target.checked)} className="h-4 w-4 accent-accent" />Goal scored as penalty</label>}<div className="col-span-2 flex gap-2"><Button loading={busy} size="sm" onClick={save}>Save event</Button><Button size="sm" variant="danger" onClick={remove} disabled={busy}>Delete</Button><span className="self-center truncate text-xs text-muted">{event.team_short}{event.player_name ? ` · ${event.player_name}` : ""}</span></div></div></details>;
+  return (
+    <details className="rounded-lg border border-border">
+      <summary className="cursor-pointer list-none px-3 py-2 text-xs">
+        <span className="flex items-center justify-between gap-2">
+          <span>
+            {event.event_type.replace("_", " ")}{" "}
+            {event.event_type === "penalty_shootout" && (event.is_penalty ? "(✓ Scored)" : "(✗ Missed)")}{" "}
+            · {event.minute}{event.extra_time_minute ? `+${event.extra_time_minute}` : ""}&apos; · {event.team_short}
+          </span>
+          <span className="text-accent">Edit</span>
+        </span>
+      </summary>
+      <div className="grid grid-cols-2 gap-2 border-t border-border p-3">
+        <Field label="Event">
+          <Select value={eventType} disabled={event.event_type === "substitution"} onChange={(e) => setEventType(e.target.value as FootballEvent["event_type"])}>
+            <option value="goal">Goal</option>
+            <option value="penalty_shootout">Penalty shootout</option>
+            <option value="yellow_card">Yellow card</option>
+            <option value="red_card">Red card</option>
+            <option value="substitution">Substitution</option>
+            <option value="foul">Foul</option>
+            <option value="corner">Corner</option>
+            <option value="free_kick">Free kick</option>
+            <option value="offside">Offside</option>
+          </Select>
+        </Field>
+        <Field label="Team">
+          <Select value={teamId} onChange={(e) => setTeamId(Number(e.target.value))}>
+            <option value={match.teamA.id}>{match.teamA.shortName}</option>
+            <option value={match.teamB.id}>{match.teamB.shortName}</option>
+          </Select>
+        </Field>
+        <Field label="Player name" className="col-span-2">
+          <Input value={playerName} onChange={(e) => setPlayerName(e.target.value)} placeholder="Player name" />
+        </Field>
+        <Field label="Minute">
+          <Input type="number" min={0} max={120} value={minute} onChange={(e) => setMinute(Number(e.target.value))} />
+        </Field>
+        <Field label="Added minute">
+          <Input type="number" min={0} max={30} value={extraTimeMinute} onChange={(e) => setExtraTimeMinute(Number(e.target.value))} />
+        </Field>
+        {eventType === "penalty_shootout" ? (
+          <Field label="Result" className="col-span-2">
+            <Select value={isPenalty ? "scored" : "missed"} onChange={(e) => setIsPenalty(e.target.value === "scored")}>
+              <option value="scored">⚽ Scored</option>
+              <option value="missed">❌ Missed</option>
+            </Select>
+          </Field>
+        ) : eventType === "goal" ? (
+          <label className="col-span-2 flex items-center gap-2 text-xs text-muted">
+            <input type="checkbox" checked={isPenalty} onChange={(e) => setIsPenalty(e.target.checked)} className="h-4 w-4 accent-accent" />
+            Goal scored as penalty
+          </label>
+        ) : null}
+        <div className="col-span-2 flex gap-2">
+          <Button loading={busy} size="sm" onClick={save}>Save event</Button>
+          <Button size="sm" variant="danger" onClick={remove} disabled={busy}>Delete</Button>
+          <span className="self-center truncate text-xs text-muted">{event.team_short}{event.player_name ? ` · ${event.player_name}` : ""}</span>
+        </div>
+      </div>
+    </details>
+  );
 }
 
 function CopyableUrl({
@@ -1225,5 +1358,197 @@ function PlayerSearch({
         </div>
       )}
     </Field>
+  );
+}
+
+function PenaltyShootoutOrganiserControl({
+  match,
+  footballEvents,
+  selectedTeamId,
+  setSelectedTeamId,
+  playerQuery,
+  setPlayerQuery,
+  selectedPlayerId,
+  setSelectedPlayerId,
+  isPenalty,
+  setIsPenalty,
+  updateScorecard,
+  busy,
+  connected,
+}: {
+  match: Match;
+  footballEvents: FootballEvent[];
+  selectedTeamId: number;
+  setSelectedTeamId: (id: number) => void;
+  playerQuery: string;
+  setPlayerQuery: (q: string) => void;
+  selectedPlayerId: number | null;
+  setSelectedPlayerId: (id: number | null) => void;
+  isPenalty: boolean;
+  setIsPenalty: (val: boolean) => void;
+  updateScorecard: () => void;
+  busy: boolean;
+  connected: boolean;
+}) {
+  const shootoutEvents = footballEvents.filter((event) => event.event_type === "penalty_shootout");
+  const teamAShootouts = shootoutEvents.filter((e) => e.team_id === match.teamA.id);
+  const teamBShootouts = shootoutEvents.filter((e) => e.team_id === match.teamB.id);
+
+  const teamAScored = teamAShootouts.filter((e) => e.is_penalty).length;
+  const teamBScored = teamBShootouts.filter((e) => e.is_penalty).length;
+
+  const roundCount = Math.max(5, teamAShootouts.length, teamBShootouts.length);
+  const roundIndices = Array.from({ length: roundCount }, (_, i) => i);
+
+  const roster = rosterOptions(match);
+  const currentTeamRoster = roster.filter((m) => m.team.id === selectedTeamId);
+
+  return (
+    <div className="space-y-6">
+      {/* Visual Indicator Circles for Organiser */}
+      <div className="rounded-xl border border-accent/40 bg-accent/5 p-4 text-center">
+        <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider text-accent">
+          <span>Shootout Tally</span>
+          <span className="font-mono text-lg font-extrabold text-foreground">
+            {match.teamA.shortName} ({teamAScored}) — ({teamBScored}) {match.teamB.shortName}
+          </span>
+        </div>
+
+        <div className="mt-3 grid grid-cols-2 gap-4 border-y border-border/40 py-3">
+          {/* Team A circles */}
+          <div className="flex items-center gap-1.5 justify-start">
+            <span className="mr-1 text-xs font-semibold text-muted">{match.teamA.shortName}:</span>
+            {roundIndices.map((i) => {
+              const shot = teamAShootouts[i];
+              return (
+                <div
+                  key={`a-${i}`}
+                  className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold transition-all ${
+                    !shot
+                      ? "bg-surface-3 text-muted-foreground border border-border"
+                      : shot.is_penalty
+                      ? "bg-emerald-500 text-white shadow-sm shadow-emerald-500/50"
+                      : "bg-rose-500 text-white shadow-sm shadow-rose-500/50"
+                  }`}
+                >
+                  {!shot ? i + 1 : shot.is_penalty ? "✓" : "✕"}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Team B circles */}
+          <div className="flex items-center gap-1.5 justify-end">
+            {roundIndices.map((i) => {
+              const shot = teamBShootouts[i];
+              return (
+                <div
+                  key={`b-${i}`}
+                  className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold transition-all ${
+                    !shot
+                      ? "bg-surface-3 text-muted-foreground border border-border"
+                      : shot.is_penalty
+                      ? "bg-emerald-500 text-white shadow-sm shadow-emerald-500/50"
+                      : "bg-rose-500 text-white shadow-sm shadow-rose-500/50"
+                  }`}
+                >
+                  {!shot ? i + 1 : shot.is_penalty ? "✓" : "✕"}
+                </div>
+              );
+            })}
+            <span className="ml-1 text-xs font-semibold text-muted">{match.teamB.shortName}:</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Record Next Penalty Attempt Form */}
+      <div className="rounded-xl border border-border bg-surface-2/40 p-4 space-y-4">
+        <h4 className="font-semibold text-foreground flex items-center justify-between">
+          <span>Record Penalty Shot #{shootoutEvents.length + 1}</span>
+          <span className="text-xs font-normal text-muted">Round {Math.floor(shootoutEvents.length / 2) + 1}</span>
+        </h4>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Kicking Team">
+            <Select
+              value={String(selectedTeamId)}
+              onChange={(e) => {
+                setSelectedTeamId(Number(e.target.value));
+                setSelectedPlayerId(null);
+                setPlayerQuery("");
+              }}
+            >
+              <option value={match.teamA.id}>{match.teamA.name} ({match.teamA.shortName})</option>
+              <option value={match.teamB.id}>{match.teamB.name} ({match.teamB.shortName})</option>
+            </Select>
+          </Field>
+
+          <PlayerSearch
+            label="Kicker Name"
+            hint="Select player from squad or type custom taker name"
+            entries={currentTeamRoster}
+            query={playerQuery}
+            selectedPlayerId={selectedPlayerId}
+            onQueryChange={(value) => {
+              setPlayerQuery(value);
+              setSelectedPlayerId(null);
+            }}
+            onSelect={(playerId, label) => {
+              setSelectedPlayerId(playerId);
+              setPlayerQuery(label);
+            }}
+          />
+        </div>
+
+        <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+          <span className="text-sm font-medium text-muted">Shot Outcome:</span>
+          <div className="flex gap-2 min-w-[200px] flex-1">
+            <Button
+              type="button"
+              variant={isPenalty ? "primary" : "outline"}
+              className={`flex-1 ${isPenalty ? "bg-emerald-600 hover:bg-emerald-500 text-white font-bold" : "border-emerald-500/40 text-emerald-400"}`}
+              onClick={() => setIsPenalty(true)}
+            >
+              ⚽ Scored (Goal)
+            </Button>
+            <Button
+              type="button"
+              variant={!isPenalty ? "danger" : "outline"}
+              className={`flex-1 ${!isPenalty ? "bg-rose-600 hover:bg-rose-500 text-white font-bold" : "border-rose-500/40 text-rose-400"}`}
+              onClick={() => setIsPenalty(false)}
+            >
+              ❌ Missed / Saved
+            </Button>
+          </div>
+        </div>
+
+        <Button
+          className="w-full h-11 text-base font-bold bg-accent hover:bg-accent/90"
+          onClick={updateScorecard}
+          disabled={!playerQuery.trim() || busy || !connected}
+        >
+          {busy ? "Recording shot…" : `Record Shot as ${isPenalty ? "SCORED (Goal) ⚽" : "MISSED ❌"}`}
+        </Button>
+      </div>
+
+      {/* Sudden Death / Extra Shootout Round Info */}
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/60 bg-surface-2 p-3 text-xs text-muted">
+        <div>
+          <p className="font-semibold text-foreground">Sudden Death / Extra Rounds</p>
+          <p className="mt-0.5">Recording more shots automatically adds extra rounds to both organiser & viewer indicator circles.</p>
+        </div>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => {
+            setPlayerQuery("");
+            setSelectedPlayerId(null);
+            setIsPenalty(true);
+          }}
+        >
+          ➕ Add Next Shootout Attempt
+        </Button>
+      </div>
+    </div>
   );
 }

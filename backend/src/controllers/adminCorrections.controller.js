@@ -10,8 +10,8 @@ const authorization = require('../services/authorization.service');
 const matchState = require('../models/matchState.model');
 
 const METRICS = ['played', 'won', 'lost', 'drawn', 'points', 'scoredFor', 'scoredAgainst'];
-const EVENT_TYPES = ['goal', 'yellow_card', 'red_card', 'substitution', 'foul', 'corner', 'free_kick', 'offside'];
-const TEAM_EVENT_TYPES = ['foul', 'corner', 'free_kick', 'offside'];
+const EVENT_TYPES = ['goal', 'yellow_card', 'red_card', 'substitution', 'foul', 'corner', 'free_kick', 'offside', 'penalty_shootout', 'outside'];
+const TEAM_EVENT_TYPES = ['foul', 'corner', 'free_kick', 'offside', 'outside'];
 
 function nonNegativeInteger(value, label) {
   const number = Number(value);
@@ -54,18 +54,19 @@ async function validateFootballEvent(match, body) {
   if (![match.teamAId, match.teamBId].includes(teamId)) { const error = new Error('Choose one of the match teams'); error.status = 400; throw error; }
   const isTeamEvent = TEAM_EVENT_TYPES.includes(body.eventType);
   const playerId = body.playerId ? Number(body.playerId) : null;
+  const playerName = body.playerName?.trim() || null;
   const membership = playerId ? await prisma.teamPlayer.findUnique({
     where: { teamId_playerId: { teamId, playerId } },
     include: { player: true },
   }) : null;
-  if (!isTeamEvent && !membership) { const error = new Error('Choose a registered player from that team'); error.status = 400; throw error; }
+  if (!isTeamEvent && body.eventType !== 'penalty_shootout' && !membership) { const error = new Error('Choose a registered player from that team'); error.status = 400; throw error; }
   return {
-    half: nonNegativeInteger(body.minute, 'Minute') > FOOTBALL_HALF_LENGTH_MINUTES ? 2 : 1,
-    minute: nonNegativeInteger(body.minute, 'Minute'),
+    half: nonNegativeInteger(body.minute ?? 0, 'Minute') > FOOTBALL_HALF_LENGTH_MINUTES ? 2 : 1,
+    minute: nonNegativeInteger(body.minute ?? 0, 'Minute'),
     extraTimeMinute: nonNegativeInteger(body.extraTimeMinute ?? 0, 'Extra-time minute'),
-    eventType: body.eventType, teamId, playerId: isTeamEvent ? null : playerId,
-    playerName: membership?.player.name ?? null, jerseyNumber: membership?.jerseyNumber ?? null,
-    isPenalty: body.eventType === 'goal' && body.isPenalty === true,
+    eventType: body.eventType, teamId, playerId: isTeamEvent ? null : (membership?.playerId || playerId),
+    playerName: playerName || membership?.player.name || null, jerseyNumber: membership?.jerseyNumber || body.jerseyNumber || null,
+    isPenalty: body.eventType === 'penalty_shootout' ? body.isPenalty === true : (body.eventType === 'goal' && body.isPenalty === true),
   };
 }
 

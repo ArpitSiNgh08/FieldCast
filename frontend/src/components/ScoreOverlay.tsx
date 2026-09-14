@@ -20,6 +20,11 @@ export function ScoreOverlay({ match, footballEvents = [] }: Props) {
   const { teamAScore, teamBScore, periodLabel, extra } = state;
   const phaseLabel = periodLabel === "Halftime" || periodLabel === "Full time" ? periodLabel : "";
 
+  const shootoutEvents = footballEvents.filter((e) => e.event_type === "penalty_shootout");
+  const teamAShootoutScored = shootoutEvents.filter((e) => e.team_id === match.teamA.id && e.is_penalty).length;
+  const teamBShootoutScored = shootoutEvents.filter((e) => e.team_id === match.teamB.id && e.is_penalty).length;
+  const hasShootout = shootoutEvents.length > 0;
+
   return (
     <div
       className="rounded-xl border border-border bg-surface p-5 shadow-sm"
@@ -30,7 +35,13 @@ export function ScoreOverlay({ match, footballEvents = [] }: Props) {
         <TeamIdentity name={match.teamA.name} short={match.teamA.shortName} logoUrl={match.teamA.logoUrl} side="left" />
         <div className="min-w-[6.5rem] text-center">
           {phaseLabel && <p className="text-[11px] font-medium text-muted">{phaseLabel}</p>}
-          <p className="mt-1 text-3xl font-bold tracking-wide text-foreground sm:text-4xl">{teamAScore} - {teamBScore}</p>
+          <p className="mt-1 text-3xl font-bold tracking-wide text-foreground sm:text-4xl">
+            {teamAScore}
+            {hasShootout && <span className="text-accent">({teamAShootoutScored})</span>}
+            {" - "}
+            {teamBScore}
+            {hasShootout && <span className="text-accent">({teamBShootoutScored})</span>}
+          </p>
           <p className="mt-1 text-xs text-muted">{state.status === "completed" ? "Full Time" : "In progress"}</p>
         </div>
         <TeamIdentity name={match.teamB.name} short={match.teamB.shortName} logoUrl={match.teamB.logoUrl} side="right" />
@@ -40,6 +51,8 @@ export function ScoreOverlay({ match, footballEvents = [] }: Props) {
         <GoalList goals={footballEvents.filter((event) => event.event_type === "goal" && event.team_id === match.teamA.id)} align="left" />
         <GoalList goals={footballEvents.filter((event) => event.event_type === "goal" && event.team_id === match.teamB.id)} align="right" />
       </div>
+
+      <PenaltyShootoutDisplay match={match} footballEvents={footballEvents} />
 
       {/* Sport-specific sub-info */}
       <SportDetail sport={match.sport} extra={extra} />
@@ -93,4 +106,80 @@ function SportDetail({
   }
 
   return null;
+}
+
+function PenaltyShootoutDisplay({ match, footballEvents }: { match: Match; footballEvents: FootballEvent[] }) {
+  const shootoutEvents = footballEvents.filter((event) => event.event_type === "penalty_shootout");
+  if (!shootoutEvents.length) return null;
+
+  const teamAShootouts = shootoutEvents.filter((e) => e.team_id === match.teamA.id);
+  const teamBShootouts = shootoutEvents.filter((e) => e.team_id === match.teamB.id);
+
+  const teamAScored = teamAShootouts.filter((e) => e.is_penalty).length;
+  const teamBScored = teamBShootouts.filter((e) => e.is_penalty).length;
+
+  const roundCount = Math.max(5, teamAShootouts.length, teamBShootouts.length);
+  const roundIndices = Array.from({ length: roundCount }, (_, i) => i);
+
+  return (
+    <div className="mt-4 rounded-xl border border-accent/40 bg-accent/5 p-4 text-center">
+      <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider text-accent">
+        <span>🎯 Penalty Shootout</span>
+        <span className="font-mono text-base font-extrabold text-foreground">
+          {teamAScored} - {teamBScored}
+        </span>
+      </div>
+
+      {/* 5+ Indicator Circles for viewer */}
+      <div className="mt-3 flex items-center justify-between gap-4 border-t border-border/40 pt-3">
+        <div className="flex items-center gap-1.5 justify-start min-w-0">
+          <span className="mr-1 text-xs font-semibold text-muted shrink-0">{match.teamA.shortName}:</span>
+          <div className="flex items-center gap-1.5 overflow-x-auto py-1">
+            {roundIndices.map((i) => {
+              const shot = teamAShootouts[i];
+              return (
+                <div
+                  key={`a-${i}`}
+                  title={shot ? `${shot.player_name || 'Player'}: ${shot.is_penalty ? 'Scored' : 'Missed'}` : `Shot ${i + 1}`}
+                  className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold transition-all ${
+                    !shot
+                      ? "bg-surface-3 text-muted-foreground border border-border/60"
+                      : shot.is_penalty
+                      ? "bg-emerald-500 text-white shadow-sm shadow-emerald-500/50"
+                      : "bg-rose-500 text-white shadow-sm shadow-rose-500/50"
+                  }`}
+                >
+                  {!shot ? i + 1 : shot.is_penalty ? "✓" : "✕"}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="flex items-center gap-1.5 justify-end min-w-0">
+          <div className="flex items-center gap-1.5 overflow-x-auto py-1">
+            {roundIndices.map((i) => {
+              const shot = teamBShootouts[i];
+              return (
+                <div
+                  key={`b-${i}`}
+                  title={shot ? `${shot.player_name || 'Player'}: ${shot.is_penalty ? 'Scored' : 'Missed'}` : `Shot ${i + 1}`}
+                  className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold transition-all ${
+                    !shot
+                      ? "bg-surface-3 text-muted-foreground border border-border/60"
+                      : shot.is_penalty
+                      ? "bg-emerald-500 text-white shadow-sm shadow-emerald-500/50"
+                      : "bg-rose-500 text-white shadow-sm shadow-rose-500/50"
+                  }`}
+                >
+                  {!shot ? i + 1 : shot.is_penalty ? "✓" : "✕"}
+                </div>
+              );
+            })}
+          </div>
+          <span className="ml-1 text-xs font-semibold text-muted shrink-0">{match.teamB.shortName}:</span>
+        </div>
+      </div>
+    </div>
+  );
 }

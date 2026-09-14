@@ -84,9 +84,30 @@ async function recordDetail(matchId, sport, payload) {
     const extraTimeMinute = Number(d.extraTimeMinute || 0);
     if (!Number.isInteger(minute) || minute < 0 || minute > 120) throw new Error('Minute must be between 0 and 120');
     if (!Number.isInteger(extraTimeMinute) || extraTimeMinute < 0 || extraTimeMinute > 30) throw new Error('Extra-time minute must be between 0 and 30');
-    const teamEvent = ['foul', 'corner', 'free_kick', 'offside'].includes(d.eventType);
-    if (!['goal', 'yellow_card', 'red_card', 'substitution', 'foul', 'corner', 'free_kick', 'offside'].includes(d.eventType)) throw new Error('Invalid football event');
+    const teamEvent = ['foul', 'corner', 'free_kick', 'offside', 'outside'].includes(d.eventType);
+    if (!['goal', 'yellow_card', 'red_card', 'substitution', 'foul', 'corner', 'free_kick', 'offside', 'penalty_shootout', 'outside'].includes(d.eventType)) throw new Error('Invalid football event');
     if (!team) throw new Error('Choose a team from this match');
+
+    if (d.eventType === 'penalty_shootout') {
+      const pName = d.playerName?.trim() || null;
+      const pId = d.playerId ? Number(d.playerId) : null;
+      let playerObj = null;
+      if (pId) {
+        const found = team.players.find((candidate) => candidate.playerId === pId);
+        if (found) playerObj = found;
+      }
+      await events.addFootballEvent(matchId, {
+        ...d,
+        teamId: team.id,
+        playerId: playerObj ? playerObj.playerId : pId,
+        playerName: pName || playerObj?.player?.name || null,
+        jerseyNumber: playerObj?.jerseyNumber || d.jerseyNumber || null,
+        isPenalty: d.isPenalty === true, // true if scored, false if missed
+        minute,
+        extraTimeMinute,
+      });
+      return { eventType: d.eventType, teamId: team.id };
+    }
 
     const history = await events.listFootballEvents(matchId);
     const activePlayerIds = new Set(team.players.filter((candidate) => candidate.squadRole === 'playing').map((candidate) => candidate.playerId));
