@@ -137,9 +137,14 @@ async function updateStatus(req, res) {
     clipService.stop(Number(req.params.id));
     const candidate = await Matches.findById(req.params.id);
     if (!candidate) return res.status(404).json({ error: 'Match not found' });
-    const winnerTeamId = candidate.state.teamAScore === candidate.state.teamBScore
-      ? null
-      : candidate.state.teamAScore > candidate.state.teamBScore ? candidate.teamA.id : candidate.teamB.id;
+    
+    let winnerTeamId = null;
+    if (candidate.state.teamAScore !== candidate.state.teamBScore) {
+      winnerTeamId = candidate.state.teamAScore > candidate.state.teamBScore ? candidate.teamA.id : candidate.teamB.id;
+    } else if (candidate.hasPenaltyShootout && candidate.teamAPenaltyScore !== candidate.teamBPenaltyScore) {
+      winnerTeamId = candidate.teamAPenaltyScore > candidate.teamBPenaltyScore ? candidate.teamA.id : candidate.teamB.id;
+    }
+
     const completed = await Matches.setResult(req.params.id, { winnerTeamId, resultType: 'played' });
     const clockSeconds = footballClock.elapsedSeconds(candidate.state);
     const finalState = await matchState.update(req.params.id, {

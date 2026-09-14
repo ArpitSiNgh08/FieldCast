@@ -56,6 +56,9 @@ export interface Match {
   teamA: Team;
   teamB: Team;
   state: MatchState;
+  hasPenaltyShootout?: boolean;
+  teamAPenaltyScore?: number;
+  teamBPenaltyScore?: number;
 }
 
 export interface MatchCamera { id: number; matchId: number; name: string; angle: string; streamKey: string; ingestUrl?: string; srtIngestUrl?: string; iphoneSrtUrl?: string; iphoneStreamId?: string; iphoneSrtIngestUrl?: string; createdAt: string; }

@@ -45,6 +45,12 @@ function shapeState(s) {
 }
 
 function shapeMatch(m) {
+  const footballEvents = m.footballEvents || [];
+  const shootoutEvents = footballEvents.filter((e) => e.eventType === 'penalty_shootout');
+  const teamAPenaltyScore = shootoutEvents.filter((e) => e.teamId === m.teamAId && e.isPenalty).length;
+  const teamBPenaltyScore = shootoutEvents.filter((e) => e.teamId === m.teamBId && e.isPenalty).length;
+  const hasPenaltyShootout = shootoutEvents.length > 0;
+
   return {
     id: m.id,
     tournamentId: m.tournamentId,
@@ -71,6 +77,9 @@ function shapeMatch(m) {
     teamA: shapeTeam(m.teamA),
     teamB: shapeTeam(m.teamB),
     state: shapeState(m.state),
+    hasPenaltyShootout,
+    teamAPenaltyScore,
+    teamBPenaltyScore,
     createdAt: m.createdAt,
   };
 }
@@ -81,6 +90,9 @@ const MATCH_INCLUDE = {
   teamA: { include: { players: { include: { player: true }, orderBy: { jerseyNumber: 'asc' } } } },
   teamB: { include: { players: { include: { player: true }, orderBy: { jerseyNumber: 'asc' } } } },
   state: true,
+  footballEvents: {
+    select: { eventType: true, teamId: true, isPenalty: true },
+  },
   cameras: { orderBy: { createdAt: 'asc' } },
   _count: { select: { views: true } },
 };

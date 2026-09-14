@@ -34,7 +34,15 @@ async function correctScore(req, res) {
   const match = await completedMatch(req.params.id);
   const teamAScore = nonNegativeInteger(req.body.teamAScore, 'Team A score');
   const teamBScore = nonNegativeInteger(req.body.teamBScore, 'Team B score');
-  const winnerTeamId = teamAScore === teamBScore ? null : teamAScore > teamBScore ? match.teamAId : match.teamBId;
+  
+  const candidate = await Matches.findById(match.id);
+  let winnerTeamId = null;
+  if (teamAScore !== teamBScore) {
+    winnerTeamId = teamAScore > teamBScore ? match.teamAId : match.teamBId;
+  } else if (candidate?.hasPenaltyShootout && candidate.teamAPenaltyScore !== candidate.teamBPenaltyScore) {
+    winnerTeamId = candidate.teamAPenaltyScore > candidate.teamBPenaltyScore ? match.teamAId : match.teamBId;
+  }
+
   await prisma.$transaction([
     prisma.matchState.upsert({
       where: { matchId: match.id },

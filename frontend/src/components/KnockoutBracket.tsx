@@ -93,9 +93,17 @@ function ConnectorLines({ rounds, height }: { rounds: BracketRound[]; height: nu
 function TeamLine({ match, side }: { match: Match; side: "a" | "b" }) {
   const team = side === "a" ? match.teamA : match.teamB;
   const score = side === "a" ? match.state.teamAScore : match.state.teamBScore;
+  const penaltyScore = side === "a" ? match.teamAPenaltyScore : match.teamBPenaltyScore;
   const winner = match.status === "completed" && match.winnerTeamId === team.id;
   const showScore = match.status !== "upcoming";
-  return <div className={`flex items-center justify-between gap-3 px-3 py-2 text-sm ${side === "a" ? "border-b border-border" : ""}`}><div className="flex min-w-0 items-center gap-2"><span className="grid h-6 w-8 shrink-0 place-items-center rounded bg-surface-2 text-[10px] font-bold text-muted">{team.shortName}</span><span className={`truncate ${winner ? "font-semibold text-foreground" : "text-muted"}`}>{team.name}</span></div><span className={`tabular-nums ${winner ? "font-bold text-accent" : "text-muted"}`}>{showScore ? score : "–"}</span></div>;
+
+  const scoreText = showScore
+    ? match.hasPenaltyShootout
+      ? `${score}(${penaltyScore ?? 0})`
+      : score
+    : "–";
+
+  return <div className={`flex items-center justify-between gap-3 px-3 py-2 text-sm ${side === "a" ? "border-b border-border" : ""}`}><div className="flex min-w-0 items-center gap-2"><span className="grid h-6 w-8 shrink-0 place-items-center rounded bg-surface-2 text-[10px] font-bold text-muted">{team.shortName}</span><span className={`truncate ${winner ? "font-semibold text-foreground" : "text-muted"}`}>{team.name}</span></div><span className={`tabular-nums ${winner ? "font-bold text-accent" : "text-muted"}`}>{scoreText}</span></div>;
 }
 
 function winnerOf(match: Match | null) {

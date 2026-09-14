@@ -8,13 +8,13 @@ import { cn } from "@/lib/cn";
 function TeamRow({
   name,
   short,
-  score,
+  scoreText,
   bold,
   logoUrl,
 }: {
   name: string;
   short: string;
-  score?: number;
+  scoreText?: string;
   bold?: boolean;
   logoUrl?: string | null;
 }) {
@@ -26,9 +26,9 @@ function TeamRow({
           {name}
         </span>
       </div>
-      {score !== undefined ? (
+      {scoreText !== undefined ? (
         <span className={cn("tabular-nums text-sm", bold && "font-bold")}>
-          {score}
+          {scoreText}
         </span>
       ) : null}
     </div>
@@ -47,6 +47,18 @@ export function MatchCard({ match }: { match: Match }) {
   const showScores = isLive || isDone;
   const winA = isDone && match.winnerTeamId === match.teamA.id;
   const winB = isDone && match.winnerTeamId === match.teamB.id;
+
+  const scoreTextA = showScores
+    ? match.hasPenaltyShootout
+      ? `${match.state.teamAScore}(${match.teamAPenaltyScore ?? 0})`
+      : String(match.state.teamAScore)
+    : undefined;
+
+  const scoreTextB = showScores
+    ? match.hasPenaltyShootout
+      ? `${match.state.teamBScore}(${match.teamBPenaltyScore ?? 0})`
+      : String(match.state.teamBScore)
+    : undefined;
 
   return (
     <Link href={href} className="block">
@@ -78,14 +90,14 @@ export function MatchCard({ match }: { match: Match }) {
           <TeamRow
             name={match.teamA.name}
             short={match.teamA.shortName}
-            score={showScores ? match.state.teamAScore : undefined}
+            scoreText={scoreTextA}
             bold={winA}
             logoUrl={match.teamA.logoUrl}
           />
           <TeamRow
             name={match.teamB.name}
             short={match.teamB.shortName}
-            score={showScores ? match.state.teamBScore : undefined}
+            scoreText={scoreTextB}
             bold={winB}
             logoUrl={match.teamB.logoUrl}
           />
