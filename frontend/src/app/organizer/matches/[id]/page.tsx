@@ -1397,7 +1397,11 @@ function PenaltyShootoutOrganiserControl({
   const teamAScored = teamAShootouts.filter((e) => e.is_penalty).length;
   const teamBScored = teamBShootouts.filter((e) => e.is_penalty).length;
 
-  const roundCount = Math.max(5, teamAShootouts.length, teamBShootouts.length);
+  const [extraRounds, setExtraRounds] = useState(0);
+
+  const maxRecordedShots = Math.max(teamAShootouts.length, teamBShootouts.length);
+  const baseRounds = Math.max(5, Math.ceil(maxRecordedShots / 5) * 5);
+  const roundCount = baseRounds + extraRounds;
   const roundIndices = Array.from({ length: roundCount }, (_, i) => i);
 
   const roster = rosterOptions(match);
@@ -1535,18 +1539,17 @@ function PenaltyShootoutOrganiserControl({
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/60 bg-surface-2 p-3 text-xs text-muted">
         <div>
           <p className="font-semibold text-foreground">Sudden Death / Extra Rounds</p>
-          <p className="mt-0.5">Recording more shots automatically adds extra rounds to both organiser & viewer indicator circles.</p>
+          <p className="mt-0.5">Need more penalty kicks? Click to add another set of 5 kicks for sudden death.</p>
         </div>
         <Button
           size="sm"
           variant="outline"
+          className="border-accent/40 text-accent font-semibold hover:bg-accent/10"
           onClick={() => {
-            setPlayerQuery("");
-            setSelectedPlayerId(null);
-            setIsPenalty(true);
+            setExtraRounds((prev) => prev + 5);
           }}
         >
-          ➕ Add Next Shootout Attempt
+          ➕ Add Next Set of 5 Kicks
         </Button>
       </div>
     </div>
