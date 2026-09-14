@@ -107,9 +107,20 @@ function TeamLine({ match, side }: { match: Match; side: "a" | "b" }) {
 }
 
 function winnerOf(match: Match | null) {
-  if (!match || match.status !== "completed" || !match.winnerTeamId) return null;
-  if (match.teamA.id === match.winnerTeamId) return match.teamA;
-  if (match.teamB.id === match.winnerTeamId) return match.teamB;
+  if (!match) return null;
+  // If explicitly set
+  if (match.winnerTeamId) {
+    if (match.teamA.id === match.winnerTeamId) return match.teamA;
+    if (match.teamB.id === match.winnerTeamId) return match.teamB;
+  }
+  // If team scores differ
+  if (match.state.teamAScore !== match.state.teamBScore) {
+    return match.state.teamAScore > match.state.teamBScore ? match.teamA : match.teamB;
+  }
+  // If penalty shootout scores differ
+  if (match.hasPenaltyShootout && match.teamAPenaltyScore !== match.teamBPenaltyScore) {
+    return (match.teamAPenaltyScore ?? 0) > (match.teamBPenaltyScore ?? 0) ? match.teamA : match.teamB;
+  }
   return null;
 }
 
@@ -125,7 +136,7 @@ function BracketMatch({ match, label, previousRound }: { match: Match | null; la
   const feederMatches = previousRound?.matches.slice(0, 2) || [];
   return <div className="absolute left-0 w-full overflow-hidden rounded-lg border border-border bg-surface shadow-sm" style={{ height: CARD_HEIGHT }}>
     <div className="flex h-6 items-center justify-between bg-surface-2 px-3 text-[10px] font-semibold uppercase tracking-wide text-muted"><span>{label}</span>{match?.status === "live" && <span className="text-live">Live</span>}</div>
-    {match ? <><TeamLine match={match} side="a" /><TeamLine match={match} side="b" /></> : <div className="h-[66px]">{[0, 1].map((index) => <AdvancingTeamLine key={index} sourceMatch={feederMatches[index] || null} sourceLabel={`${previousRound?.name || "match"} ${index + 1}`} divider={index === 0} />)}</div>}
+    {match ? <><TeamLine match={match} side="a" /><TeamLine match={match} side="b" /></> : <div className="h-[66px]">{[0, 1].map((index) => <AdvancingTeamLine key={index} sourceMatch={feederMatches[index] || null} sourceLabel={previousRound ? matchLabel(previousRound, index) : `match ${index + 1}`} divider={index === 0} />)}</div>}
   </div>;
 }
 
