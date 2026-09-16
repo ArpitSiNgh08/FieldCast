@@ -93,6 +93,8 @@ export const api = {
   createMatchClip: (id: number | string) => apiFetch<{ id: number; status: string }>(`/matches/${id}/clips`, { method: "POST" }),
   createMatch: (body: unknown) =>
     apiFetch<Match>("/matches", { method: "POST", body }),
+  deleteMatch: (id: number | string) =>
+    apiFetch<{ success: boolean; message: string }>(`/matches/${id}`, { method: "DELETE" }),
   updateBroadcastSetup: (id: number, body: unknown) => apiFetch<Match>(`/matches/${id}/broadcast-setup`, { method: "PATCH", body }),
   addMatchCamera: (id: number, body: { name: string; angle: string }) => apiFetch<Match>(`/matches/${id}/cameras`, { method: "POST", body }),
   removeMatchCamera: (id: number, cameraId: number) => apiFetch<Match>(`/matches/${id}/cameras/${cameraId}`, { method: "DELETE" }),

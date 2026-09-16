@@ -221,4 +221,12 @@ async function updateBroadcastSetup(id, { venue, scheduledAt, checklist }) {
   return findById(id);
 }
 
-module.exports = { list, findById, create, setStatus, setResult, setActiveCamera, addCamera, removeCamera, updateBroadcastSetup, shapeMatch, isUpcomingVisible };
+async function remove(id) {
+  const matchId = Number(id);
+  // Delete match and dependent cascade entities
+  return prisma.match.delete({
+    where: { id: matchId },
+  });
+}
+
+module.exports = { list, findById, create, setStatus, setResult, setActiveCamera, addCamera, removeCamera, updateBroadcastSetup, remove, shapeMatch, isUpcomingVisible };

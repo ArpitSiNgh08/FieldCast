@@ -71,22 +71,41 @@ function withStreamUrl(match) {
   };
 }
 
+const { matchCache, invalidateMatchCache } = require('../services/cache.service');
+
 async function list(req, res) {
   const { sport, status, tournamentId, includeTest } = req.query;
   const isAdmin = req.user?.role === 'admin';
+  const cacheKey = `matches_list:${sport || 'all'}:${status || 'all'}:${tournamentId || 'all'}:${isAdmin && includeTest === 'true'}`;
+
+  const cached = matchCache.get(cacheKey);
+  if (cached) {
+    return res.json(cached);
+  }
+
   const matches = await Matches.list({
     sport,
     status,
     tournamentId: tournamentId ? Number(tournamentId) : undefined,
     includeTest: isAdmin && includeTest === 'true',
   });
-  res.json(matches.map(withStreamUrl));
+  const result = matches.map(withStreamUrl);
+  matchCache.set(cacheKey, result, 3);
+  res.json(result);
 }
 
 async function get(req, res) {
+  const cacheKey = `match:${req.params.id}`;
+  const cached = matchCache.get(cacheKey);
+  if (cached) {
+    return res.json(cached);
+  }
+
   const match = await Matches.findById(req.params.id);
   if (!match) return res.status(404).json({ error: 'Match not found' });
-  res.json(withStreamUrl(match));
+  const result = withStreamUrl(match);
+  matchCache.set(cacheKey, result, 3);
+  res.json(result);
 }
 
 async function create(req, res) {
@@ -201,11 +220,27 @@ async function addCamera(req, res) {
   res.status(201).json(withStreamUrl(match));
 }
 
-async function removeCamera(req, res) {
-  if (!(await requireManager(req, res))) return;
-  const match = await Matches.removeCamera(req.params.id, req.params.cameraId);
-  if (!match) return res.status(404).json({ error: 'Camera not found' });
-  res.json(withStreamUrl(match));
+async function removeMatch(req, res) {
+  if (req.user?.role !== 'admin') {
+    return res.status(403).json({ error: 'Only system admins can delete matches' });
+  }
+  const matchId = req.params.id;
+  const existing = await Matches.findById(matchId);
+  if (!existing) return res.status(404).json({ error: 'Match not found' });
+
+  // Stop any active switchers or clip recorders
+  cameraSwitcher.stop(Number(matchId));
+  clipService.stop(Number(matchId));
+
+  await Matches.remove(matchId);
+  invalidateMatchCache(matchId);
+
+  // Recompute standings if match was in a tournament
+  if (existing.tournamentId) {
+    await standingsService.recomputeForTournament(existing.tournamentId);
+  }
+
+  res.json({ success: true, message: 'Match deleted successfully' });
 }
 
-module.exports = { list, get, create, updateStatus, setResult, updateBroadcastSetup, addCamera, removeCamera, withStreamUrl };
+module.exports = { list, get, create, updateStatus, setResult, updateBroadcastSetup, addCamera, removeCamera, removeMatch, withStreamUrl };

@@ -24,6 +24,7 @@ router.post('/:id/cameras', requireAuth, asyncHandler(ctrl.addCamera));
 router.delete('/:id/cameras/:cameraId', requireAuth, asyncHandler(ctrl.removeCamera));
 router.post('/:id/result', requireAuth, asyncHandler(ctrl.setResult));
 router.post('/:id/clips', requireAuth, asyncHandler(clips.create));
+router.delete('/:id', requireAuth, asyncHandler(ctrl.removeMatch));
 router.patch('/:id/football-events/:eventId', requireAuth, asyncHandler(corrections.updateLiveFootballEvent));
 router.delete('/:id/football-events/:eventId', requireAuth, asyncHandler(corrections.deleteLiveFootballEvent));
 

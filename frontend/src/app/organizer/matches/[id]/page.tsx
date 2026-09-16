@@ -535,14 +535,37 @@ export default function FootballMatchControl() {
             {match.teamA.name} vs {match.teamB.name}
           </h1>
         </div>
-        {match.status === "live" && (
-          <Link
-            href={`/matches/${match.id}`}
-            className="rounded-lg border border-border px-4 py-2 text-sm font-medium hover:bg-surface-2"
-          >
-            Open public stream ↗
-          </Link>
-        )}
+        <div className="flex items-center gap-2">
+          {match.status === "live" && (
+            <Link
+              href={`/matches/${match.id}`}
+              className="rounded-lg border border-border px-4 py-2 text-sm font-medium hover:bg-surface-2"
+            >
+              Open public stream ↗
+            </Link>
+          )}
+          {user?.role === "admin" && (
+            <Button
+              variant="danger"
+              size="sm"
+              disabled={busy}
+              onClick={async () => {
+                if (window.confirm(`Are you sure you want to permanently delete match #${match.id} (${match.teamA.name} vs ${match.teamB.name})? This cannot be undone.`)) {
+                  setBusy(true);
+                  try {
+                    await api.deleteMatch(match.id);
+                    router.push("/organizer");
+                  } catch (err) {
+                    setError(err instanceof Error ? err.message : "Failed to delete match");
+                    setBusy(false);
+                  }
+                }
+              }}
+            >
+              Delete match 🗑️
+            </Button>
+          )}
+        </div>
       </div>
       {match.isTest && (
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-500/40 bg-amber-500/10 p-4 text-amber-200">

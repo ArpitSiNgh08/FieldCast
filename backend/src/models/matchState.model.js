@@ -28,6 +28,8 @@ async function findByMatch(matchId) {
  * the rest keep their current values. Mirrors the old ON CONFLICT … DO UPDATE
  * behaviour from the raw-pg version.
  */
+const { invalidateMatchCache } = require('../services/cache.service');
+
 async function update(matchId, patch = {}) {
   const id = Number(matchId);
 
@@ -52,6 +54,7 @@ async function update(matchId, patch = {}) {
     },
   });
 
+  invalidateMatchCache(id);
   return shapeState(s);
 }
 

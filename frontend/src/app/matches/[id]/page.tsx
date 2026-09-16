@@ -12,7 +12,7 @@ interface Props {
   params: Promise<{ id: string }>;
 }
 
-export const revalidate = 0; // always SSR for live match
+export const revalidate = 3; // revalidate every 3 seconds at Vercel Edge CDN
 
 export async function generateMetadata({ params }: Props) {
   const { id } = await params;
