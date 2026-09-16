@@ -220,6 +220,13 @@ async function addCamera(req, res) {
   res.status(201).json(withStreamUrl(match));
 }
 
+async function removeCamera(req, res) {
+  if (!(await requireManager(req, res))) return;
+  const match = await Matches.removeCamera(req.params.id, req.params.cameraId);
+  if (!match) return res.status(404).json({ error: 'Camera not found' });
+  res.json(withStreamUrl(match));
+}
+
 async function removeMatch(req, res) {
   if (req.user?.role !== 'admin') {
     return res.status(403).json({ error: 'Only system admins can delete matches' });
