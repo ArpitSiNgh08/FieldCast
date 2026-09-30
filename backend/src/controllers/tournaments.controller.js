@@ -32,10 +32,21 @@ async function requireTeamEditor(req, res) {
   return null;
 }
 
+const { matchCache, invalidateOrganizedTournamentsCache } = require('../services/cache.service');
+
 async function list(req, res) { res.json(await Tournaments.list({ sport: req.query.sport })); }
 async function mine(req, res) { res.json(await Tournaments.list({ creatorId: req.user.sub, approvalStatus: null })); }
 async function pending(_req, res) { res.json(await Tournaments.list({ approvalStatus: 'submitted' })); }
-async function organized(req, res) { res.json(await Tournaments.listOrganized(req.user.sub)); }
+async function organized(req, res) {
+  const cacheKey = `tournaments:organized:${req.user.sub}`;
+  const cached = matchCache.get(cacheKey);
+  if (cached) {
+    return res.json(cached);
+  }
+  const data = await Tournaments.listOrganized(req.user.sub);
+  matchCache.set(cacheKey, data, 30); // 30 seconds TTL
+  res.json(data);
+}
 
 async function get(req, res) {
   const t = await Tournaments.findById(req.params.id);
@@ -71,7 +82,9 @@ async function addPool(req, res) {
 
 async function update(req, res) {
   if (!(await requireEditable(req, res))) return;
-  res.json(await Tournaments.update(req.params.id, req.body));
+  const updated = await Tournaments.update(req.params.id, req.body);
+  invalidateOrganizedTournamentsCache();
+  res.json(updated);
 }
 
 async function updateLogo(req, res) {
@@ -79,7 +92,9 @@ async function updateLogo(req, res) {
   const imageUrl = typeof req.body.imageUrl === 'string' ? req.body.imageUrl.trim() : '';
   if (imageUrl && !/^(https?:\/\/|data:image\/)/i.test(imageUrl)) return res.status(400).json({ error: 'Logo must be an image URL or uploaded image' });
   if (imageUrl.length > 2_500_000) return res.status(413).json({ error: 'Logo image is too large (maximum 2 MB)' });
-  res.json(await Tournaments.updateLogo(req.params.id, imageUrl));
+  const updated = await Tournaments.updateLogo(req.params.id, imageUrl);
+  invalidateOrganizedTournamentsCache();
+  res.json(updated);
 }
 
 async function addTeam(req, res) {
@@ -166,7 +181,9 @@ async function review(req, res) {
   const { decision, reason } = req.body;
   if (!['approved', 'rejected'].includes(decision)) return res.status(400).json({ error: 'Decision must be approved or rejected' });
   if (decision === 'rejected' && !reason?.trim()) return res.status(400).json({ error: 'Give a rejection reason' });
-  res.json(await Tournaments.review(req.params.id, { decision, reason: reason?.trim(), reviewerId: req.user.sub }));
+  const result = await Tournaments.review(req.params.id, { decision, reason: reason?.trim(), reviewerId: req.user.sub });
+  invalidateOrganizedTournamentsCache();
+  res.json(result);
 }
 
 async function addOrganizer(req, res) {
@@ -178,6 +195,7 @@ async function addOrganizer(req, res) {
   if (!email) return res.status(400).json({ error: 'Email is required' });
   const updated = await Tournaments.addOrganizer(t.id, email, req.user.sub);
   if (!updated) return res.status(404).json({ error: 'That email does not have a FieldCast account yet' });
+  invalidateOrganizedTournamentsCache();
   res.json(updated);
 }
 

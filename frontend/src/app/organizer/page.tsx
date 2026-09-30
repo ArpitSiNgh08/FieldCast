@@ -85,11 +85,64 @@ export default function OrganizerPage() {
     return () => clearTimeout(timer);
   }, [loadMatches]);
 
+  const [driveConnected, setDriveConnected] = useState(false);
+  const [driveEmail, setDriveEmail] = useState("");
+  const [driveFolderId, setDriveFolderId] = useState("");
+  const [driveTokenExpired, setDriveTokenExpired] = useState(false);
+  const [driveBusy, setDriveBusy] = useState(false);
+  const [driveMessage, setDriveMessage] = useState("");
+
+  const loadDriveStatus = useCallback(async () => {
+    if (!selectedId) {
+      setDriveConnected(false);
+      setDriveEmail("");
+      setDriveFolderId("");
+      setDriveTokenExpired(false);
+      return;
+    }
+    try {
+      const status = await api.googleDriveStatus(selectedId);
+      setDriveConnected(Boolean(status?.connected));
+      setDriveEmail(status?.accountEmail || "");
+      setDriveFolderId(status?.folderId || "");
+      setDriveTokenExpired(Boolean(status?.tokenExpired));
+    } catch {
+      // Ignore silently if drive is not configured or not accessible
+    }
+  }, [selectedId]);
+
   useEffect(() => {
-    setCropFile(null);
-    setLogoDraft("");
-    setLogoPreview(selected?.imageUrl || "");
-  }, [selectedId, selected?.imageUrl]);
+    const timer = window.setTimeout(() => loadDriveStatus(), 0);
+    return () => clearTimeout(timer);
+  }, [loadDriveStatus]);
+
+  async function connectGoogleDrive() {
+    if (!selectedId) return setDriveMessage("Please select a tournament first");
+    setDriveBusy(true);
+    setDriveMessage("");
+    try {
+      const { url } = await api.startGoogleDriveLink(selectedId);
+      window.location.href = url;
+    } catch (reason) {
+      setDriveMessage(reason instanceof Error ? reason.message : "Could not start Google Drive connection");
+      setDriveBusy(false);
+    }
+  }
+
+  async function saveDriveFolder() {
+    if (!selectedId) return;
+    setDriveBusy(true);
+    setDriveMessage("");
+    try {
+      await api.setGoogleDriveFolder(selectedId, driveFolderId);
+      setDriveMessage("Google Drive folder saved successfully.");
+      await loadDriveStatus();
+    } catch (reason) {
+      setDriveMessage(reason instanceof Error ? reason.message : "Could not save Drive folder");
+    } finally {
+      setDriveBusy(false);
+    }
+  }
 
   async function saveLogo(event: React.FormEvent) {
     event.preventDefault();
@@ -193,6 +246,70 @@ export default function OrganizerPage() {
                   {cropFile && <ImageCropper file={cropFile} onCancel={() => setCropFile(null)} onSave={(imageUrl) => { setLogoDraft(imageUrl); setLogoPreview(imageUrl); setCropFile(null); }} />}
                 </div>
               </details>
+
+              <details open className="group overflow-hidden rounded-xl border border-border bg-surface shadow-sm">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-4 font-semibold marker:hidden">
+                  <span className="flex items-center gap-2">
+                    <span>Google Drive clips storage</span>
+                    {driveTokenExpired && (
+                      <span className="rounded-full bg-rose-500/20 px-2 py-0.5 text-xs font-bold text-rose-500">
+                        Token Expired ⚠️
+                      </span>
+                    )}
+                  </span>
+                  <span className="text-sm text-muted transition-transform group-open:rotate-180">⌄</span>
+                </summary>
+                <div className="border-t border-border p-4 space-y-4">
+                  <div className="flex flex-wrap items-end justify-between gap-4">
+                    <div className="min-w-60 flex-1">
+                      <p className="text-xs font-semibold uppercase tracking-widest text-accent">Google Drive clips folder</p>
+                      <p className="mt-1 text-sm text-muted">
+                        {driveConnected
+                          ? `Shared for ${selected.name}${driveEmail ? ` through ${driveEmail}` : ""}. All clips from matches in this tournament will be uploaded here.`
+                          : "Link a Google account so organizers can save and upload instant highlight clips directly to Google Drive."}
+                      </p>
+                      {driveConnected && (
+                        <div className="mt-3">
+                          <label className="text-xs font-medium text-muted">Google Drive Folder ID:</label>
+                          <Input
+                            className="mt-1 font-mono text-sm"
+                            value={driveFolderId}
+                            onChange={(event) => setDriveFolderId(event.target.value)}
+                            placeholder="Enter Google Drive Folder ID"
+                          />
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {driveConnected ? (
+                        <>
+                          <Button variant="primary" onClick={saveDriveFolder} disabled={driveBusy || !driveFolderId.trim()}>
+                            {driveBusy ? "Saving…" : "Save folder"}
+                          </Button>
+                          <Button variant="outline" onClick={connectGoogleDrive} disabled={driveBusy}>
+                            {driveTokenExpired ? "Sign in again with Google ⚠️" : "Replace linked account"}
+                          </Button>
+                        </>
+                      ) : (
+                        <Button variant="primary" onClick={connectGoogleDrive} disabled={driveBusy}>
+                          {driveBusy ? "Connecting…" : "Link Google Drive account"}
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+
+                  {driveTokenExpired && (
+                    <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-3.5 text-sm text-rose-400">
+                      <p className="font-semibold text-rose-300">⚠️ Google Drive sign-in has expired</p>
+                      <p className="mt-1 text-xs text-rose-300/80">
+                        The Google OAuth token for {driveEmail ? <strong>{driveEmail}</strong> : "the linked account"} has expired or was revoked. The tournament owner / organizer must sign in again with Google so match clips can be saved.
+                      </p>
+                    </div>
+                  )}
+
+                  {driveMessage && <p className="text-sm font-medium text-accent">{driveMessage}</p>}
+                </div>
+              </details>
               <details open className="group overflow-hidden rounded-xl border border-border bg-surface shadow-sm">
                 <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-4 font-semibold marker:hidden"><span>Upcoming and live matches</span><span className="text-sm text-muted transition-transform group-open:rotate-180">⌄</span></summary>
                 <div className="border-t border-border p-4">
@@ -201,16 +318,39 @@ export default function OrganizerPage() {
                     ) : (
                       <div className="space-y-3">
                         {activeMatches.map((match) => (
-                          <Link href={`/organizer/matches/${match.id}`} key={match.id} className="flex items-center justify-between rounded-lg border border-border p-4 transition-colors hover:border-accent">
-                            <div>
+                          <div key={match.id} className="flex items-center justify-between rounded-lg border border-border p-4 transition-colors hover:border-accent">
+                            <Link href={`/organizer/matches/${match.id}`} className="min-w-0 flex-1">
                               <div className="flex items-center gap-2">
-                                <p className="font-medium">{match.teamA.name} vs {match.teamB.name}</p>
+                                <p className="font-medium hover:text-accent">{match.teamA.name} vs {match.teamB.name}</p>
                                 {match.isTest && <Badge tone="warning" className="text-xs">TEST MATCH</Badge>}
                               </div>
                               <p className="mt-1 text-xs text-muted">{match.poolName || match.knockoutStage || "Legacy fixture"} · {match.venue || "Venue pending"} · {match.cameras.length} camera{match.cameras.length === 1 ? "" : "s"}</p>
+                            </Link>
+                            <div className="flex items-center gap-2">
+                              <Badge tone={match.isTest ? "warning" : match.status === "live" ? "accent" : "muted"}>{match.isTest ? "ghost match" : match.resultType === "washout" ? "washout" : match.status}</Badge>
+                              {user?.role === "admin" && (
+                                <button
+                                  type="button"
+                                  title="Delete match"
+                                  className="ml-2 rounded p-1 text-muted hover:bg-rose-500/10 hover:text-rose-500"
+                                  onClick={async (e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    if (window.confirm(`Are you sure you want to permanently delete match #${match.id} (${match.teamA.name} vs ${match.teamB.name})? This cannot be undone.`)) {
+                                      try {
+                                        await api.deleteMatch(match.id);
+                                        await loadMatches();
+                                      } catch (err) {
+                                        setError(err instanceof Error ? err.message : "Failed to delete match");
+                                      }
+                                    }
+                                  }}
+                                >
+                                  🗑️
+                                </button>
+                              )}
                             </div>
-                            <Badge tone={match.isTest ? "warning" : match.status === "live" ? "accent" : "muted"}>{match.isTest ? "ghost match" : match.resultType === "washout" ? "washout" : match.status}</Badge>
-                          </Link>
+                          </div>
                         ))}
                         {!activeMatches.length && <p className="py-8 text-center text-sm text-muted">No upcoming or live matches. Completed-match results are managed by the admin.</p>}
                       </div>

@@ -22,7 +22,7 @@ function unprotect(value) {
 }
 function authUrl({ userId, tournamentId, matchId }) {
   const state = jwt.sign(
-    { sub: Number(userId), tournamentId: Number(tournamentId), matchId: Number(matchId), purpose: 'drive-connect' },
+    { sub: Number(userId), tournamentId: Number(tournamentId), matchId: matchId ? Number(matchId) : null, purpose: 'drive-connect' },
     env.jwt.secret,
     { expiresIn: '10m' }
   );
@@ -47,7 +47,7 @@ async function complete(state, code) {
     create: { userId: Number(claims.sub), accountEmail: profile.email || null, refreshToken: protect(tokens.refresh_token) },
     update: { accountEmail: profile.email || null, refreshToken: protect(tokens.refresh_token) },
   });
-  return { connection, tournamentId: Number(claims.tournamentId), matchId: Number(claims.matchId), linkedByUserId: Number(claims.sub) };
+  return { connection, tournamentId: Number(claims.tournamentId), matchId: claims.matchId ? Number(claims.matchId) : null, linkedByUserId: Number(claims.sub) };
 }
 async function accessToken(userId) {
   const connection = await prisma.googleDriveConnection.findUnique({ where: { userId: Number(userId) } });

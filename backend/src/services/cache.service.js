@@ -23,7 +23,24 @@ function invalidateMatchCache(matchId) {
   });
 }
 
+/**
+ * Invalidation helper to clear organized tournaments cache for a user or all users.
+ */
+function invalidateOrganizedTournamentsCache(userId) {
+  if (userId) {
+    matchCache.del(`tournaments:organized:${userId}`);
+  } else {
+    const keys = matchCache.keys();
+    keys.forEach((key) => {
+      if (key.startsWith('tournaments:organized:')) {
+        matchCache.del(key);
+      }
+    });
+  }
+}
+
 module.exports = {
   matchCache,
   invalidateMatchCache,
+  invalidateOrganizedTournamentsCache,
 };

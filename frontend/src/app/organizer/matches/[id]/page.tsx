@@ -65,6 +65,7 @@ export default function FootballMatchControl() {
   const [driveConnected, setDriveConnected] = useState(false);
   const [driveEmail, setDriveEmail] = useState("");
   const [driveFolderId, setDriveFolderId] = useState("");
+  const [driveTokenExpired, setDriveTokenExpired] = useState(false);
   const [driveMessage, setDriveMessage] = useState("");
 
   const load = useCallback(async () => {
@@ -86,6 +87,7 @@ export default function FootballMatchControl() {
       setDriveConnected(driveStatus.connected);
       setDriveEmail(driveStatus.accountEmail || "");
       setDriveFolderId(driveStatus.folderId || "");
+      setDriveTokenExpired(Boolean(driveStatus.tokenExpired));
     }
     if (data.status === "live") {
       setClips(await api.listMatchClips(id).catch(() => []));
@@ -594,13 +596,39 @@ export default function FootballMatchControl() {
         </p>
       )}
       <Card className="mt-5">
-        <CardBody className="flex flex-wrap items-end justify-between gap-4">
-          <div className="min-w-60 flex-1">
-            <p className="text-xs font-semibold uppercase tracking-widest text-accent">Google Drive clips</p>
-            <p className="mt-1 text-sm text-muted">{driveConnected ? `Shared for this tournament${driveEmail ? ` through ${driveEmail}` : ""}. Every organizer can save clips here.` : "Link one organizer’s Google account to create a shared clips destination for this tournament."}</p>
-            {driveConnected && <Input className="mt-3" value={driveFolderId} onChange={(event) => setDriveFolderId(event.target.value)} placeholder="Fieldcast-Clips folder ID" />}
+        <CardBody className="space-y-3">
+          <div className="flex flex-wrap items-end justify-between gap-4">
+            <div className="min-w-60 flex-1">
+              <div className="flex items-center gap-2">
+                <p className="text-xs font-semibold uppercase tracking-widest text-accent">Google Drive clips</p>
+                {driveTokenExpired && (
+                  <span className="rounded-full bg-rose-500/20 px-2 py-0.5 text-xs font-bold text-rose-500">
+                    Token Expired ⚠️
+                  </span>
+                )}
+              </div>
+              <p className="mt-1 text-sm text-muted">{driveConnected ? `Shared for this tournament${driveEmail ? ` through ${driveEmail}` : ""}. Every organizer can save clips here.` : "Link one organizer’s Google account to create a shared clips destination for this tournament."}</p>
+              {driveConnected && <Input className="mt-3" value={driveFolderId} onChange={(event) => setDriveFolderId(event.target.value)} placeholder="Fieldcast-Clips folder ID" />}
+            </div>
+            <div className="flex gap-2">
+              {driveConnected ? (
+                <>
+                  <Button variant="outline" onClick={saveDriveFolder} disabled={!driveFolderId}>Save folder</Button>
+                  <Button variant="outline" onClick={connectGoogleDrive}>
+                    {driveTokenExpired ? "Sign in again with Google ⚠️" : "Replace linked account"}
+                  </Button>
+                </>
+              ) : (
+                <Button onClick={connectGoogleDrive}>Link your Google account</Button>
+              )}
+            </div>
           </div>
-          <div className="flex gap-2">{driveConnected ? <><Button variant="outline" onClick={saveDriveFolder} disabled={!driveFolderId}>Save folder</Button><Button variant="outline" onClick={connectGoogleDrive}>Replace linked account</Button></> : <Button onClick={connectGoogleDrive}>Link your Google account</Button>}</div>
+          {driveTokenExpired && (
+            <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-3 text-xs text-rose-400">
+              <p className="font-semibold text-rose-300">⚠️ Google Drive sign-in has expired</p>
+              <p className="mt-0.5">The Google OAuth access for {driveEmail || "the linked account"} has expired or was revoked. The organizer must sign in again so clips can upload.</p>
+            </div>
+          )}
           {driveMessage && <p className="w-full text-sm text-muted">{driveMessage}</p>}
         </CardBody>
       </Card>

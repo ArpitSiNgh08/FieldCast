@@ -124,7 +124,16 @@ export default function AdminCorrectionsPage() {
               {matches.map((match) => <option key={match.id} value={match.id}>{match.teamA.shortName} {match.state.teamAScore}–{match.state.teamBScore} {match.teamB.shortName}</option>)}
             </Select>
           </Field>
-          {scorecard && <FinalScoreSummary match={scorecard.match} />}
+          {scorecard && (
+            <FinalScoreSummary
+              match={scorecard.match}
+              onDelete={async () => {
+                setScorecard(null);
+                setOpenSection(null);
+                await loadTournament();
+              }}
+            />
+          )}
         </ControlPanel>
 
         <DisclosurePanel number={3} title="Match corrections" description={scorecard ? "Correct the score or add and edit regular match events" : "Select a completed match first"} open={openSection === "match"} disabled={!scorecard} onToggle={() => setOpenSection((current) => current === "match" ? null : "match")}>
@@ -162,12 +171,39 @@ function ChevronIcon({ open }: { open: boolean }) {
   return <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={`h-5 w-5 shrink-0 transition-transform ${open ? "rotate-180" : ""}`}><path d="m6 9 6 6 6-6" /></svg>;
 }
 
-function FinalScoreSummary({ match }: { match: Match }) {
+function FinalScoreSummary({ match, onDelete }: { match: Match; onDelete?: () => void }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleDelete() {
+    if (!window.confirm(`Are you sure you want to permanently delete match #${match.id} (${match.teamA.name} vs ${match.teamB.name})? This cannot be undone.`)) {
+      return;
+    }
+    setBusy(true);
+    setError("");
+    try {
+      await api.deleteMatch(match.id);
+      if (onDelete) onDelete();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete match");
+      setBusy(false);
+    }
+  }
+
   return (
-    <div className="mt-3 flex items-center justify-center gap-3 rounded-lg bg-surface-2 px-3 py-3 text-center">
-      <span className="min-w-0 flex-1 truncate text-sm font-medium">{match.teamA.name}</span>
-      <strong className="shrink-0 text-xl tabular-nums">{match.state.teamAScore}–{match.state.teamBScore}</strong>
-      <span className="min-w-0 flex-1 truncate text-sm font-medium">{match.teamB.name}</span>
+    <div className="mt-3 space-y-2">
+      <div className="flex items-center justify-between gap-3 rounded-lg bg-surface-2 px-3 py-3 text-center">
+        <span className="min-w-0 flex-1 truncate text-sm font-medium">{match.teamA.name}</span>
+        <strong className="shrink-0 text-xl tabular-nums">{match.state.teamAScore}–{match.state.teamBScore}</strong>
+        <span className="min-w-0 flex-1 truncate text-sm font-medium">{match.teamB.name}</span>
+      </div>
+      <div className="flex items-center justify-between gap-2 px-1">
+        <span className="text-xs text-muted">ID: #{match.id} · {match.sport} · {match.status}</span>
+        <Button size="sm" variant="danger" disabled={busy} onClick={handleDelete}>
+          {busy ? "Deleting…" : "Delete match 🗑️"}
+        </Button>
+      </div>
+      {error && <p className="text-xs text-red-500">{error}</p>}
     </div>
   );
 }

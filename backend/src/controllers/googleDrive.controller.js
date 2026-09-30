@@ -14,7 +14,7 @@ function redirect(res, matchId, query) {
 async function start(req, res) {
   if (!env.clips.driveOAuthEnabled) return res.status(503).json({ error: 'Google OAuth client credentials are not configured' });
   const { tournamentId, matchId } = req.body;
-  if (!tournamentId || !matchId || !(await authorization.canManageTournament(req.user, tournamentId))) return res.status(403).json({ error: 'Tournament organiser access required' });
+  if (!tournamentId || !(await authorization.canManageTournament(req.user, tournamentId))) return res.status(403).json({ error: 'Tournament organiser access required' });
   res.json({ url: drive.authUrl({ userId: req.user.sub, tournamentId, matchId }) });
 }
 
@@ -36,8 +36,28 @@ async function callback(req, res) {
 async function status(req, res) {
   const tournamentId = Number(req.query.tournamentId);
   if (!tournamentId || !(await authorization.canManageTournament(req.user, tournamentId))) return res.status(403).json({ error: 'Tournament organiser access required' });
-  const destination = await prisma.tournamentClipDestination.findUnique({ where: { tournamentId }, include: { googleDriveConnection: { select: { accountEmail: true } } } });
-  res.json({ enabled: env.clips.driveOAuthEnabled, connected: Boolean(destination), accountEmail: destination?.googleDriveConnection.accountEmail || null, folderId: destination?.folderId || null, linkedByUserId: destination?.linkedByUserId || null });
+  const destination = await prisma.tournamentClipDestination.findUnique({
+    where: { tournamentId },
+    include: { googleDriveConnection: true },
+  });
+
+  let tokenExpired = false;
+  if (destination?.googleDriveConnection) {
+    try {
+      await drive.accessTokenForConnection(destination.googleDriveConnection);
+    } catch {
+      tokenExpired = true;
+    }
+  }
+
+  res.json({
+    enabled: env.clips.driveOAuthEnabled,
+    connected: Boolean(destination),
+    accountEmail: destination?.googleDriveConnection?.accountEmail || null,
+    folderId: destination?.folderId || null,
+    linkedByUserId: destination?.linkedByUserId || null,
+    tokenExpired,
+  });
 }
 
 async function setFolder(req, res) {
